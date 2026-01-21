@@ -7,6 +7,9 @@
     "icon": "./assets/images/icon.png",
     "scheme": "mobile",
     "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": [
+      "assets/**/*"
+    ],
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
@@ -38,7 +41,8 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true,
