@@ -3,14 +3,13 @@ import {
   View, 
   Text, 
   TouchableOpacity, 
-  ScrollView,
   StatusBar,
   StyleSheet,
-  Dimensions,
-  Animated
+  Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, Line, Path, G, Text as SvgText, ForeignObject } from 'react-native-svg';
 import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
 import ScreenScrollView from '../../../../src/components/ScreenScrollView';
 
@@ -26,8 +25,12 @@ const Screen13 = () => {
   const router = useRouter();
   const { answers, updateAnswer } = useQuestionnaire();
   
-  const [showIntro, setShowIntro] = useState(true);
-  const [hoveredLevel, setHoveredLevel] = useState(null);
+//  const [showIntro, setShowIntro] = useState(() => {
+//      return !answers.emergency_funds?.approach;
+//    });
+
+const [showIntroModal, setShowIntroModal] = useState(false);
+  
   const [selectedLevel, setSelectedLevel] = useState(() => {
     const existingApproach = answers.emergency_funds?.approach;
     if (existingApproach) {
@@ -36,7 +39,7 @@ const Screen13 = () => {
     return null;
   });
   
-  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  const [animationProgress, setAnimationProgress] = useState(0);
 
   const child = answers.dependents?.child || 0;
   const parent = answers.dependents?.parent || 0;
@@ -72,7 +75,7 @@ const Screen13 = () => {
 
   const recommendedLayer = getRecommendedLayer();
 
-  // Calculate all expense values
+  // Calculate all expense values - EXACT SAME AS WEB
   const EMI = Object.values(answers.loan_data || {}).reduce((total, loan) => {
     return total + (loan.has && loan.emi ? parseFloat(loan.emi) * 1000 : 0);
   }, 0);
@@ -180,7 +183,9 @@ const Screen13 = () => {
       color: '#ef4444',
       description: 'Critical survival coverage',
       priority: 'CRITICAL SURVIVAL',
+      icon: '🏠',
       level: 1,
+      radius: 60,
       fundData: emergencyFunds.ef1
     },
     {
@@ -190,9 +195,11 @@ const Screen13 = () => {
       percentage: Math.round((emergencyFunds.ef2.total / grandTotal) * 100) || 0,
       availability: '24-72 hours',
       color: '#f97316',
-      description: 'Extended protection buffer',
-      priority: 'STABILITY BUFFER',
+      description: 'Extended family & vehicle coverage',
+      priority: 'EMERGENCY BUFFER',
+      icon: '⚡',
       level: 2,
+      radius: 100,
       fundData: emergencyFunds.ef2
     },
     {
@@ -200,199 +207,279 @@ const Screen13 = () => {
       name: 'Fortress',
       amount: Math.round(emergencyFunds.ef3.total),
       percentage: Math.round((emergencyFunds.ef3.total / grandTotal) * 100) || 0,
-      availability: '3-7 days',
-      color: '#eab308',
-      description: 'Complete financial security',
-      priority: 'MAXIMUM SECURITY',
+      availability: '72+ hours',
+      color: '#dc2626',
+      description: 'Complete family & career protection',
+      priority: 'CRISIS FORTRESS',
+      icon: '🏰',
       level: 3,
+      radius: 140,
       fundData: emergencyFunds.ef3
     }
   ];
 
   const aspects = [
-    { name: 'Medical', emoji: '❤️' },
-    { name: 'EMI', emoji: '💳' },
-    { name: 'Work Security', emoji: '💼' },
-    { name: 'House', emoji: '🏠' },
-    { name: 'Vehicle', emoji: '🚗' }
+    { name: 'Medical', angle: 0, icon: '❤️', color: '#ef4444' },
+    { name: 'EMI', angle: 72, icon: '💳', color: '#f97316' },
+    { name: 'Work Security', angle: 144, icon: '💼', color: '#dc2626' },
+    { name: 'House', angle: 216, icon: '🏠', color: '#ef4444' },
+    { name: 'Vehicle', angle: 288, icon: '🚗', color: '#f97316' }
   ];
 
-  const formatCurrency = (value) => {
-    if (value >= 10000000) {
-      return `₹${(value / 10000000).toFixed(2)}Cr`;
-    } else if (value >= 100000) {
-      return `₹${(value / 100000).toFixed(2)}L`;
-    } else if (value >= 1000) {
-      return `₹${(value / 1000).toFixed(0)}K`;
-    }
-    return `₹${value}`;
+  const centerX = 150;
+  const centerY = 150;
+
+//   useEffect(() => {
+//     if (!showIntro) {
+//       const timer = setTimeout(() => {
+//         setAnimationProgress(1);
+//       }, 500);
+//       return () => clearTimeout(timer);
+//     }
+//   }, [showIntro]);
+
+useEffect(() => {
+     if (!showIntroModal) {
+       const timer = setTimeout(() => {
+         setAnimationProgress(1);
+       }, 500);
+       return () => clearTimeout(timer);
+     }
+   }, [showIntroModal]);
+  const getPointOnCircle = (angle, radius) => {
+    const radian = (angle - 90) * Math.PI / 180;
+    return {
+      x: centerX + radius * Math.cos(radian),
+      y: centerY + radius * Math.sin(radian)
+    };
+  };
+
+  const createSpiderPath = (level) => {
+    if (!level || !level.fundData) return '';
+
+    const maxValue = Math.max(
+      emergencyFunds.ef3.medical,
+      emergencyFunds.ef3.emi,
+      emergencyFunds.ef3.work,
+      emergencyFunds.ef3.house,
+      emergencyFunds.ef3.vehicle
+    );
+
+    const points = aspects.map(aspect => {
+      let value = 0;
+      switch (aspect.name) {
+        case 'Medical': value = level.fundData.medical; break;
+        case 'EMI': value = level.fundData.emi; break;
+        case 'Work Security': value = level.fundData.work; break;
+        case 'House': value = level.fundData.house; break;
+        case 'Vehicle': value = level.fundData.vehicle; break;
+      }
+
+      const normalizedValue = maxValue > 0 ? (value / maxValue) : 0;
+      const radius = 100 * normalizedValue * animationProgress;
+      return getPointOnCircle(aspect.angle, radius);
+    });
+
+    if (points.length === 0) return '';
+
+    return `M ${points[0].x} ${points[0].y} ` +
+      points.slice(1).map(point => `L ${point.x} ${point.y}`).join(' ') +
+      ' Z';
   };
 
   const getCurrentLevel = () => {
-    return fundLevels.find(l => l.id === selectedLevel);
+    if (selectedLevel) {
+      return fundLevels.find(level => level.id === selectedLevel);
+    }
+    return null;
   };
 
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.05,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, []);
-
-  const handleIntroComplete = () => {
-    setShowIntro(false);
+  const formatCurrency = (amount) => {
+    if (amount >= 10000000) {
+      return `₹${(amount / 10000000).toFixed(2)}Cr`;
+    } else if (amount >= 100000) {
+      return `₹${(amount / 100000).toFixed(2)}L`;
+    } else if (amount >= 1000) {
+      return `₹${(amount / 1000).toFixed(0)}K`;
+    }
+    return `₹${amount}`;
   };
 
-  const handleLayerSelect = (levelId) => {
-    setSelectedLevel(levelId);
+  const handleGraphClick = () => {
+    if (selectedLevel === null) {
+      setSelectedLevel('foundation');
+    } else if (selectedLevel === 'foundation') {
+      setSelectedLevel('intermediate');
+    } else if (selectedLevel === 'intermediate') {
+      setSelectedLevel('fortress');
+    } else if (selectedLevel === 'fortress') {
+      setSelectedLevel('foundation');
+    }
+  };
+
+  const handleContinueFromIntro = () => {
+setShowIntroModal(false);  // ✅ CORRECT
   };
 
   const handleContinue = () => {
-    if (!selectedLevel) return;
+    const emergencyFundData = {
+      emergency_funds: {
+        amount: Math.round(grandTotal),
+        months_covered: Math.round(grandTotal / (total_income / 12)),
+        approach: selectedLevel || 'comprehensive',
+        selected_layer: selectedLevel,
+        foundation_layer: {
+          selected: selectedLevel === 'foundation' || selectedLevel === null,
+          amount: emergencyFunds.ef1.total,
+          medical: emergencyFunds.ef1.medical,
+          emi: emergencyFunds.ef1.emi,
+          work_security: emergencyFunds.ef1.work,
+          house: emergencyFunds.ef1.house,
+          vehicle: emergencyFunds.ef1.vehicle,
+          access_time: "0-24 hours"
+        },
+        intermediate_layer: {
+          selected: selectedLevel === 'intermediate' || selectedLevel === null,
+          amount: emergencyFunds.ef2.total,
+          medical: emergencyFunds.ef2.medical,
+          emi: emergencyFunds.ef2.emi,
+          work_security: emergencyFunds.ef2.work,
+          house: emergencyFunds.ef2.house,
+          vehicle: emergencyFunds.ef2.vehicle,
+          access_time: "24-72 hours"
+        },
+        fortress_layer: {
+          selected: selectedLevel === 'fortress' || selectedLevel === null,
+          amount: emergencyFunds.ef3.total,
+          medical: emergencyFunds.ef3.medical,
+          emi: emergencyFunds.ef3.emi,
+          work_security: emergencyFunds.ef3.work,
+          house: emergencyFunds.ef3.house,
+          vehicle: emergencyFunds.ef3.vehicle,
+          access_time: "72+ hours"
+        },
+        total_emergency_fund: grandTotal,
+        user_interaction_data: {
+          layers_viewed: selectedLevel ? [selectedLevel] : ['all'],
+          layer_selection_timestamp: new Date().toISOString(),
+          visualization_completed: true
+        }
+      }
+    };
 
-    const currentLevel = getCurrentLevel();
-    
-    updateAnswer('emergency_funds', {
-      approach: selectedLevel,
-      amount: currentLevel.amount,
-      fundData: currentLevel.fundData
-    });
+    updateAnswer('emergency_funds', emergencyFundData.emergency_funds);
 
-    console.log('Emergency fund selected:', {
-      approach: selectedLevel,
-      amount: currentLevel.amount
-    });
-
-    router.push('/(gowealthy)/questionnaire/section3/screen14');
+    console.log('Emergency fund data:', emergencyFundData);
+    router.replace('/(gowealthy)/questionnaire/section3/screen14');
   };
 
   const handleBack = () => {
-    router.back();
-  };
+     router.back(); // Always go back to Screen12
+   };
 
   // Intro Screen
-  if (showIntro) {
-    return (
-      <>
-        <StatusBar barStyle="light-content" backgroundColor={colors.backgroundColor} />
+//   if (showIntro) {
+//     return (
+//       <>
+//         <StatusBar barStyle="light-content" backgroundColor={colors.backgroundColor} />
         
-        <View style={globalStyles.backgroundContainer}>
-          <ScrollView 
-            contentContainerStyle={{ flexGrow: 1 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={globalStyles.appContainer}>
-              <View style={globalStyles.header}>
-                <TouchableOpacity style={globalStyles.backButton} onPress={handleBack}>
-                  <Text style={globalStyles.backButtonText}>Back</Text>
-                </TouchableOpacity>
-                <View style={globalStyles.logo}>
-                  <Text style={globalStyles.sectionTitle}>
-                    Emergency Fund Planning
-                  </Text>
-                </View>
-              </View>
+//         <View style={globalStyles.backgroundContainer}>
+//           <ScreenScrollView>
+//             <View style={globalStyles.appContainer}>
+//               <View style={globalStyles.header}>
+//                 <TouchableOpacity style={globalStyles.backButton} onPress={handleBack}>
+//                   <Text style={globalStyles.backButtonText}>Back</Text>
+//                 </TouchableOpacity>
+//                 <View style={globalStyles.logo}>
+//                   <Text style={globalStyles.sectionTitle}>
+//                     Let's build your safety net
+//                   </Text>
+//                 </View>
+//               </View>
 
-              <View style={globalStyles.progressContainer}>
-                {sections.map((section, index) => (
-                  <View key={index} style={globalStyles.progressStepContainer}>
-                    <View
-                      style={[
-                        globalStyles.progressStep,
-                        progressData?.sectionData?.[index + 1]?.isCompleted && globalStyles.progressStepCompleted,
-                        progressData?.sectionData?.[index + 1]?.isActive && globalStyles.progressStepActive,
-                      ]}
-                    />
-                    {index < sections.length - 1 && (
-                      <View
-                        style={[
-                          globalStyles.progressLine,
-                          progressData?.sectionData?.[index + 1]?.isCompleted && globalStyles.progressLineCompleted,
-                        ]}
-                      />
-                    )}
-                  </View>
-                ))}
-              </View>
+//               <View style={globalStyles.progressContainer}>
+//                 {sections.map((section, index) => (
+//                   <View key={index} style={globalStyles.progressStepContainer}>
+//                     <View
+//                       style={[
+//                         globalStyles.progressStep,
+//                         progressData?.sectionData?.[index + 1]?.isCompleted && globalStyles.progressStepCompleted,
+//                         progressData?.sectionData?.[index + 1]?.isActive && globalStyles.progressStepActive,
+//                       ]}
+//                     />
+//                     {index < sections.length - 1 && (
+//                       <View
+//                         style={[
+//                           globalStyles.progressLine,
+//                           progressData?.sectionData?.[index + 1]?.isCompleted && globalStyles.progressLineCompleted,
+//                         ]}
+//                       />
+//                     )}
+//                   </View>
+//                 ))}
+//               </View>
 
-              <View style={styles.introContainer}>
-                <Animated.View style={[styles.shieldContainer, { transform: [{ scale: pulseAnim }] }]}>
-                  <LinearGradient
-                    colors={['#ef4444', '#dc2626']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.shieldCircle}
-                  >
-                    <Text style={styles.shieldEmoji}>🛡️</Text>
-                  </LinearGradient>
-                </Animated.View>
+//               <View style={styles.introContainer}>
+//                 <View style={styles.introHeader}>
+//                   <Text style={styles.introHeading}>What is an Emergency Fund?</Text>
+//                 </View>
 
-                <Text style={styles.introTitle}>
-                  Financial Security Through{'\n'}Emergency Funds
-                </Text>
+//                 <View style={styles.introSection}>
+//                   <View style={styles.introIconBox}>
+//                     <Text style={styles.introIcon}>🛡️</Text>
+//                   </View>
+//                   <Text style={styles.introSectionTitle}>Your Financial Safety Net</Text>
+//                   <Text style={styles.introText}>
+//                     An emergency fund is money set aside to cover unexpected expenses like medical 
+//                     emergencies, job loss, or urgent home repairs.
+//                   </Text>
+//                 </View>
 
-                <Text style={styles.introText}>
-                  Life is unpredictable. Medical emergencies, job loss, or unexpected repairs can happen anytime. 
-                  An emergency fund is your financial safety net, protecting you and your loved ones from financial stress.
-                </Text>
+//                 <View style={styles.introSection}>
+//                   <View style={styles.introIconBox}>
+//                     <Text style={styles.introIcon}>⚠️</Text>
+//                   </View>
+//                   <Text style={styles.introSectionTitle}>Why it's Important</Text>
+//                   <Text style={styles.introText}>
+//                     It prevents you from going into debt during crises and provides peace of mind knowing 
+//                     you're prepared for unexpected momentss.
+//                   </Text>
+//                 </View>
 
-                <View style={styles.whyMattersBox}>
-                  <Text style={styles.whyMattersTitle}>Why it matters:</Text>
-                  <View style={styles.bulletPoint}>
-                    <Text style={styles.bulletEmoji}>🏥</Text>
-                    <Text style={styles.bulletText}>Cover unexpected medical expenses</Text>
-                  </View>
-                  <View style={styles.bulletPoint}>
-                    <Text style={styles.bulletEmoji}>💼</Text>
-                    <Text style={styles.bulletText}>Bridge income gaps during job transitions</Text>
-                  </View>
-                  <View style={styles.bulletPoint}>
-                    <Text style={styles.bulletEmoji}>🏠</Text>
-                    <Text style={styles.bulletText}>Handle urgent home or vehicle repairs</Text>
-                  </View>
-                  <View style={styles.bulletPoint}>
-                    <Text style={styles.bulletEmoji}>😌</Text>
-                    <Text style={styles.bulletText}>Sleep peacefully knowing you're protected</Text>
-                  </View>
-                </View>
+//                 <View style={styles.introSection}>
+//                   <View style={styles.introIconBox}>
+//                     <Text style={styles.introIcon}>🏗️</Text>
+//                   </View>
+//                   <Text style={styles.introSectionTitle}>Layered Protection</Text>
+//                   <Text style={styles.introText}>
+//                     We'll help you build a multi-layer emergency fund covering different types of 
+//                     emergencies based on your family situation and expenses.
+//                   </Text>
+//                 </View>
 
-                <Text style={styles.nextStepText}>
-                  In the next step, we'll help you calculate your ideal emergency fund based on your unique situation.
-                </Text>
+//                 <TouchableOpacity
+//                   onPress={handleContinueFromIntro}
+//                   activeOpacity={0.8}
+//                   style={styles.introButton}
+//                 >
+//                   <LinearGradient
+//                     colors={[colors.gradientPurple1, colors.gradientPurple2]}
+//                     start={{ x: 0, y: 0 }}
+//                     end={{ x: 1, y: 0 }}
+//                     style={styles.introButtonGradient}
+//                   >
+//                     <Text style={styles.introButtonText}>Let's Select your Emergency Fund{'\n'}Layer to Start with</Text>
+//                   </LinearGradient>
+//                 </TouchableOpacity>
+//               </View>
+//             </View>
+//           </ScreenScrollView>
+//         </View>
+//       </>
+//     );
+//   }
 
-                <TouchableOpacity
-                  onPress={handleIntroComplete}
-                  activeOpacity={0.8}
-                  style={styles.continueButtonWrapper}
-                >
-                  <LinearGradient
-                    colors={[colors.gradientPurple1, colors.gradientPurple2]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={styles.continueButton}
-                  >
-                    <Text style={styles.continueButtonText}>Calculate My Emergency Fund</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </ScrollView>
-        </View>
-      </>
-    );
-  }
-
-  // Main Layer Selection Screen
+  // Main Layer Selection Screen with Spider Chart
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor={colors.backgroundColor} />
@@ -406,7 +493,7 @@ const Screen13 = () => {
               </TouchableOpacity>
               <View style={globalStyles.logo}>
                 <Text style={globalStyles.sectionTitle}>
-                  Choose Your Protection Level
+                  Emergency Fund Planning
                 </Text>
               </View>
             </View>
@@ -434,58 +521,211 @@ const Screen13 = () => {
             </View>
 
             <View style={styles.mainContainer}>
-              <Text style={styles.questionText}>
-                Select your Emergency Fund approach:
-              </Text>
-
-              <View style={styles.totalFundBox}>
-                <Text style={styles.totalFundLabel}>Total Recommended Fund</Text>
-                <Text style={styles.totalFundAmount}>{formatCurrency(grandTotal)}</Text>
-                <Text style={styles.totalFundSubtext}>
-                  Based on your expenses and dependents
-                </Text>
+              <View style={styles.titleContainer}>
+                <View style={styles.titleBadge}>
+                  <Text style={styles.titleBadgeIcon}>🏗️</Text>
+                  <Text style={styles.titleBadgeText}>Emergency Fund Layers</Text>
+                </View>
+                <Text style={styles.subtitle}>Select a Layer as per your choice.</Text>
               </View>
 
-              <View style={styles.layersContainer}>
+              {/* Three Layer Boxes */}
+              <View style={styles.layerBoxesContainer}>
                 {fundLevels.map((level) => {
                   const isSelected = selectedLevel === level.id;
-                  const isRecommended = recommendedLayer === level.id;
+                  const isRecommended = level.id === recommendedLayer;
 
                   return (
                     <TouchableOpacity
                       key={level.id}
                       style={[
-                        styles.layerCard,
-                        isSelected && styles.layerCardSelected,
-                        { borderColor: level.color }
+                        styles.layerBox,
+                        isSelected && styles.layerBoxSelected
                       ]}
-                      onPress={() => handleLayerSelect(level.id)}
+                      onPress={() => setSelectedLevel(selectedLevel === level.id ? null : level.id)}
                       activeOpacity={0.7}
                     >
                       {isRecommended && (
-                        <View style={[styles.recommendedBadge, { backgroundColor: level.color }]}>
-                          <Text style={styles.recommendedText}>RECOMMENDED</Text>
+                        <View style={styles.recommendedStar}>
+                          <Text style={styles.recommendedStarText}>⭐</Text>
                         </View>
                       )}
+                      <View style={[styles.layerBoxIcon, { backgroundColor: level.color }]}>
+                        <Text style={styles.layerBoxIconText}>{level.icon}</Text>
+                      </View>
+                      <Text style={styles.layerBoxName}>{level.name}</Text>
+                      <Text style={styles.layerBoxAmount}>{formatCurrency(level.amount)}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-                      <View style={styles.layerHeader}>
-                        <View style={[styles.layerIconCircle, { backgroundColor: level.color }]}>
-                          <Text style={styles.layerLevel}>{level.level}</Text>
+              {/* Spider Chart */}
+              <TouchableOpacity
+                style={styles.spiderChartContainer}
+                onPress={handleGraphClick}
+                activeOpacity={0.9}
+              >
+                <Svg width="100%" height="100%" viewBox="0 0 300 300">
+                  {/* Background Circle */}
+                  <Circle
+                    cx={150}
+                    cy={150}
+                    r={70}
+                    fill="none"
+                    stroke="rgba(239, 68, 68, 0.2)"
+                    strokeWidth="1"
+                    strokeDasharray="3,3"
+                  />
+
+                  {/* Radial Lines */}
+                  {aspects.map((aspect, index) => {
+                    const endPoint = getPointOnCircle(aspect.angle, 100);
+                    return (
+                      <Line
+                        key={`line-${aspect.name}-${index}`}
+                        x1={150}
+                        y1={150}
+                        x2={endPoint.x}
+                        y2={endPoint.y}
+                        stroke="rgba(239, 68, 68, 0.3)"
+                        strokeWidth="1"
+                      />
+                    );
+                  })}
+
+                  {/* Spider Path for Selected Layer */}
+                  {selectedLevel && fundLevels.map((level) => {
+                    if (selectedLevel !== level.id) return null;
+
+                    return (
+                      <Path
+                        key={level.id}
+                        d={createSpiderPath(level)}
+                        fill={`${level.color}40`}
+                        stroke={level.color}
+                        strokeWidth={level.level}
+                      />
+                    );
+                  })}
+
+                  {/* Aspect Points and Labels */}
+                  {aspects.map((aspect, index) => {
+                    const labelPoint = getPointOnCircle(aspect.angle, 120);
+                    const level = getCurrentLevel();
+                    let value = 0;
+
+                    if (level) {
+                      switch (aspect.name) {
+                        case 'Medical': value = level.fundData.medical; break;
+                        case 'EMI': value = level.fundData.emi; break;
+                        case 'Work Security': value = level.fundData.work; break;
+                        case 'House': value = level.fundData.house; break;
+                        case 'Vehicle': value = level.fundData.vehicle; break;
+                      }
+                    }
+
+                    const displayValue = value >= 100000
+                      ? `₹${(value / 100000).toFixed(1)}L`
+                      : `₹${(value / 1000).toFixed(0)}K`;
+
+                    return (
+                      <G key={`${aspect.name}-${index}`}>
+                        <Circle
+                          cx={labelPoint.x}
+                          cy={labelPoint.y}
+                          r="10"
+                          fill="rgba(239, 68, 68, 0.6)"
+                          stroke="rgba(255,255,255,0.5)"
+                          strokeWidth="1"
+                        />
+                        <SvgText
+                          x={labelPoint.x}
+                          y={labelPoint.y + 4}
+                          fill="white"
+                          fontSize="12"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          {aspect.icon}
+                        </SvgText>
+                        <SvgText
+                          x={labelPoint.x}
+                          y={labelPoint.y + 20}
+                          fill="white"
+                          fontSize="8"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                        >
+                          {aspect.name}
+                        </SvgText>
+                        {selectedLevel && (
+                          <SvgText
+                            x={labelPoint.x}
+                            y={labelPoint.y + 30}
+                            fill="#10b981"
+                            fontSize="10"
+                            fontWeight="bold"
+                            textAnchor="middle"
+                          >
+                            {displayValue}
+                          </SvgText>
+                        )}
+                      </G>
+                    );
+                  })}
+
+                  {/* Center Amount Display */}
+                  {selectedLevel && (
+                    <G>
+                      <Circle cx={150} cy={150} r={40} fill="rgba(0,0,0,0.7)" />
+                      <SvgText
+                        x={150}
+                        y={145}
+                        fill="white"
+                        fontSize="10"
+                        fontWeight="bold"
+                        textAnchor="middle"
+                      >
+                        {getCurrentLevel()?.name}
+                      </SvgText>
+                      <SvgText
+                        x={150}
+                        y={160}
+                        fill="#10b981"
+                        fontSize="14"
+                        fontWeight="bold"
+                        textAnchor="middle"
+                      >
+                        {formatCurrency(getCurrentLevel()?.amount)}
+                      </SvgText>
+                    </G>
+                  )}
+                </Svg>
+              </TouchableOpacity>
+
+              {/* Layer Details Cards
+              {selectedLevel && (
+                <View style={styles.detailsContainer}>
+                  {fundLevels.filter(l => l.id === selectedLevel).map((level) => (
+                    <View key={level.id} style={[styles.detailCard, { borderColor: level.color }]}>
+                      <View style={styles.detailHeader}>
+                        <View style={[styles.detailIcon, { backgroundColor: level.color }]}>
+                          <Text style={styles.detailIconText}>{level.icon}</Text>
                         </View>
-                        <View style={styles.layerHeaderText}>
-                          <Text style={styles.layerName}>{level.name} Layer</Text>
-                          <Text style={styles.layerDescription}>{level.description}</Text>
+                        <View style={styles.detailHeaderText}>
+                          <Text style={styles.detailName}>{level.name} Layer</Text>
+                          <Text style={styles.detailDescription}>{level.description}</Text>
+                        </View>
+                        <View style={styles.detailAmountBox}>
+                          <Text style={[styles.detailAmount, { color: level.color }]}>
+                            {formatCurrency(level.amount)}
+                          </Text>
                         </View>
                       </View>
 
-                      <View style={styles.layerAmountBox}>
-                        <Text style={[styles.layerAmount, { color: level.color }]}>
-                          {formatCurrency(level.amount)}
-                        </Text>
-                        <Text style={styles.layerPercentage}>{level.percentage}% of total</Text>
-                      </View>
-
-                      <View style={styles.aspectsContainer}>
+                      <View style={styles.aspectBreakdown}>
+                        <Text style={styles.aspectBreakdownTitle}>Coverage Breakdown:</Text>
                         {aspects.map((aspect) => {
                           let value = 0;
                           switch (aspect.name) {
@@ -497,25 +737,18 @@ const Screen13 = () => {
                           }
 
                           return (
-                            <View key={aspect.name} style={[styles.aspectChip, { borderColor: level.color + '50' }]}>
-                              <Text style={styles.aspectEmoji}>{aspect.emoji}</Text>
-                              <Text style={styles.aspectText}>
-                                {aspect.name}: {formatCurrency(value)}
-                              </Text>
+                            <View key={aspect.name} style={[styles.aspectRow, { borderColor: level.color + '50' }]}>
+                              <Text style={styles.aspectIcon}>{aspect.icon}</Text>
+                              <Text style={styles.aspectName}>{aspect.name}</Text>
+                              <Text style={styles.aspectValue}>{formatCurrency(value)}</Text>
                             </View>
                           );
                         })}
                       </View>
-
-                      {isSelected && (
-                        <View style={[styles.selectedIndicator, { backgroundColor: level.color }]}>
-                          <Text style={styles.selectedIndicatorText}>✓ SELECTED</Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+                    </View>
+                  ))}
+                </View>
+              )} */}
 
               <View style={[
                 globalStyles.confirmButton,
@@ -535,7 +768,7 @@ const Screen13 = () => {
                 ) : (
                   <View style={globalStyles.buttonInner}>
                     <Text style={[globalStyles.confirmButtonText, { color: colors.subtitleColor }]}>
-                      Select a layer to continue
+                      Select a layer to continued
                     </Text>
                   </View>
                 )}
@@ -544,6 +777,31 @@ const Screen13 = () => {
           </View>
         </ScreenScrollView>
       </View>
+
+       {showIntroModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>🛡️ Emergency Fund</Text>
+            <Text style={styles.modalText}>
+              Your financial safety net for unexpected expenses. We'll help you build layered protection based on your needs.
+            </Text>
+            
+            <TouchableOpacity 
+              onPress={() => setShowIntroModal(false)}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[colors.gradientPurple1, colors.gradientPurple2]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.modalButton}
+              >
+                <Text style={styles.modalButtonText}>Got it, Let's Start!</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </>
   );
 };
@@ -552,203 +810,223 @@ const styles = StyleSheet.create({
   // Intro Screen Styles
   introContainer: {
     flex: 1,
+    paddingHorizontal: isMobile ? 20 : 32,
+    paddingVertical: isMobile ? 24 : 32,
+  },
+
+  introHeader: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: isMobile ? 24 : 40,
-    paddingVertical: isMobile ? 30 : 40,
+    marginBottom: isMobile ? 32 : 40,
   },
 
-  shieldContainer: {
-    marginBottom: isMobile ? 24 : 32,
-  },
-
-  shieldCircle: {
-    width: isMobile ? 100 : 120,
-    height: isMobile ? 100 : 120,
-    borderRadius: isMobile ? 50 : 60,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  shieldEmoji: {
-    fontSize: isMobile ? 50 : 60,
-  },
-
-  introTitle: {
+  introHeading: {
     fontSize: isMobile ? 24 : 28,
     fontWeight: '700',
     color: colors.textColor,
     textAlign: 'center',
-    marginBottom: isMobile ? 16 : 20,
-    lineHeight: isMobile ? 32 : 38,
+  },
+
+  introSection: {
+    alignItems: 'center',
+    marginBottom: isMobile ? 32 : 40,
+  },
+
+  introIconBox: {
+    width: isMobile ? 80 : 100,
+    height: isMobile ? 80 : 100,
+    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    borderRadius: isMobile ? 20 : 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(139, 92, 246, 0.3)',
+  },
+
+  introIcon: {
+    fontSize: isMobile ? 40 : 50,
+  },
+
+  introSectionTitle: {
+    fontSize: isMobile ? 18 : 20,
+    fontWeight: '700',
+    color: colors.textColor,
+    marginBottom: 12,
+    textAlign: 'center',
   },
 
   introText: {
     fontSize: isMobile ? 14 : 16,
     color: colors.subtitleColor,
     textAlign: 'center',
-    marginBottom: isMobile ? 24 : 32,
     lineHeight: isMobile ? 22 : 26,
-    maxWidth: 500,
-  },
-
-  whyMattersBox: {
-    width: '100%',
-    maxWidth: 450,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderWidth: 2,
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    borderRadius: 16,
-    padding: isMobile ? 20 : 24,
-    marginBottom: isMobile ? 24 : 32,
-  },
-
-  whyMattersTitle: {
-    fontSize: isMobile ? 16 : 18,
-    fontWeight: '700',
-    color: '#ef4444',
-    marginBottom: 16,
-  },
-
-  bulletPoint: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-
-  bulletEmoji: {
-    fontSize: 20,
-    marginRight: 12,
-    width: 28,
-  },
-
-  bulletText: {
-    flex: 1,
-    fontSize: isMobile ? 13 : 15,
-    color: colors.textColor,
-    lineHeight: 20,
-  },
-
-  nextStepText: {
-    fontSize: isMobile ? 13 : 15,
-    color: colors.subtitleColor,
-    textAlign: 'center',
-    marginBottom: isMobile ? 24 : 32,
-    fontStyle: 'italic',
     maxWidth: 400,
   },
 
-  continueButtonWrapper: {
+  introButton: {
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 400,
     borderRadius: 16,
     overflow: 'hidden',
+    marginTop: isMobile ? 16 : 24,
   },
 
-  continueButton: {
-    paddingVertical: isMobile ? 16 : 18,
+  introButtonGradient: {
+    paddingVertical: isMobile ? 18 : 22,
     paddingHorizontal: 24,
     alignItems: 'center',
-    justifyContent: 'center',
   },
 
-  continueButtonText: {
-    fontSize: 16,
+  introButtonText: {
+    fontSize: isMobile ? 15 : 16,
     fontWeight: '600',
     color: colors.textColor,
+    textAlign: 'center',
+    lineHeight: 22,
   },
 
   // Main Screen Styles
   mainContainer: {
     flex: 1,
-    alignItems: 'center',
     paddingHorizontal: isMobile ? 16 : 24,
     paddingBottom: 30,
   },
 
-  questionText: {
-    fontSize: isMobile ? 20 : 24,
-    fontWeight: '700',
-    color: colors.textColor,
-    textAlign: 'center',
+  titleContainer: {
+    alignItems: 'center',
     marginBottom: isMobile ? 20 : 24,
   },
 
-  totalFundBox: {
-    width: '100%',
-    maxWidth: 400,
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
-    borderWidth: 2,
-    borderColor: 'rgba(139, 92, 246, 0.3)',
-    borderRadius: 16,
-    padding: isMobile ? 20 : 24,
+  titleBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: isMobile ? 24 : 32,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 2,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginBottom: 12,
   },
 
-  totalFundLabel: {
-    fontSize: isMobile ? 13 : 14,
-    fontWeight: '600',
+  titleBadgeIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+
+  titleBadgeText: {
+    fontSize: isMobile ? 14 : 16,
+    fontWeight: '700',
+    color: '#ef4444',
+  },
+
+  subtitle: {
+    fontSize: isMobile ? 14 : 16,
     color: colors.subtitleColor,
-    marginBottom: 8,
   },
 
-  totalFundAmount: {
-    fontSize: isMobile ? 32 : 40,
-    fontWeight: '800',
-    color: colors.primaryPurple,
-    marginBottom: 4,
+  layerBoxesContainer: {
+    flexDirection: 'row',
+    gap: isMobile ? 8 : 12,
+    marginBottom: isMobile ? 20 : 24,
+    justifyContent: 'center',
   },
 
-  totalFundSubtext: {
-    fontSize: isMobile ? 11 : 12,
-    color: colors.subtitleColor,
-    opacity: 0.8,
-  },
-
-  layersContainer: {
-    width: '100%',
-    maxWidth: 420,
-    gap: isMobile ? 16 : 20,
-    marginBottom: isMobile ? 24 : 32,
-  },
-
-  layerCard: {
-    width: '100%',
-    backgroundColor: colors.optionBackground,
-    borderWidth: 3,
-    borderRadius: 16,
-    padding: isMobile ? 16 : 20,
+  layerBox: {
+    flex: 1,
+    maxWidth: isMobile ? 110 : 130,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderWidth: 2,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+    borderRadius: 12,
+    paddingVertical: isMobile ? 20 : 28,
+    paddingHorizontal: isMobile ? 8 : 12,
+    alignItems: 'center',
     position: 'relative',
   },
 
-  layerCardSelected: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  layerBoxSelected: {
+    borderColor: '#ef4444',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    transform: [{ scale: 1.05 }],
   },
 
-  recommendedBadge: {
+  recommendedStar: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+    top: -6,
+    right: -6,
+    backgroundColor: '#fbbf24',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    zIndex: 10,
   },
 
-  recommendedText: {
-    fontSize: 10,
+  recommendedStarText: {
+    fontSize: 12,
+  },
+
+  layerBoxIcon: {
+    width: isMobile ? 40 : 48,
+    height: isMobile ? 40 : 48,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+
+  layerBoxIconText: {
+    fontSize: isMobile ? 20 : 24,
+  },
+
+  layerBoxName: {
+    fontSize: isMobile ? 13 : 14,
     fontWeight: '700',
     color: colors.textColor,
-    letterSpacing: 0.5,
+    marginBottom: 4,
+    textAlign: 'center',
   },
 
-  layerHeader: {
+  layerBoxAmount: {
+    fontSize: isMobile ? 13 : 14,
+    fontWeight: '600',
+    color: '#ef4444',
+  },
+
+  spiderChartContainer: {
+    width: '100%',
+    maxWidth: isMobile ? 300 : 350,
+    aspectRatio: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderWidth: 2,
+    borderColor: 'rgba(239, 68, 68, 0.2)',
+    borderRadius: 16,
+    padding: isMobile ? 12 : 16,
+    alignSelf: 'center',
+    marginBottom: isMobile ? 20 : 24,
+  },
+
+  detailsContainer: {
+    width: '100%',
+    maxWidth: 500,
+    alignSelf: 'center',
+    marginBottom: isMobile ? 20 : 24,
+  },
+
+  detailCard: {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderWidth: 2,
+    borderRadius: 16,
+    padding: isMobile ? 16 : 20,
+  },
+
+  detailHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
   },
 
-  layerIconCircle: {
+  detailIcon: {
     width: 48,
     height: 48,
     borderRadius: 12,
@@ -757,84 +1035,125 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
 
-  layerLevel: {
+  detailIconText: {
     fontSize: 24,
-    fontWeight: '800',
-    color: colors.textColor,
   },
 
-  layerHeaderText: {
+  detailHeaderText: {
     flex: 1,
   },
 
-  layerName: {
+  detailName: {
     fontSize: isMobile ? 16 : 18,
     fontWeight: '700',
     color: colors.textColor,
     marginBottom: 4,
   },
 
-  layerDescription: {
+  detailDescription: {
     fontSize: isMobile ? 12 : 13,
     color: colors.subtitleColor,
   },
 
-  layerAmountBox: {
-    alignItems: 'center',
-    marginBottom: 16,
+  detailAmountBox: {
+    alignItems: 'flex-end',
   },
 
-  layerAmount: {
-    fontSize: isMobile ? 28 : 32,
+  detailAmount: {
+    fontSize: isMobile ? 20 : 24,
     fontWeight: '800',
-    marginBottom: 4,
   },
 
-  layerPercentage: {
-    fontSize: 12,
-    color: colors.subtitleColor,
+  aspectBreakdown: {
+    gap: 12,
   },
 
-  aspectsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  aspectBreakdownTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ef4444',
+    marginBottom: 8,
   },
 
-  aspectChip: {
+  aspectRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(239, 68, 68, 0.1)',
     borderWidth: 1,
-    borderRadius: 20,
-    paddingVertical: 6,
+    borderRadius: 8,
+    paddingVertical: 10,
     paddingHorizontal: 12,
-    gap: 6,
   },
 
-  aspectEmoji: {
-    fontSize: 14,
+  aspectIcon: {
+    fontSize: 16,
+    marginRight: 12,
+    width: 24,
   },
 
-  aspectText: {
-    fontSize: 11,
+  aspectName: {
+    flex: 1,
+    fontSize: 13,
     fontWeight: '500',
     color: colors.textColor,
   },
 
-  selectedIndicator: {
-    marginTop: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-
-  selectedIndicatorText: {
+  aspectValue: {
     fontSize: 13,
     fontWeight: '700',
     color: colors.textColor,
-    letterSpacing: 1,
   },
+
+  modalOverlay: {
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.9)',
+  justifyContent: 'center',
+  alignItems: 'center',
+  zIndex: 1000,
+},
+
+modalContent: {
+  width: '85%',
+  maxWidth: 400,
+  backgroundColor: colors.cardBackground,
+  borderRadius: 20,
+  padding: isMobile ? 24 : 32,
+  alignItems: 'center',
+  borderWidth: 2,
+  borderColor: colors.accentColor,
+},
+
+modalTitle: {
+  fontSize: isMobile ? 24 : 28,
+  fontWeight: '700',
+  color: colors.textColor,
+  marginBottom: 16,
+  textAlign: 'center',
+},
+
+modalText: {
+  fontSize: isMobile ? 14 : 16,
+  color: colors.subtitleColor,
+  textAlign: 'center',
+  lineHeight: isMobile ? 22 : 26,
+  marginBottom: 24,
+},
+
+modalButton: {
+  paddingVertical: 14,
+  paddingHorizontal: 32,
+  borderRadius: 12,
+},
+
+modalButtonText: {
+  fontSize: 16,
+  fontWeight: '600',
+  color: colors.textColor,
+},
 });
 
 export default Screen13;

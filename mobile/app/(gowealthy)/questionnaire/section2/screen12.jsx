@@ -110,10 +110,10 @@ const Screen12 = () => {
       remaining_amount: remainingAmount
     });
     
-    setTimeout(() => {
+    
       console.log('Monthly breakdown confirmed');
-      router.push('/(gowealthy)/questionnaire/section2/screen13');
-    }, 500);
+      router.replace('/(gowealthy)/questionnaire/section2/screen13');
+  
   };
 
   const handleGoBack = () => {

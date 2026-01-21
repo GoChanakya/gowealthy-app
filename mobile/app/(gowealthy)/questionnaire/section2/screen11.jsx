@@ -91,7 +91,7 @@ const Screen11 = () => {
     if (canContinue()) {
       updateAnswer('dependent_expenses', dependentExpenses);
       console.log('Dependent expenses:', dependentExpenses);
-      // router.push('/(gowealthy)/questionnaire/section2/screen12');
+      router.push('/(gowealthy)/questionnaire/section2/screen12');
     }
   };
 

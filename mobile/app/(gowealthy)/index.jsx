@@ -51,6 +51,10 @@ const GoWealthyHome = () => {
     },
   ];
 
+
+      const goToTestScreen = () => {
+    router.push('/(gowealthy)/questionnaire/section5/screen19');
+  };
   const handleFeatureClick = (route) => {
     if (route) {
       router.push(route);
@@ -72,7 +76,20 @@ const GoWealthyHome = () => {
               <Text style={styles.appTitle}>GoWealthy</Text>
               <Text style={styles.appSubtitle}>Your Financial Companion</Text>
             </View>
-
+<TouchableOpacity
+              onPress={goToTestScreen}
+              style={{
+                backgroundColor: '#FF6B35',
+                padding: 15,
+                borderRadius: 10,
+                marginBottom: 20,
+                marginHorizontal: 20,
+              }}
+            >
+              <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold' }}>
+                🚀 TEST
+              </Text>
+            </TouchableOpacity>
             {/* Feature Cards */}
             <View style={styles.featuresGrid}>
               {features.map((feature) => (

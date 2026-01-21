@@ -169,7 +169,7 @@ const Screen16 = () => {
         updateAnswer('psychology_scores', psychologyScores);
         updateAnswer('total_psychology_score', totalScore);
 
-        router.push('/(gowealthy)/questionnaire/section4/screen17');
+        router.replace('/(gowealthy)/questionnaire/section4/screen17');
       }, 300);
     } else if (currentQuestionIndex < questions.length - 1) {
       // Not last question - go to next question

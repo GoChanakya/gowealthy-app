@@ -189,7 +189,7 @@ const Screen17 = () => {
   const handleContinue = () => {
     updateAnswer('risk_assessment', riskScores);
     updateAnswer('analysis_complete', true);
-    router.push('/(gowealthy)/questionnaire/section4/screen18');
+    router.replace('/(gowealthy)/questionnaire/section4/screen18');
   };
 
   const handleBack = () => {
