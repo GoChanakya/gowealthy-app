@@ -53,7 +53,7 @@ const GoWealthyHome = () => {
 
 
       const goToTestScreen = () => {
-    router.push('/(gowealthy)/questionnaire/section5/screen20');
+    router.push('/(gowealthy)/questionnaire/section5/screen22');
   };
   const handleFeatureClick = (route) => {
     if (route) {

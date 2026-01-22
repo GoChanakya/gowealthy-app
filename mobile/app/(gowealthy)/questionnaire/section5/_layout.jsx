@@ -7,6 +7,7 @@ export default function Section5Layout() {
       <Stack.Screen name="screen20" />
       <Stack.Screen name="screen21" />
       <Stack.Screen name="screen22" />
+      <Stack.Screen name="screen23" />
       {/* Add more screens as you build them */}
     </Stack>
   );
