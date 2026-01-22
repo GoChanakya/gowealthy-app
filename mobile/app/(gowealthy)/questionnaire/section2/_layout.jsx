@@ -2,7 +2,7 @@ import { Stack } from 'expo-router';
 
 export default function Section2Layout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
       <Stack.Screen name="screen7" />
       <Stack.Screen name="screen8" />
       <Stack.Screen name="screen9" />
