@@ -13,7 +13,8 @@ import { VictoryArea, VictoryLine, VictoryChart, VictoryAxis, VictoryScatter } f
 import { LinearGradient } from 'expo-linear-gradient';
 // import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
-
+import { db } from '../../../../src/config/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import {
   colors,
   globalStyles,
@@ -375,9 +376,22 @@ useEffect(() => {
     });
   }
 }, [goalTimePeriods, customAllocations]);  // ✅ Remove allocations
-  const handleContinue = () => {
+const handleContinue = async () => {
+  try {
+    const phoneNumber = answers.user_verification?.phoneNumber || 'test_user';
+    
+    // Save to Firebase BEFORE navigation
+    await setDoc(doc(db, 'users', phoneNumber), {
+      ...answers,
+      createdAt: new Date().toISOString()
+    });
+    
+    console.log('✅ Saved to Firebase');
     router.push('/(gowealthy)/questionnaire/section5/screen23');
-  };
+  } catch (error) {
+    console.error('❌ Save error:', error);
+  }
+};
 
   const handleBack = () => {
     router.back();

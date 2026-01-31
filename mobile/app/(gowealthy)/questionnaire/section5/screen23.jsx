@@ -23,7 +23,13 @@ const { width: screenWidth } = Dimensions.get('window');
 const Screen23 = () => {
   const router = useRouter();
   const { answers, updateAnswer } = useQuestionnaire();
-
+useEffect(() => {
+  console.log('='.repeat(50));
+  console.log('🔍 SCREEN 23 - ALL DATA:');
+  console.log('='.repeat(50));
+  console.log('COMPLETE ANSWERS:', JSON.stringify(answers, null, 2));
+  console.log('='.repeat(50));
+}, []);
   const [currentSection, setCurrentSection] = useState(0);
   const [sectionsCompleted, setSectionsCompleted] = useState([false, false, false, false, false, false]);
   const [showLoader, setShowLoader] = useState(false);
