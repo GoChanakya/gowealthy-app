@@ -211,16 +211,19 @@ const Screen14 = () => {
           ...insuranceData.life,
           sum_insured: insuranceData.life.sum_insured 
             ? (parseFloat(insuranceData.life.sum_insured) * 100).toString() 
-            : ''
+            : '',
+            targetCoverage: getTargetCoverage('life')
         },
         health: {
           ...insuranceData.health,
           sum_insured: insuranceData.health.sum_insured 
             ? (parseFloat(insuranceData.health.sum_insured) * 100).toString() 
-            : ''
+            : '',
+            targetCoverage: getTargetCoverage('health')
         },
         motor: {
-          ...insuranceData.motor
+          ...insuranceData.motor,
+          targetCoverage: getTargetCoverage('motor')
         }
       };
 

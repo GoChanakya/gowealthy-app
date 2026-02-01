@@ -141,7 +141,7 @@ useEffect(() => {
         updateAnswer('completion_timestamp', new Date().toISOString());
         
         // Navigate to dashboard or next screen
-        router.replace('/(gowealthy)/dashboard'); // Adjust this path as needed
+    router.replace('/(gowealthy)/dashboard/home');
       }, 2000);
       return () => clearTimeout(delay);
     }

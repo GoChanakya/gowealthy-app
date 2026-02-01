@@ -20,6 +20,7 @@ import {
   globalStyles,
   isMobile
 } from '../../../../src/theme/globalStyles';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -378,18 +379,33 @@ useEffect(() => {
 }, [goalTimePeriods, customAllocations]);  // ✅ Remove allocations
 const handleContinue = async () => {
   try {
-    const phoneNumber = answers.user_verification?.phoneNumber || 'test_user';
+   
     
-    // Save to Firebase BEFORE navigation
+    // ✅ GET PHONE FROM ASYNCSTORAGE
+    const phoneNumber = await AsyncStorage.getItem('user_phone');
+    
+    if (!phoneNumber) {
+      alert('Phone number not found. Please verify again.');
+      return;
+    }
+    
+    console.log('💾 Saving to Firebase for:', phoneNumber);
+    
+    // ✅ SAVE ALL DATA TO FIREBASE
     await setDoc(doc(db, 'users', phoneNumber), {
       ...answers,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
     });
     
-    console.log('✅ Saved to Firebase');
+    console.log('✅ Data saved to Firebase successfully');
+    
+    // Navigate to screen23
     router.push('/(gowealthy)/questionnaire/section5/screen23');
+    
   } catch (error) {
-    console.error('❌ Save error:', error);
+    console.error('❌ Firebase save error:', error);
+    alert('Failed to save data. Please try again.');
   }
 };
 

@@ -243,3 +243,198 @@ const styles = StyleSheet.create({
 });
 
 export default Screen6;
+// import React, { useEffect, useRef, useState } from 'react';
+// import { 
+//   View, 
+//   Text, 
+//   TouchableOpacity, 
+//   ScrollView,
+//   StatusBar,
+//   StyleSheet,
+// } from 'react-native';
+// import { useRouter } from 'expo-router';
+// import { Video } from 'expo-av';
+// import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
+// import ScreenScrollView from '../../../../src/components/ScreenScrollView';
+
+// import { 
+//   colors, 
+//   globalStyles,
+//   isMobile 
+// } from '../../../../src/theme/globalStyles';
+
+// const Screen6 = () => {
+//   const router = useRouter();
+//   const { answers } = useQuestionnaire();
+//   const timerRef = useRef(null);
+//   const [isReady, setIsReady] = useState(false);
+
+//   const progressData = {
+//     sectionData: {
+//       1: { isActive: false, progress: 0, isCompleted: true },
+//       2: { isActive: true, progress: 100, isCompleted: false },
+//       3: { isActive: false, progress: 0, isCompleted: false },
+//       4: { isActive: false, progress: 0, isCompleted: false },
+//       5: { isActive: false, progress: 0, isCompleted: false },
+//       6: { isActive: false, progress: 0, isCompleted: false },
+//     }
+//   };
+
+//   const sections = [
+//     { title: "Start" },
+//     { title: "Basic Information" },
+//     { title: "Income & Expenses" },
+//     { title: "Insurance" },
+//     { title: "Goal" },
+//     { title: "Psychology" }
+//   ];
+
+//   useEffect(() => {
+//     timerRef.current = setTimeout(() => {
+//       handleContinue();
+//     }, 10000);
+
+//     return () => {
+//       if (timerRef.current) {
+//         clearTimeout(timerRef.current);
+//       }
+//     };
+//   }, []);
+
+//   const handleContinue = () => {
+//     if (timerRef.current) {
+//       clearTimeout(timerRef.current);
+//     }
+//     console.log('All answers so far:', answers);
+//     router.push('/(gowealthy)/questionnaire/section2/screen7');
+//   };
+
+//   const handleBack = () => {
+//     if (timerRef.current) {
+//       clearTimeout(timerRef.current);
+//     }
+//     router.back();
+//   };
+
+//   return (
+//     <>
+//       <StatusBar barStyle="light-content" backgroundColor={colors.backgroundColor} />
+      
+//       <View style={globalStyles.backgroundContainer}>
+//         <ScreenScrollView>
+//           <View style={globalStyles.appContainer}>
+//             <View style={globalStyles.header}>
+//               <TouchableOpacity style={globalStyles.backButton} onPress={handleBack}>
+//                 <Text style={globalStyles.backButtonText}>Back</Text>
+//               </TouchableOpacity>
+//               <View style={globalStyles.logo}>
+//                 <Text style={globalStyles.sectionTitle}>
+//                   Financial situation analyzed
+//                 </Text>
+//               </View>
+//             </View>
+
+//             <View style={globalStyles.progressContainer}>
+//               {sections.map((section, index) => (
+//                 <View key={index} style={globalStyles.progressStepContainer}>
+//                   <View
+//                     style={[
+//                       globalStyles.progressStep,
+//                       progressData?.sectionData?.[index + 1]?.isCompleted && globalStyles.progressStepCompleted,
+//                       progressData?.sectionData?.[index + 1]?.isActive && globalStyles.progressStepActive,
+//                     ]}
+//                   />
+//                   {index < sections.length - 1 && (
+//                     <View
+//                       style={[
+//                         globalStyles.progressLine,
+//                         progressData?.sectionData?.[index + 1]?.isCompleted && globalStyles.progressLineCompleted,
+//                       ]}
+//                     />
+//                   )}
+//                 </View>
+//               ))}
+//             </View>
+
+//             <View style={globalStyles.questionContainer}>
+//               <View style={styles.flashCard}>
+//                 <View style={styles.videoContainer}>
+//                   <Video
+//                     source={require('../../../../assets/animations/fintracking_animation.mp4')}
+//                     style={styles.video}
+//                     resizeMode="contain"
+//                     shouldPlay
+//                     isLooping
+//                     isMuted
+//                     onLoad={() => setIsReady(true)}
+//                     onError={(error) => {
+//                       console.log('Video error:', error);
+//                     }}
+//                   />
+//                 </View>
+
+//                 <Text style={styles.flashCardMessage}>
+//                   "A person who tracks money closely is already on their path to their Financial Empowerment"
+//                 </Text>
+
+//                 <View style={globalStyles.confirmButton}>
+//                   <TouchableOpacity 
+//                     onPress={handleContinue}
+//                     activeOpacity={0.8}
+//                   >
+//                     <Text style={styles.continueButtonText}>Continue Planning</Text>
+//                   </TouchableOpacity>
+//                 </View>
+//               </View>
+//             </View>
+//           </View>
+//         </ScreenScrollView>
+//       </View>
+//     </>
+//   );
+// };
+
+// const styles = StyleSheet.create({
+//   flashCard: {
+//     width: '100%',
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//     paddingHorizontal: isMobile ? 20 : 40,
+//     paddingVertical: isMobile ? 30 : 40,
+//   },
+
+//   videoContainer: {
+//     width: isMobile ? 250 : 300,
+//     height: isMobile ? 250 : 300,
+//     marginBottom: isMobile ? 24 : 32,
+//     borderRadius: 20,
+//     overflow: 'hidden',
+//     alignItems: 'center',
+//     justifyContent: 'center',
+//     backgroundColor: 'rgba(0, 0, 0, 0.3)',
+//   },
+
+//   video: {
+//     width: '100%',
+//     height: '100%',
+//   },
+
+//   flashCardMessage: {
+//     fontSize: isMobile ? 16 : 18,
+//     lineHeight: isMobile ? 24 : 28,
+//     color: colors.subtitleColor,
+//     textAlign: 'center',
+//     marginBottom: isMobile ? 32 : 40,
+//     maxWidth: 500,
+//     fontWeight: '500',
+//     fontStyle: 'italic',
+//   },
+
+//   continueButtonText: {
+//     fontSize: 16,
+//     fontWeight: '600',
+//     color: '#fff',
+//   },
+// });
+
+// export default Screen6;

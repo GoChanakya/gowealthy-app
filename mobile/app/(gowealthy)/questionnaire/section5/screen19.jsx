@@ -14,7 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
 // import { VITE_BUBBLE_ID, VITE_BUBBLE_AUTH } from '@env';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   colors,
   globalStyles,
@@ -279,17 +279,22 @@ const Screen19 = () => {
     }
   };
 
-  const verifyOTP = async (otpCode) => {
-    setLoading(true);
+ const verifyOTP = async (otpCode) => {
+  setLoading(true);
 
-    try {
-      if (otpCode === generatedOTP && Date.now() <= otpExpiry) {
-        setVerifiedData({
-          ...formData,
-          phoneNumber: formatPhone(formData.phoneNumber),
-          verifiedAt: new Date().toISOString()
-        });
-        setStep('success');
+  try {
+    if (otpCode === generatedOTP && Date.now() <= otpExpiry) {
+      
+      // ✅ SAVE PHONE TO ASYNCSTORAGE
+      await AsyncStorage.setItem('user_phone', formData.phoneNumber);
+      console.log('✅ Phone saved to AsyncStorage:', formData.phoneNumber);
+      
+      setVerifiedData({
+        ...formData,
+        phoneNumber: formatPhone(formData.phoneNumber),
+        verifiedAt: new Date().toISOString()
+      });
+      setStep('success');
         addBotMessage('Excellent! Your phone number has been successfully verified!', 1500);
         setTimeout(() => {
           addBotMessage('You\'re all set!', 3000);
