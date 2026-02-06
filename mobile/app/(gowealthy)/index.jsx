@@ -30,10 +30,10 @@ const GoWealthyHome = () => {
     },
     {
       id: 2,
-      title: "Investment Tracker",
-      subtitle: "Track your investments",
+      title: "mutual Fund platform",
+      subtitle: "Invest in mutual funds", // <-- Add a subtitle here
       icon: "📈",
-      route: null // Add route when ready
+      route: "/(gowealthy)/mf/onboarding/screen1"
     },
     {
       id: 3,
@@ -97,11 +97,11 @@ const GoWealthyHome = () => {
                   key={feature.id}
                   style={[
                     styles.featureCard,
-                    !feature.route && styles.featureCardDisabled
+                    feature.route == null && styles.featureCardDisabled // changed from !feature.route
                   ]}
                   onPress={() => handleFeatureClick(feature.route)}
                   activeOpacity={0.8}
-                  disabled={!feature.route}
+                  disabled={feature.route == null} // changed from !feature.route
                 >
                   <LinearGradient
                     colors={feature.route ? [colors.gradientPurple1, colors.gradientPurple2] : [colors.optionBackground, colors.optionBackground]}
@@ -112,7 +112,7 @@ const GoWealthyHome = () => {
                     <Text style={styles.featureIcon}>{feature.icon}</Text>
                     <Text style={styles.featureTitle}>{feature.title}</Text>
                     <Text style={styles.featureSubtitle}>{feature.subtitle}</Text>
-                    {!feature.route && (
+                    {feature.route == null && ( // changed from !feature.route
                       <View style={styles.comingSoonBadge}>
                         <Text style={styles.comingSoonText}>Coming Soon</Text>
                       </View>
