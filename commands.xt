@@ -1,0 +1,18 @@
+# 1. Login to Expo
+npx eas login
+
+# 2. Install required packages
+npx expo install expo-dev-client expo-updates
+npm install rive-react-native
+
+# 3. Generate native projects
+npx expo prebuild --clean
+
+# 4. Build Android APK
+npx eas build -p android --profile preview
+
+# 5. Build iOS IPA
+npx eas build -p ios --profile preview
+
+# 6. Push OTA updates (JS changes only)
+npx eas update

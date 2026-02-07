@@ -30,7 +30,7 @@ const GoWealthyHome = () => {
     },
     {
       id: 2,
-      title: "mutual Fund platform",
+      title: "Mutual Fund platform",
       subtitle: "Invest in mutual funds", // <-- Add a subtitle here
       icon: "📈",
       route: "/(gowealthy)/mf/onboarding/screen1"
