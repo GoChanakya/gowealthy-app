@@ -1003,21 +1003,21 @@
 // });
 
 // export default DashboardHome;
-import React, { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { doc, getDoc } from 'firebase/firestore';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  Modal,
   ActivityIndicator,
   Dimensions,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
 import { db } from '../../../src/config/firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 const { width: screenWidth } = Dimensions.get('window');
