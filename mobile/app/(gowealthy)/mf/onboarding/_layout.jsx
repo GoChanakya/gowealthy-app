@@ -9,6 +9,8 @@ export default function onboardingLayout() {
       <Stack.Screen name="screen4" />
       <Stack.Screen name="screen5" />
       <Stack.Screen name="screen6" />
+      <Stack.Screen name="preview" />
+      <Stack.Screen name="trading" />
       {/* Add more screens as you build them */}
     </Stack>
   );

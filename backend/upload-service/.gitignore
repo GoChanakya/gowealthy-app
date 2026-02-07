@@ -1,0 +1,14 @@
+# GCP / Firebase secrets
+service-account-key.json
+*.key.json
+*.credentials.json
+
+# Env files
+.env
+.env.*
+
+# Node
+node_modules/
+
+# Logs
+npm-debug.log*
