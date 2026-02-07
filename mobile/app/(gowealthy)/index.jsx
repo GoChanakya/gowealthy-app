@@ -30,10 +30,10 @@ const GoWealthyHome = () => {
     },
     {
       id: 2,
-      title: "Investment Tracker",
-      subtitle: "Track your investments",
+      title: "mutual Fund platform",
+      subtitle: "Invest in mutual funds", // <-- Add a subtitle here
       icon: "📈",
-      route: null // Add route when ready
+      route: "/(gowealthy)/mf/onboarding/screen1"
     },
     {
   id: 3,
@@ -52,9 +52,9 @@ const GoWealthyHome = () => {
   ];
 
 
-  //     const goToTestScreen = () => {
-  //   router.push('/(gowealthy)/questionnaire/section5/screen22');
-  // };
+      const goToTestScreen = () => {
+    router.push('/(gowealthy)/questionnaire/section5/screen22');
+  };
   const handleFeatureClick = (route) => {
     if (route) {
       router.push(route);
@@ -76,7 +76,20 @@ const GoWealthyHome = () => {
               <Text style={styles.appTitle}>GoWealthy</Text>
               <Text style={styles.appSubtitle}>Your Financial Companion</Text>
             </View>
-
+<TouchableOpacity
+              onPress={goToTestScreen}
+              style={{
+                backgroundColor: '#FF6B35',
+                padding: 15,
+                borderRadius: 10,
+                marginBottom: 20,
+                marginHorizontal: 20,
+              }}
+            >
+              <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold' }}>
+                 TEST
+              </Text>
+            </TouchableOpacity>
             {/* Feature Cards */}
             <View style={styles.featuresGrid}>
               {features.map((feature) => (
@@ -84,11 +97,11 @@ const GoWealthyHome = () => {
                   key={feature.id}
                   style={[
                     styles.featureCard,
-                    !feature.route && styles.featureCardDisabled
+                    feature.route == null && styles.featureCardDisabled // changed from !feature.route
                   ]}
                   onPress={() => handleFeatureClick(feature.route)}
                   activeOpacity={0.8}
-                  disabled={!feature.route}
+                  disabled={feature.route == null} // changed from !feature.route
                 >
                   <LinearGradient
                     colors={feature.route ? [colors.gradientPurple1, colors.gradientPurple2] : [colors.optionBackground, colors.optionBackground]}
@@ -99,7 +112,7 @@ const GoWealthyHome = () => {
                     <Text style={styles.featureIcon}>{feature.icon}</Text>
                     <Text style={styles.featureTitle}>{feature.title}</Text>
                     <Text style={styles.featureSubtitle}>{feature.subtitle}</Text>
-                    {!feature.route && (
+                    {feature.route == null && ( // changed from !feature.route
                       <View style={styles.comingSoonBadge}>
                         <Text style={styles.comingSoonText}>Coming Soon</Text>
                       </View>

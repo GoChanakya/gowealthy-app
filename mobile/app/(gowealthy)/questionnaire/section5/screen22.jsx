@@ -13,12 +13,14 @@ import { VictoryArea, VictoryLine, VictoryChart, VictoryAxis, VictoryScatter } f
 import { LinearGradient } from 'expo-linear-gradient';
 // import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
-
+import { db } from '../../../../src/config/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import {
   colors,
   globalStyles,
   isMobile
 } from '../../../../src/theme/globalStyles';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -375,9 +377,37 @@ useEffect(() => {
     });
   }
 }, [goalTimePeriods, customAllocations]);  // ✅ Remove allocations
-  const handleContinue = () => {
+const handleContinue = async () => {
+  try {
+   
+    
+    // ✅ GET PHONE FROM ASYNCSTORAGE
+    const phoneNumber = await AsyncStorage.getItem('user_phone');
+    
+    if (!phoneNumber) {
+      alert('Phone number not found. Please verify again.');
+      return;
+    }
+    
+    console.log('💾 Saving to Firebase for:', phoneNumber);
+    
+    // ✅ SAVE ALL DATA TO FIREBASE
+    await setDoc(doc(db, 'users', phoneNumber), {
+      ...answers,
+      createdAt: new Date().toISOString(),
+      lastUpdated: new Date().toISOString()
+    });
+    
+    console.log('✅ Data saved to Firebase successfully');
+    
+    // Navigate to screen23
     router.push('/(gowealthy)/questionnaire/section5/screen23');
-  };
+    
+  } catch (error) {
+    console.error('❌ Firebase save error:', error);
+    alert('Failed to save data. Please try again.');
+  }
+};
 
   const handleBack = () => {
     router.back();

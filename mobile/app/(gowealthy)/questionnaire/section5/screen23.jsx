@@ -23,7 +23,13 @@ const { width: screenWidth } = Dimensions.get('window');
 const Screen23 = () => {
   const router = useRouter();
   const { answers, updateAnswer } = useQuestionnaire();
-
+useEffect(() => {
+  console.log('='.repeat(50));
+  console.log('🔍 SCREEN 23 - ALL DATA:');
+  console.log('='.repeat(50));
+  console.log('COMPLETE ANSWERS:', JSON.stringify(answers, null, 2));
+  console.log('='.repeat(50));
+}, []);
   const [currentSection, setCurrentSection] = useState(0);
   const [sectionsCompleted, setSectionsCompleted] = useState([false, false, false, false, false, false]);
   const [showLoader, setShowLoader] = useState(false);
@@ -135,7 +141,7 @@ const Screen23 = () => {
         updateAnswer('completion_timestamp', new Date().toISOString());
         
         // Navigate to dashboard or next screen
-        router.replace('/(gowealthy)/dashboard'); // Adjust this path as needed
+    router.replace('/(gowealthy)/dashboard/home');
       }, 2000);
       return () => clearTimeout(delay);
     }
