@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { Video } from 'expo-av';
+import { useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 import {
-  View,
-  Text,
+  Animated,
+  Dimensions,
   StatusBar,
   StyleSheet,
-  Animated,
-  Dimensions
+  Text,
+  View
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Video } from 'expo-av';
-import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
 import ScreenScrollView from '../../../../src/components/ScreenScrollView';
+import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
 
 import {
   colors,
@@ -141,7 +141,7 @@ useEffect(() => {
         updateAnswer('completion_timestamp', new Date().toISOString());
         
         // Navigate to dashboard or next screen
-    router.replace('/(gowealthy)/dashboard/home');
+    router.replace('/(gowealthy)/dashboard/investments');
       }, 2000);
       return () => clearTimeout(delay);
     }
