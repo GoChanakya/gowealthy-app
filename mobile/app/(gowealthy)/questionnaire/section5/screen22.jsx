@@ -14,7 +14,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 // import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
 import { db } from '../../../../src/config/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc,getDoc,collection } from 'firebase/firestore';
 import {
   colors,
   globalStyles,
@@ -370,18 +370,43 @@ useEffect(() => {
       };
     });
 
-    updateAnswer('goal_allocations', {
-      goals: updatedGoals,
-      savings: userSavings,
-      user_age: userAge
-    });
+    updateAnswer('goal_allocations', updatedGoals);
   }
 }, [goalTimePeriods, customAllocations]);  // ✅ Remove allocations
-const handleContinue = async () => {
-  try {
+// const handleContinue = async () => {
+//   try {
    
     
-    // ✅ GET PHONE FROM ASYNCSTORAGE
+//     // ✅ GET PHONE FROM ASYNCSTORAGE
+//     const phoneNumber = await AsyncStorage.getItem('user_phone');
+    
+//     if (!phoneNumber) {
+//       alert('Phone number not found. Please verify again.');
+//       return;
+//     }
+    
+//     console.log('💾 Saving to Firebase for:', phoneNumber);
+    
+//     // ✅ SAVE ALL DATA TO FIREBASE
+//     await setDoc(doc(db, 'users', phoneNumber), {
+//       ...answers,
+//       createdAt: new Date().toISOString(),
+//       lastUpdated: new Date().toISOString()
+//     });
+    
+//     console.log('✅ Data saved to Firebase successfully');
+    
+//     // Navigate to screen23
+//     router.push('/(gowealthy)/questionnaire/section5/screen23');
+    
+//   } catch (error) {
+//     console.error('❌ Firebase save error:', error);
+//     alert('Failed to save data. Please try again.');
+//   }
+// };
+
+const handleContinue = async () => {
+  try {
     const phoneNumber = await AsyncStorage.getItem('user_phone');
     
     if (!phoneNumber) {
@@ -391,24 +416,98 @@ const handleContinue = async () => {
     
     console.log('💾 Saving to Firebase for:', phoneNumber);
     
-    // ✅ SAVE ALL DATA TO FIREBASE
-    await setDoc(doc(db, 'users', phoneNumber), {
-      ...answers,
-      createdAt: new Date().toISOString(),
-      lastUpdated: new Date().toISOString()
+    // 🔥 CONVERT TO K FORMAT
+    const convertToK = (data) => {
+      const converted = JSON.parse(JSON.stringify(data));
+      
+      // Emergency funds: rupees → K
+      if (converted.emergency_funds?.amount) {
+        converted.emergency_funds.amount = Math.round(converted.emergency_funds.amount / 1000);
+        converted.emergency_funds.total_emergency_fund = Math.round(converted.emergency_funds.total_emergency_fund / 1000);
+        
+        ['foundation_layer', 'intermediate_layer', 'fortress_layer'].forEach(layer => {
+          if (converted.emergency_funds[layer]) {
+            const layerData = converted.emergency_funds[layer];
+            ['amount', 'medical', 'emi', 'work_security', 'house', 'vehicle'].forEach(field => {
+              if (layerData[field]) {
+                layerData[field] = Math.round(layerData[field] / 1000);
+              }
+            });
+          }
+        });
+      }
+      
+      // Insurance: lakhs → K (multiply by 100)
+      if (converted.insurance_data?.life?.sum_insured) {
+        const lakhs = parseFloat(converted.insurance_data.life.sum_insured);
+        converted.insurance_data.life.sum_insured = Math.round(lakhs * 100);
+      }
+      if (converted.insurance_data?.health?.sum_insured) {
+        const lakhs = parseFloat(converted.insurance_data.health.sum_insured);
+        converted.insurance_data.health.sum_insured = Math.round(lakhs * 100);
+      }
+      
+      // Goals: rupees → K
+     if (Array.isArray(converted.goal_allocations)) {
+  converted.goal_allocations = converted.goal_allocations.map(goal => ({
+    ...goal,
+    targetAmount: Math.round(goal.targetAmount / 1000),
+    customAllocation: Math.round(goal.customAllocation / 1000),
+    calculatedAmount: Math.round(goal.calculatedAmount / 1000)
+  }));
+}
+      
+      // Savings: rupees → K
+      if (converted.goal_allocations?.savings) {
+        converted.goal_allocations.savings = Math.round(converted.goal_allocations.savings / 1000);
+      }
+      
+      return converted;
+    };
+    
+     const timestamp = new Date();
+    const convertedData = convertToK(answers);
+    
+    const userDocRef = doc(db, 'questionnaire_submissions', phoneNumber);
+    
+    // 🔥 CHECK EXISTING VERSION
+    const userDoc = await getDoc(userDocRef);
+    const currentCount = userDoc.exists() ? (userDoc.data().total_submissions || 0) : 0;
+    const newVersion = currentCount + 1;
+    
+    const submissionId = timestamp.toISOString().replace(/[:.]/g, '-');
+    
+    // 1️⃣ Save versioned submission
+    const submissionsColRef = collection(userDocRef, 'submissions');
+    await setDoc(doc(submissionsColRef, submissionId), {
+      raw_answers: convertedData,
+      timestamp: timestamp.toISOString(),
+      submitted_at: timestamp,
+      version: newVersion
     });
     
-    console.log('✅ Data saved to Firebase successfully');
+    // 2️⃣ Update main document
+    await setDoc(userDocRef, {
+      raw_answers: convertedData,
+      phone_number: phoneNumber,
+      full_name: convertedData.fullName || '',
+      email: convertedData.email || '',
+      latest_submission_date: timestamp.toISOString(),
+      latest_submission_id: submissionId,
+      total_submissions: newVersion,
+      last_updated: timestamp,
+      createdAt: userDoc.exists() ? userDoc.data().createdAt : timestamp.toISOString(),
+      timestamp: timestamp.toISOString()
+    });
     
-    // Navigate to screen23
+    console.log('✅ Saved (version:', newVersion, ')');
+    
     router.push('/(gowealthy)/questionnaire/section5/screen23');
-    
   } catch (error) {
-    console.error('❌ Firebase save error:', error);
-    alert('Failed to save data. Please try again.');
+    console.error('❌ Error:', error);
+    alert('Failed to save: ' + error.message);
   }
 };
-
   const handleBack = () => {
     router.back();
   };

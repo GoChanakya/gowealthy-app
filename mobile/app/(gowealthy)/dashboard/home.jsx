@@ -1028,38 +1028,54 @@ const DashboardHome = () => {
   const [currentGoalIndex, setCurrentGoalIndex] = useState(0);
   const [expandedCards, setExpandedCards] = useState({});
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        setLoading(true);
-        const phoneNumber = await AsyncStorage.getItem('user_phone');
+useEffect(() => {
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      const phoneNumber = await AsyncStorage.getItem('user_phone');
 
-        if (!phoneNumber) {
-          console.log('❌ No phone number found');
+      if (!phoneNumber) {
+        console.log('❌ No phone number found');
+        setLoading(false);
+        return;
+      }
+
+      console.log('📥 Fetching dashboard data for:', phoneNumber);
+      console.log('📍 Collection: questionnaire_submissions');
+      
+      const userDoc = await getDoc(doc(db, 'questionnaire_submissions', phoneNumber));
+
+      console.log('📄 Document exists:', userDoc.exists());
+      
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        console.log('📦 Raw data keys:', Object.keys(data));
+        console.log('📦 Has raw_answers:', !!data.raw_answers);
+        
+        if (!data.raw_answers) {
+          console.log('❌ No raw_answers found in document');
+          console.log('📦 Available data:', JSON.stringify(data, null, 2));
           setLoading(false);
           return;
         }
-
-        console.log('📥 Fetching dashboard data for:', phoneNumber);
-        const userDoc = await getDoc(doc(db, 'users', phoneNumber));
-
-        if (userDoc.exists()) {
-          const data = userDoc.data();
-          setUserData(data);
-          console.log('✅ Dashboard data loaded');
-        } else {
-          console.log('❌ No data found');
-        }
-      } catch (error) {
-        console.error('❌ Firebase fetch error:', error);
-      } finally {
-        setLoading(false);
+        
+        const convertedData = convertKToRupees(data.raw_answers);
+        setUserData(convertedData);
+        console.log('✅ Dashboard data loaded and converted');
+      } else {
+        console.log('❌ Document does not exist at questionnaire_submissions/' + phoneNumber);
       }
-    };
+    } catch (error) {
+      console.error('❌ Firebase fetch error:', error);
+      console.error('❌ Error code:', error.code);
+      console.error('❌ Error message:', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    fetchUserData();
-  }, []);
-
+  fetchUserData();
+}, []);
   const totalIncome = useMemo(() => {
     if (!userData?.income_data) return 0;
     const income = userData.income_data;
@@ -1138,7 +1154,9 @@ const familySize = useMemo(() => {
   const dependents = userData.dependents;
   return 1 + (dependents.spouse || 0) + (dependents.child || 0) + (dependents.parent || 0);
 }, [userData]);
-  const goals = userData?.goal_allocations?.goals || [];
+  const goals = Array.isArray(userData?.goal_allocations) 
+  ? userData.goal_allocations 
+  : (userData?.goal_allocations?.goals || []);
 
   const toggleExpand = (cardId) => {
     setExpandedCards(prev => ({

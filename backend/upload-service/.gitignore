@@ -1,5 +1,6 @@
 # GCP / Firebase secrets
 service-account-key.json
+service-account-key copy.json
 *.key.json
 *.credentials.json
 
