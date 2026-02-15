@@ -438,13 +438,21 @@ const handleContinue = async () => {
       }
       
       // Insurance: lakhs → K (multiply by 100)
-      if (converted.insurance_data?.life?.sum_insured) {
-        const lakhs = parseFloat(converted.insurance_data.life.sum_insured);
-        converted.insurance_data.life.sum_insured = Math.round(lakhs * 100);
+      // if (converted.insurance_data?.life?.sum_insured) {
+      //   const lakhs = parseFloat(converted.insurance_data.life.sum_insured);
+      //   converted.insurance_data.life.sum_insured = Math.round(lakhs * 100);
+      // }
+      // if (converted.insurance_data?.health?.sum_insured) {
+      //   const lakhs = parseFloat(converted.insurance_data.health.sum_insured);
+      //   converted.insurance_data.health.sum_insured = Math.round(lakhs * 100);
+      // }
+       if (converted.insurance_data?.life?.targetCoverage) {
+        const lakhs = parseFloat(converted.insurance_data.life.targetCoverage);
+        converted.insurance_data.life.targetCoverage = Math.round(lakhs * 100);
       }
-      if (converted.insurance_data?.health?.sum_insured) {
-        const lakhs = parseFloat(converted.insurance_data.health.sum_insured);
-        converted.insurance_data.health.sum_insured = Math.round(lakhs * 100);
+      if (converted.insurance_data?.health?.targetCoverage) {
+        const lakhs = parseFloat(converted.insurance_data.health.targetCoverage);
+        converted.insurance_data.health.targetCoverage = Math.round(lakhs * 100);
       }
       
       // Goals: rupees → K
