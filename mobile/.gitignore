@@ -3,3 +3,5 @@ firebase-config.js
 
 # Ignore the entire config directory in src (all files)
 src/config/
+
+
