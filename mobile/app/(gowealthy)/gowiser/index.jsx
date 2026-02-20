@@ -13,7 +13,8 @@ import {
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { db } from '../../../firebase-config';
+import { db } from '../../../src/config/firebase';
+// import { db } from '../../../firebase-config';
 import { colors, globalStyles, shadows, isMobile } from '../../../src/theme/globalStyles';
 
 const { width } = Dimensions.get('window');

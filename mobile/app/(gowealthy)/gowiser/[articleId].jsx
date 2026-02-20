@@ -1177,7 +1177,8 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { doc, getDoc, updateDoc, increment } from 'firebase/firestore';
-import { db } from '../../../firebase-config';
+// import { db } from '../../../firebase-config';
+import { db } from '../../../src/config/firebase';
 import { colors } from '../../../src/theme/globalStyles';
 
 const { width, height } = Dimensions.get('window');
