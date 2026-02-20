@@ -1,18 +1,26 @@
-# 1. Login to Expo
+# 1. Login
 npx eas login
 
-# 2. Install required packages
+# 2. Install packages
 npx expo install expo-dev-client expo-updates
 npm install rive-react-native
 
-# 3. Generate native projects
+# 3. Generate native files
 npx expo prebuild --clean
 
-# 4. Build Android APK
+# 4. Configure EAS (if first time)
+npx eas build:configure
+
+# 5. Build development APK
+npx eas build -p android --profile development
+
+# 6. After build completes, download APK and install on phones
+
+# 7. Daily use - Start Metro
+npx expo start
+
+# 8. Scan QR code with dev client app
+
 npx eas build -p android --profile preview
 
-# 5. Build iOS IPA
-npx eas build -p ios --profile preview
-
-# 6. Push OTA updates (JS changes only)
-npx eas update
+npx eas device:create
