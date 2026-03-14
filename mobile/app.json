@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "af0b9f33-ca49-46c1-a377-9fe2cb83e14a"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.gochanakya.mobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.gochanakya.mobile"
+    }
+  }
+}
