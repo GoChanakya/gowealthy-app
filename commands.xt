@@ -51,3 +51,26 @@ npx expo start
 # 7. Scan QR in dev client app
 
 npx eas build -p ios --profile preview
+
+
+
+TEST FLIGHT 
+
+# 1. Build for TestFlight
+npx eas build -p ios --profile preview
+
+# 2. After build completes, submit to TestFlight
+npx eas submit -p ios
+
+# 3. Add testers in App Store Connect
+# Go to: https://appstoreconnect.apple.com
+# Add mentor + client emails
+
+# 4. They get invite email
+# Install TestFlight app
+# Install your app
+
+# Weekly updates:
+npx eas build -p ios --profile preview
+npx eas submit -p ios
+# Auto-updates for all testers
