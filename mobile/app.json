@@ -1,10 +1,26 @@
 {
   "expo": {
+    "name": "mobile",
+    "slug": "mobile",
+    "version": "1.0.0",
     "extra": {
       "eas": {
         "projectId": "af0b9f33-ca49-46c1-a377-9fe2cb83e14a"
       }
     },
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useHermes": false
+          },
+          "android": {
+            "useHermes": false
+          }
+        }
+      ]
+    ],
     "ios": {
       "bundleIdentifier": "com.gochanakya.mobile",
       "infoPlist": {

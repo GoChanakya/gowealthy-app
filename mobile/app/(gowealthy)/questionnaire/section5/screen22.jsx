@@ -9,7 +9,7 @@ import {
   Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { VictoryArea, VictoryLine, VictoryChart, VictoryAxis, VictoryScatter } from 'victory-native';
+// import { VictoryArea, VictoryLine, VictoryChart, VictoryAxis, VictoryScatter } from 'victory-native';
 import { LinearGradient } from 'expo-linear-gradient';
 // import Svg, { Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
@@ -651,7 +651,7 @@ const handleContinue = async () => {
 
               {/* Chart */}
              {/* Chart */}
-<View style={styles.chartContainer}>
+{/* <View style={styles.chartContainer}>
   <VictoryChart
     height={280}
     width={screenWidth - 60}
@@ -709,7 +709,9 @@ const handleContinue = async () => {
       <Text style={styles.legendText}>Adhoc Plan</Text>
     </View>
   </View>
-</View>
+</View> */}
+
+
               {/* Projections */}
               <View style={styles.projectionsRow}>
                 <View style={[styles.projectionCard, styles.goWealthyProjection]}>
