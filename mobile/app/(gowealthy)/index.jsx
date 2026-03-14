@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { 
   colors, 
   globalStyles,
@@ -53,7 +53,7 @@ const GoWealthyHome = () => {
 
 
       const goToTestScreen = () => {
-    router.push('/(gowealthy)/dashboard/home');
+    router.push('/(gowealthy)/questionnaire/section4/screen17');
   };
   const handleFeatureClick = (route) => {
     if (route) {
@@ -76,7 +76,7 @@ const GoWealthyHome = () => {
               <Text style={styles.appTitle}>GoWealthy</Text>
               <Text style={styles.appSubtitle}>Your Financial Companion</Text>
             </View>
-<TouchableOpacity
+{/* <TouchableOpacity
               onPress={goToTestScreen}
               style={{
                 backgroundColor: '#FF6B35',
@@ -89,7 +89,29 @@ const GoWealthyHome = () => {
               <Text style={{ color: 'white', textAlign: 'center', fontWeight: 'bold' }}>
                  TEST
               </Text>
-            </TouchableOpacity>
+              
+            </TouchableOpacity> */}
+            
+<TouchableOpacity
+  onPress={async () => {
+    await AsyncStorage.multiRemove(['auth_token', 'user_phone', 'auth_timestamp']);
+    router.replace('/(auth)/landing');
+  }}
+  style={{
+    backgroundColor: '#7f1d1d',
+    borderWidth: 1,
+    borderColor: '#ef4444',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 20,
+    marginHorizontal: 20,
+    alignItems: 'center',
+  }}
+>
+  <Text style={{ color: '#fca5a5', fontSize: 13, fontWeight: '600' }}>
+    🧪 DEV: Clear Auth & Test Login Flow
+  </Text>
+</TouchableOpacity>
             {/* Feature Cards */}
             <View style={styles.featuresGrid}>
               {features.map((feature) => (
