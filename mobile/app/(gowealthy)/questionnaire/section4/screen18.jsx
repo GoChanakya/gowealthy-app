@@ -68,7 +68,7 @@ const Screen18 = () => {
 
     const handleContinue = () => {
         setTimeout(() => {
-              router.push('/(gowealthy)/questionnaire/section5/screen19');
+              router.push('/(gowealthy)/questionnaire/section5/screen20');
         }, 500);
     };
 

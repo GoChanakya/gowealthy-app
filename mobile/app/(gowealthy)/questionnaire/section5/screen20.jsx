@@ -776,7 +776,7 @@ const Screen20 = () => {
       setTimeout(() => {
         updateAnswer('top_goals', topGoals);
         console.log('Top goals selected:', topGoals);
-        router.replace('/(gowealthy)/questionnaire/section5/screen21');
+        router.replace('/(gowealthy)/questionnaire/section5/screen22');
       }, 500);
     }
   };

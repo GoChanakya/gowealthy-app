@@ -13,6 +13,9 @@
     },
     "android": {
       "package": "com.gochanakya.mobile"
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }
