@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
 import ScreenScrollView from '../../../../src/components/ScreenScrollView';
-
+import { Video } from 'expo-av';
 import {
     colors,
     globalStyles,
@@ -22,8 +22,8 @@ const Screen18 = () => {
     const router = useRouter();
     const { answers, updateAnswer } = useQuestionnaire();
     const [showContent, setShowContent] = useState(false);
-    const fadeAnim = useRef(new Animated.Value(0));
-    const translateAnim = useRef(new Animated.Value(20));
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+    const translateAnim = useRef(new Animated.Value(20)).current;
 
     const progressData = {
         sectionData: {
@@ -131,10 +131,15 @@ const Screen18 = () => {
                                 </Text>
 
                                 <View style={styles.riveContainer}>
-                                    <Text style={styles.emojiPlaceholder}>🎯</Text>
-                                    <Text style={styles.placeholderText}>Goal Planning</Text>
-                                </View>
-
+    <Video
+        source={require('../../../../assets/animations/goal_strategy3_ca4b4ac5.mp4')}
+        style={styles.videoPlayer}
+        resizeMode="contain"
+        shouldPlay
+        isLooping
+        isMuted
+    />
+</View>
                                 <View style={globalStyles.confirmButton}>
                                     <TouchableOpacity onPress={handleContinue} activeOpacity={0.8}>
                                         <LinearGradient
@@ -186,7 +191,11 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
     },
-
+videoPlayer: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
+},
     emojiPlaceholder: {
         fontSize: 80,
         marginBottom: 10,
