@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     View,
     Text,
@@ -22,8 +22,8 @@ const Screen18 = () => {
     const router = useRouter();
     const { answers, updateAnswer } = useQuestionnaire();
     const [showContent, setShowContent] = useState(false);
-    const fadeAnim = new Animated.Value(0);
-    const translateAnim = new Animated.Value(20);
+    const fadeAnim = useRef(new Animated.Value(0));
+    const translateAnim = useRef(new Animated.Value(20));
 
     const progressData = {
         sectionData: {
@@ -68,7 +68,7 @@ const Screen18 = () => {
 
     const handleContinue = () => {
         setTimeout(() => {
-              router.replace('/(gowealthy)/questionnaire/section5/screen19');
+              router.push('/(gowealthy)/questionnaire/section5/screen19');
         }, 500);
     };
 

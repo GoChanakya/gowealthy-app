@@ -28,7 +28,7 @@ const Insurance = () => {
             try {
                 setLoading(true);
                 const phone = await AsyncStorage.getItem('user_phone');
-                const snap = await getDoc(doc(db, 'users', phone));
+                const snap = await getDoc(doc(db, 'questionnaire_submissions', phone));
                 if (!snap.exists()) throw new Error('User not found');
                 setUserData(snap.data());
             } catch (e) {

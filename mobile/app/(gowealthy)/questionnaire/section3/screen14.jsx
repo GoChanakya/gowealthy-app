@@ -232,7 +232,7 @@ const Screen14 = () => {
       console.log('- Saved values (K):', insuranceDataForSave);
 
       updateAnswer('insurance_data', insuranceDataForSave);
-      router.replace('/(gowealthy)/questionnaire/section4/screen15');
+      router.push('/(gowealthy)/questionnaire/section4/screen15');
     }, 500);
   };
 

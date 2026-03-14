@@ -504,7 +504,9 @@ const handleContinue = async () => {
       latest_submission_id: submissionId,
       total_submissions: newVersion,
       last_updated: timestamp,
-      createdAt: userDoc.exists() ? userDoc.data().createdAt : timestamp.toISOString(),
+      createdAt: userDoc.exists() 
+  ? (userDoc.data().createdAt ?? timestamp.toISOString())  // fallback if field missing
+  : timestamp.toISOString(),
       timestamp: timestamp.toISOString()
     });
     
