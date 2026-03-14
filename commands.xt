@@ -24,3 +24,30 @@ npx expo start
 npx eas build -p android --profile preview
 
 npx eas device:create
+
+
+
+IOS
+
+# 1. Login to EAS
+npx eas login
+
+# 2. Configure Apple credentials
+npx eas device:create
+
+# 3. Follow prompts to:
+# - Login with Apple ID
+# - Register your iPhone UDID
+# - EAS will create provisioning profile
+
+# 4. Build development IPA
+npx eas build -p ios --profile development
+
+# 5. After build completes, install from link on iPhone
+
+# 6. Start Metro
+npx expo start
+
+# 7. Scan QR in dev client app
+
+npx eas build -p ios --profile preview
