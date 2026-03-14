@@ -39,7 +39,8 @@ const TAB_ITEMS = [
 function CustomTabBar({ state, navigation }) {
   return (
     <View style={styles.wrapper} pointerEvents="box-none">
-      <BlurView intensity={55} tint="dark" style={styles.bar}>
+      {/* <BlurView intensity={55} tint="dark" style={styles.bar}> */}
+      <View style={[styles.bar, { backgroundColor: "#1b0f30" }]}>
         {/* Left glow accent */}
         <View style={styles.glowLeft} pointerEvents="none" />
 
@@ -88,7 +89,8 @@ function CustomTabBar({ state, navigation }) {
         <View style={styles.centerLogo} pointerEvents="none">
           <Image source={logo} style={styles.logoImg} resizeMode="contain" />
         </View>
-      </BlurView>
+      {/* </BlurView> */}
+      </View>
     </View>
   );
 }
@@ -171,7 +173,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: "50%",
     transform: [{ translateX: -14 }],
-    opacity: 0.18,
+    opacity: 1,
   },
 
   logoImg: {
@@ -182,8 +184,7 @@ const styles = StyleSheet.create({
   // ── Glow ──────────────────────────────────────────────────────────────────
   glowLeft: {
     position: "absolute",
-    top: -20,
-    left: -20,
+    left: "38%",
     width: 80,
     height: 80,
     borderRadius: 40,
