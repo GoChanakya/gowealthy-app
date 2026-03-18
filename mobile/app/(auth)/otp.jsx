@@ -1,396 +1,143 @@
 
-// import React, { useState, useRef, useEffect } from 'react';
-// import {
-//   View,
-//   Text,
-//   TextInput,
-//   TouchableOpacity,
-//   StatusBar,
-//   StyleSheet,
-//   KeyboardAvoidingView,
-//   Platform,
-//   ScrollView,
-//   ActivityIndicator,
-//   Alert,
-// } from 'react-native';
-// import { useRouter, useLocalSearchParams } from 'expo-router';
-// import { LinearGradient } from 'expo-linear-gradient';
-// import AsyncStorage from '@react-native-async-storage/async-storage';
-// import { isMobile } from '../../src/theme/globalStyles';
-
-// // ── Same Firebase imports as screen22 ──
-// import { db } from '../../src/config/firebase';
-// import { doc, setDoc, getDoc, collection } from 'firebase/firestore';
-
-// // ── Same BubbleWhats credentials as screen19 ──
-// const VITE_BUBBLE_ID = '9110';
-// const VITE_BUBBLE_AUTH = 'MzU3MGJlNWZjMGU5NDM3OGQyOTE1ZTU0';
-// const BUBBLE_API_URL = `https://${VITE_BUBBLE_ID}.bubblewhats.com/send-message`;
-
-// const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
-
-// const OTP_LENGTH = 6;
-// const RESEND_COOLDOWN = 60; // same as screen19
-
-// const OtpScreen = () => {
-//   const router = useRouter();
-//   const { phone, otp: initialOtp, expiry: initialExpiry } = useLocalSearchParams();
-
-//   const [generatedOTP, setGeneratedOTP] = useState(initialOtp || '');
-//   const [otpExpiry, setOtpExpiry] = useState(parseInt(initialExpiry) || 0);
-
-//   const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(''));
-//   const [loading, setLoading] = useState(false);
-//   const [countdown, setCountdown] = useState(RESEND_COOLDOWN);
-//   const inputRefs = useRef([]);
-
-//   useEffect(() => {
-//     if (countdown <= 0) return;
-//     const timer = setTimeout(() => setCountdown(c => c - 1), 1000);
-//     return () => clearTimeout(timer);
-//   }, [countdown]);
-
-//   const fullOtp = digits.join('');
-//   const isComplete = fullOtp.length === OTP_LENGTH;
-
-//   const handleDigitChange = (text, index) => {
-//     // Paste support
-//     if (text.length > 1) {
-//       const pasted = text.replace(/\D/g, '').slice(0, OTP_LENGTH).split('');
-//       const newDigits = Array(OTP_LENGTH).fill('');
-//       pasted.forEach((d, i) => { newDigits[i] = d; });
-//       setDigits(newDigits);
-//       inputRefs.current[Math.min(pasted.length - 1, OTP_LENGTH - 1)]?.focus();
-//       return;
-//     }
-//     const newDigits = [...digits];
-//     newDigits[index] = text.replace(/\D/g, '');
-//     setDigits(newDigits);
-//     if (text && index < OTP_LENGTH - 1) inputRefs.current[index + 1]?.focus();
-//   };
-
-//   const handleKeyPress = (e, index) => {
-//     if (e.nativeEvent.key === 'Backspace' && !digits[index] && index > 0) {
-//       inputRefs.current[index - 1]?.focus();
-//     }
-//   };
-
-//   // ── Save to Firebase exactly like screen22's handleContinue ──
-//   const saveToFirebase = async (phoneNumber) => {
-//     try {
-//       const timestamp = new Date();
-//       const submissionId = timestamp.toISOString().replace(/[:.]/g, '-');
-//       const userDocRef = doc(db, 'questionnaire_submissions', phoneNumber);
-
-//       const userDoc = await getDoc(userDocRef);
-//       const currentCount = userDoc.exists() ? (userDoc.data().total_submissions || 0) : 0;
-//       const newVersion = currentCount + 1;
-
-//       // Save versioned submission (same structure as screen22)
-//       const submissionsColRef = collection(userDocRef, 'submissions');
-//       await setDoc(doc(submissionsColRef, submissionId), {
-//         raw_answers: {},                        // empty at auth stage — questionnaire fills this later
-//         timestamp: timestamp.toISOString(),
-//         submitted_at: timestamp,
-//         version: newVersion,
-//         auth_only: true,                        // flag so you know this is just the auth record
-//       });
-
-//       // Main document (same fields as screen22)
-//       await setDoc(userDocRef, {
-//         phone_number: phoneNumber,
-//         full_name: '',                          // screen19 fills this — blank at auth stage
-//         email: '',
-//         latest_submission_date: timestamp.toISOString(),
-//         latest_submission_id: submissionId,
-//         total_submissions: newVersion,
-//         last_updated: timestamp,
-//         createdAt: userDoc.exists()
-//           ? (userDoc.data().createdAt ?? timestamp.toISOString())
-//           : timestamp.toISOString(),
-//         timestamp: timestamp.toISOString(),
-//       }, { merge: true });                      // merge: true so later questionnaire saves don't overwrite
-
-//       console.log('✅ Phone saved to Firebase:', phoneNumber, '(version:', newVersion, ')');
-//     } catch (error) {
-//       console.error('❌ Firebase save error:', error);
-//       // Non-blocking — don't fail the login just because Firebase had an issue
-//     }
-//   };
-
-//   // ── Same verifyOTP logic as screen19 ──
-//   const verifyOTP = async (otpCode) => {
-//     setLoading(true);
-//     try {
-//       if (otpCode === generatedOTP && Date.now() <= otpExpiry) {
-
-//         // 1️⃣ Same AsyncStorage save as screen19
-//         await AsyncStorage.setItem('user_phone', phone);
-//         await AsyncStorage.setItem('auth_token', 'verified');
-//         await AsyncStorage.setItem('auth_timestamp', Date.now().toString());
-//         console.log('✅ Phone saved to AsyncStorage:', phone);
-
-//         // 2️⃣ Save to Firebase (same structure as screen22)
-//         await saveToFirebase(phone);
-
-//         // 3️⃣ Skip screen19 → go directly to screen20
-//         //    (screen19 used to do: router.push('/(gowealthy)/questionnaire/section5/screen20'))
-//         router.replace('/(gowealthy)');
-
-//       } else if (Date.now() > otpExpiry) {
-//         Alert.alert('OTP Expired', 'OTP has expired. Please request a new one.');
-//         setDigits(Array(OTP_LENGTH).fill(''));
-//         inputRefs.current[0]?.focus();
-//       } else {
-//         Alert.alert('Invalid OTP', 'Incorrect OTP. Please try again.');
-//         setDigits(Array(OTP_LENGTH).fill(''));
-//         inputRefs.current[0]?.focus();
-//       }
-//     } catch (err) {
-//       console.error('Verify OTP Error:', err);
-//       Alert.alert('Error', 'Verification failed. Please try again.');
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const handleVerify = () => {
-//     if (!isComplete || loading) return;
-//     verifyOTP(fullOtp);
-//   };
-
-//   // ── Same resendOTP as screen19 ──
-//   const resendOTP = async () => {
-//     if (countdown > 0 || loading) return;
-//     const newOTP = generateOTP();
-//     const newExpiry = Date.now() + 5 * 60 * 1000;
-//     setGeneratedOTP(newOTP);
-//     setOtpExpiry(newExpiry);
-//     setDigits(Array(OTP_LENGTH).fill(''));
-//     setCountdown(RESEND_COOLDOWN);
-//     inputRefs.current[0]?.focus();
-
-//     try {
-//       await fetch(BUBBLE_API_URL, {
-//         method: 'POST',
-//         headers: { 'Content-Type': 'application/json', 'Authorization': VITE_BUBBLE_AUTH },
-//         body: JSON.stringify({
-//           jid: `91${phone}`,
-//           message: `Your OTP is ${newOTP} for GoWealthy. Please do not share it with anyone. Valid for 5 minutes.`,
-//         }),
-//       });
-//     } catch (err) {
-//       console.error('Resend OTP Error:', err);
-//     }
-//   };
-
-//   return (
-//     <>
-//       <StatusBar barStyle="light-content" backgroundColor="#000000" />
-//       <View style={styles.container}>
-//         <KeyboardAvoidingView
-//           style={{ flex: 1 }}
-//           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-//         >
-//           <ScrollView
-//             contentContainerStyle={styles.scrollContent}
-//             keyboardShouldPersistTaps="handled"
-//             showsVerticalScrollIndicator={false}
-//           >
-//             <View style={styles.inner}>
-
-//               <View style={styles.brandSection}>
-//                 <Text style={styles.welcomeText}>Welcome Back to</Text>
-//                 <Text style={styles.brandName}>GoWealthy</Text>
-//                 <Text style={styles.tagline}>Enter the OTP sent to your WhatsApp</Text>
-//               </View>
-
-//               <View style={styles.formSection}>
-//                 <Text style={styles.label}>Enter OTP</Text>
-//                 <Text style={styles.phoneLine}>Sent to +91 {phone}</Text>
-
-//                 <View style={styles.otpRow}>
-//                   {digits.map((digit, index) => (
-//                     <TextInput
-//                       key={index}
-//                       ref={ref => (inputRefs.current[index] = ref)}
-//                       style={[styles.otpBox, digit ? styles.otpBoxFilled : null]}
-//                       value={digit}
-//                       onChangeText={text => handleDigitChange(text, index)}
-//                       onKeyPress={e => handleKeyPress(e, index)}
-//                       keyboardType="numeric"
-//                       maxLength={OTP_LENGTH}
-//                       selectTextOnFocus
-//                       caretHidden
-//                       autoFocus={index === 0}
-//                       returnKeyType="done"
-//                       onSubmitEditing={handleVerify}
-//                     />
-//                   ))}
-//                 </View>
-
-//                 <TouchableOpacity
-//                   onPress={handleVerify}
-//                   disabled={!isComplete || loading}
-//                   activeOpacity={0.85}
-//                 >
-//                   {isComplete ? (
-//                     <LinearGradient
-//                       colors={['#FF8500', '#FF5500']}
-//                       start={{ x: 0, y: 0 }}
-//                       end={{ x: 1, y: 0 }}
-//                       style={styles.ctaButton}
-//                     >
-//                       {loading
-//                         ? <ActivityIndicator color="#fff" />
-//                         : <Text style={styles.ctaText}>Verify & Login</Text>
-//                       }
-//                     </LinearGradient>
-//                   ) : (
-//                     <View style={[styles.ctaButton, styles.ctaDisabled]}>
-//                       <Text style={[styles.ctaText, { color: 'rgba(255,255,255,0.3)' }]}>Verify & Login</Text>
-//                     </View>
-//                   )}
-//                 </TouchableOpacity>
-
-//                 {/* Resend — same wording as screen19 */}
-//                 <View style={styles.resendContainer}>
-//                   <TouchableOpacity onPress={resendOTP} disabled={countdown > 0 || loading}>
-//                     <Text style={[styles.resendText, (countdown > 0 || loading) && styles.resendTextDisabled]}>
-//                       {countdown > 0
-//                         ? `Resend code in ${countdown}s`
-//                         : "Didn't receive the code? Click to resend"}
-//                     </Text>
-//                   </TouchableOpacity>
-//                 </View>
-
-//                 <TouchableOpacity onPress={() => router.back()} style={styles.changeLinkRow}>
-//                   <Text style={styles.changeLink}>Change phone number</Text>
-//                 </TouchableOpacity>
-
-//               </View>
-//             </View>
-//           </ScrollView>
-//         </KeyboardAvoidingView>
-//       </View>
-//     </>
-//   );
-// };
-
-// const styles = StyleSheet.create({
-//   container: { flex: 1, backgroundColor: '#000000' },
-//   scrollContent: { flexGrow: 1, justifyContent: 'center' },
-//   inner: {
-//     flex: 1,
-//     justifyContent: 'center',
-//     paddingHorizontal: isMobile ? 28 : 48,
-//     paddingVertical: 60,
-//     maxWidth: 480,
-//     alignSelf: 'center',
-//     width: '100%',
-//   },
-//   brandSection: { alignItems: 'center', marginBottom: isMobile ? 52 : 68 },
-//   welcomeText: { fontSize: isMobile ? 22 : 26, fontWeight: '700', color: '#ffffff', textAlign: 'center', marginBottom: 4 },
-//   brandName: { fontSize: isMobile ? 32 : 38, fontWeight: '800', color: '#FF8500', textAlign: 'center', marginBottom: 12 },
-//   tagline: { fontSize: isMobile ? 14 : 16, color: 'rgba(255,255,255,0.4)', textAlign: 'center' },
-//   formSection: { width: '100%', alignItems: 'center' },
-//   label: { fontSize: 14, fontWeight: '600', color: '#ffffff', marginBottom: 6, alignSelf: 'flex-start' },
-//   phoneLine: { fontSize: 13, color: '#FF8500', marginBottom: 20, alignSelf: 'flex-start', fontWeight: '500' },
-//   otpRow: {
-//     flexDirection: 'row',
-//     gap: isMobile ? 10 : 12,
-//     marginBottom: 28,
-//     justifyContent: 'center',
-//     width: '100%',
-//   },
-//   otpBox: {
-//     width: isMobile ? 46 : 52,
-//     height: isMobile ? 56 : 64,
-//     backgroundColor: '#111111',
-//     borderRadius: 12,
-//     borderWidth: 1.5,
-//     borderColor: 'rgba(255,255,255,0.12)',
-//     fontSize: isMobile ? 22 : 26,
-//     fontWeight: '700',
-//     color: '#ffffff',
-//     textAlign: 'center',
-//   },
-//   otpBoxFilled: {
-//     borderColor: '#FF8500',
-//     backgroundColor: 'rgba(255,133,0,0.08)',
-//   },
-//   ctaButton: {
-//     width: '100%',
-//     paddingVertical: isMobile ? 17 : 19,
-//     alignItems: 'center',
-//     justifyContent: 'center',
-//     borderRadius: 14,
-//     marginBottom: 20,
-//   },
-//   ctaDisabled: { backgroundColor: '#111111', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-//   ctaText: { fontSize: 16, fontWeight: '700', color: '#ffffff' },
-//   resendContainer: { marginBottom: 16, alignItems: 'center' },
-//   resendText: { fontSize: 13, fontWeight: '500', color: '#6366f1' },
-//   resendTextDisabled: { color: 'rgba(255,255,255,0.3)' },
-//   changeLinkRow: { marginBottom: 8 },
-//   changeLink: { color: 'rgba(255,255,255,0.4)', fontSize: 14, textAlign: 'center' },
-// });
-
-// export default OtpScreen;
-
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StatusBar, StyleSheet, KeyboardAvoidingView,
-  Platform, ScrollView, ActivityIndicator, Alert, Animated,
+  Platform, ScrollView, ActivityIndicator, Alert,
+  Animated, Dimensions, Easing, Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Firebase — same as screen22
 import { db } from '../../src/config/firebase';
 import { doc, setDoc, getDoc, collection } from 'firebase/firestore';
 
-// Same BubbleWhats credentials as screen19
+const { width: W, height: H } = Dimensions.get('window');
+const ND = Platform.OS !== 'web';
+
+// ── Same credentials — untouched ────────────────────────────────────────────
 const VITE_BUBBLE_ID   = '9110';
 const VITE_BUBBLE_AUTH = 'MzU3MGJlNWZjMGU5NDM3OGQyOTE1ZTU0';
 const BUBBLE_API_URL   = `https://${VITE_BUBBLE_ID}.bubblewhats.com/send-message`;
 const generateOTP      = () => Math.floor(100000 + Math.random() * 900000).toString();
 
-// Design tokens
+// ── Design tokens ────────────────────────────────────────────────────────────
 const C = {
-  bg: '#030712', card: '#111827', cardBorder: '#1f2937',
-  orange: '#FF8500', orangeDim: 'rgba(255,133,0,0.1)',
-  orangeBorder: 'rgba(255,133,0,0.35)',
-  purple: '#6366f1',
-  white: '#ffffff', gray300: '#d1d5db',
-  gray400: '#9ca3af', gray600: '#4b5563',
-  inputBg: '#0d1117',
-  green: '#10b981',
+  bg:          '#000000',
+  card:        '#0d1117',
+  cardBorder:  '#1a2332',
+  orange:      '#FF8500',
+  orangeFaint: 'rgba(255,133,0,0.08)',
+  orangeBorder:'rgba(255,133,0,0.35)',
+  purple:      '#6C50C4',
+  green:       '#10b981',
+  greenFaint:  'rgba(16,185,129,0.1)',
+  white:       '#ffffff',
+  gray300:     '#d1d5db',
+  gray400:     '#9ca3af',
+  gray500:     '#6b7280',
+  gray600:     '#4b5563',
+  gray700:     '#374151',
+  inputBg:     '#080d14',
 };
 
 const OTP_LEN = 6;
 const COOLDOWN = 60;
 
+// ── Breathing glow blob ──────────────────────────────────────────────────────
+const GlowBlob = ({ style, color, duration = 4500, delay = 0 }) => {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const t = setTimeout(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, { toValue: 1, duration, useNativeDriver: ND }),
+          Animated.timing(anim, { toValue: 0, duration, useNativeDriver: ND }),
+        ])
+      ).start();
+    }, delay);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[style, {
+        backgroundColor: color,
+        opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [0.06, 0.20] }),
+      }]}
+    />
+  );
+};
+
+// ── Floating particle ────────────────────────────────────────────────────────
+const Particle = ({ x, y, size, delay, color, duration }) => {
+  const opacity    = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    setTimeout(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(opacity,    { toValue: 0.6, duration: duration * 0.4, easing: Easing.out(Easing.quad), useNativeDriver: ND }),
+            Animated.timing(translateY, { toValue: -10,  duration,                 easing: Easing.inOut(Easing.sin), useNativeDriver: ND }),
+          ]),
+          Animated.parallel([
+            Animated.timing(opacity,    { toValue: 0.1, duration: duration * 0.4, easing: Easing.in(Easing.quad),  useNativeDriver: ND }),
+            Animated.timing(translateY, { toValue: 0,    duration,                 easing: Easing.inOut(Easing.sin), useNativeDriver: ND }),
+          ]),
+        ])
+      ).start();
+    }, delay);
+  }, []);
+  return (
+    <Animated.View style={{
+      position: 'absolute', left: x, top: y,
+      width: size, height: size, borderRadius: size / 2,
+      backgroundColor: color, opacity, transform: [{ translateY }],
+    }} />
+  );
+};
+
+const PARTICLES = [
+  { x: W * 0.08,  y: H * 0.12, size: 3,   delay: 200,  color: '#FF8500', duration: 3400 },
+  { x: W * 0.86,  y: H * 0.10, size: 4,   delay: 600,  color: '#FF8500', duration: 2800 },
+  { x: W * 0.10,  y: H * 0.70, size: 2.5, delay: 400,  color: '#6C50C4', duration: 3800 },
+  { x: W * 0.88,  y: H * 0.65, size: 3,   delay: 800,  color: '#6C50C4', duration: 2600 },
+  { x: W * 0.48,  y: H * 0.04, size: 3.5, delay: 500,  color: '#FF8500', duration: 3200 },
+  { x: W * 0.94,  y: H * 0.40, size: 2,   delay: 1000, color: '#FF8500', duration: 4200 },
+];
+
+// ── Screen ───────────────────────────────────────────────────────────────────
 const OtpScreen = () => {
   const router = useRouter();
   const { phone, otp: initOtp, expiry: initExpiry } = useLocalSearchParams();
 
-  const [genOTP, setGenOTP]     = useState(initOtp || '');
-  const [expiry, setExpiry]     = useState(parseInt(initExpiry) || 0);
-  const [digits, setDigits]     = useState(Array(OTP_LEN).fill(''));
-  const [loading, setLoading]   = useState(false);
-  const [timer, setTimer]       = useState(COOLDOWN);
+  const [genOTP, setGenOTP]   = useState(initOtp || '');
+  const [expiry, setExpiry]   = useState(parseInt(initExpiry) || 0);
+  const [digits, setDigits]   = useState(Array(OTP_LEN).fill(''));
+  const [loading, setLoading] = useState(false);
+  const [timer, setTimer]     = useState(COOLDOWN);
   const refs = useRef([]);
 
   const fadeAnim  = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(24)).current;
+  const slideAnim = useRef(new Animated.Value(28)).current;
+  const cardAnim  = useRef(new Animated.Value(0)).current;
+  const cardSlide = useRef(new Animated.Value(32)).current;
+
+  // Box shake on wrong OTP
+  const shakeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim,  { toValue: 1, duration: 500, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 500, useNativeDriver: true }),
+    Animated.stagger(120, [
+      Animated.parallel([
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 500, easing: Easing.out(Easing.quad), useNativeDriver: ND }),
+        Animated.spring(slideAnim, { toValue: 0, tension: 60, friction: 9, useNativeDriver: ND }),
+      ]),
+      Animated.parallel([
+        Animated.timing(cardAnim,  { toValue: 1, duration: 500, easing: Easing.out(Easing.quad), useNativeDriver: ND }),
+        Animated.spring(cardSlide, { toValue: 0, tension: 55, friction: 9, useNativeDriver: ND }),
+      ]),
     ]).start();
   }, []);
 
@@ -400,11 +147,22 @@ const OtpScreen = () => {
     return () => clearTimeout(t);
   }, [timer]);
 
-  const fullOtp   = digits.join('');
-  const isReady   = fullOtp.length === OTP_LEN;
+  const fullOtp = digits.join('');
+  const isReady = fullOtp.length === OTP_LEN;
 
+  const shakeBoxes = () => {
+    shakeAnim.setValue(0);
+    Animated.sequence([
+      Animated.timing(shakeAnim, { toValue: 8,  duration: 60, useNativeDriver: ND }),
+      Animated.timing(shakeAnim, { toValue: -8, duration: 60, useNativeDriver: ND }),
+      Animated.timing(shakeAnim, { toValue: 6,  duration: 60, useNativeDriver: ND }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 60, useNativeDriver: ND }),
+      Animated.timing(shakeAnim, { toValue: 0,  duration: 60, useNativeDriver: ND }),
+    ]).start();
+  };
+
+  // ── Untouched logic ───────────────────────────────────────────────────────
   const onDigit = (text, i) => {
-    // Paste support
     if (text.length > 1) {
       const pasted = text.replace(/\D/g, '').slice(0, OTP_LEN).split('');
       const next   = Array(OTP_LEN).fill('');
@@ -424,15 +182,13 @@ const OtpScreen = () => {
       refs.current[i - 1]?.focus();
   };
 
-  // Save to Firebase — same structure as screen22
   const saveToFirebase = async (phoneNumber) => {
     try {
-      const ts  = new Date();
-      const sid = ts.toISOString().replace(/[:.]/g, '-');
-      const ref = doc(db, 'questionnaire_submissions', phoneNumber);
+      const ts   = new Date();
+      const sid  = ts.toISOString().replace(/[:.]/g, '-');
+      const ref  = doc(db, 'questionnaire_submissions', phoneNumber);
       const snap = await getDoc(ref);
       const count = snap.exists() ? (snap.data().total_submissions || 0) : 0;
-
       await setDoc(doc(collection(ref, 'submissions'), sid), {
         raw_answers: {}, timestamp: ts.toISOString(),
         submitted_at: ts, version: count + 1, auth_only: true,
@@ -446,14 +202,9 @@ const OtpScreen = () => {
         createdAt: snap.exists() ? (snap.data().createdAt ?? ts.toISOString()) : ts.toISOString(),
         timestamp: ts.toISOString(),
       }, { merge: true });
-
-      console.log('✅ Phone saved to Firebase:', phoneNumber, '(version:', count + 1, ')');
-    } catch (e) {
-      console.error('❌ Firebase save error:', e);
-    }
+    } catch (e) { console.error('❌ Firebase save error:', e); }
   };
 
-  // Same verifyOTP logic as screen19
   const verify = async (code) => {
     setLoading(true);
     try {
@@ -461,7 +212,6 @@ const OtpScreen = () => {
         await AsyncStorage.setItem('user_phone', phone);
         await AsyncStorage.setItem('auth_token', 'verified');
         await AsyncStorage.setItem('auth_timestamp', Date.now().toString());
-        console.log('✅ Phone saved to AsyncStorage:', phone);
         await saveToFirebase(phone);
         router.replace('/(gowealthy)');
       } else if (Date.now() > expiry) {
@@ -469,11 +219,12 @@ const OtpScreen = () => {
         setDigits(Array(OTP_LEN).fill(''));
         refs.current[0]?.focus();
       } else {
+        shakeBoxes();
         Alert.alert('Incorrect OTP', 'Please try again.');
         setDigits(Array(OTP_LEN).fill(''));
         refs.current[0]?.focus();
       }
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Verification failed. Please try again.');
     } finally {
       setLoading(false);
@@ -482,7 +233,6 @@ const OtpScreen = () => {
 
   const handleVerify = () => { if (isReady && !loading) verify(fullOtp); };
 
-  // Same resendOTP as screen19
   const resend = async () => {
     if (timer > 0 || loading) return;
     const otp = generateOTP();
@@ -503,91 +253,148 @@ const OtpScreen = () => {
     } catch (e) { console.error('Resend error:', e); }
   };
 
+  // Box state color
+  const getBoxStyle = (i) => {
+    const d = digits[i];
+    if (isReady) return s.boxReady;
+    if (d)       return s.boxFilled;
+    return null;
+  };
+
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor={C.bg} />
+      <StatusBar barStyle="light-content" backgroundColor="#000" translucent />
       <View style={s.root}>
+
+        {/* Background gradient */}
+        <LinearGradient
+          colors={['#0a0408', '#060308', '#000000', '#04030a']}
+          locations={[0, 0.35, 0.65, 1]}
+          start={{ x: 0.2, y: 0 }} end={{ x: 0.8, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {/* Glow blobs */}
+        <GlowBlob color="#6C50C4" duration={5000} delay={0}
+          style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, top: -80, right: -80 }} />
+        <GlowBlob color="#FF8500" duration={4200} delay={600}
+          style={{ position: 'absolute', width: 280, height: 280, borderRadius: 140, bottom: 20, left: -80 }} />
+
+        {/* Particles */}
+        {PARTICLES.map((p, i) => <Particle key={i} {...p} />)}
+
         <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
           <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-            <Animated.View style={[s.inner, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
-
-              {/* Back */}
+            {/* Back */}
+            <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
               <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
                 <Text style={s.backBtnText}>← Back</Text>
               </TouchableOpacity>
+            </Animated.View>
 
-              {/* Brand */}
-              <View style={s.brand}>
+            {/* Brand */}
+            <Animated.View style={[s.brand, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
+              <Image
+                source={require('../../assets/images/logo.png')}
+                style={s.logoImg}
+                resizeMode="contain"
+              />
+              <View>
                 <Text style={s.brandSub}>Verifying your number</Text>
-                <Text style={s.brandName}>GoWealthy</Text>
+                <Text style={s.brandName}>
+                  <Text style={s.brandNameLight}>Go</Text>Wealthy
+                </Text>
               </View>
+            </Animated.View>
 
-              {/* Card */}
-              <View style={s.card}>
-                <Text style={s.cardTitle}>Enter OTP</Text>
+            {/* Card */}
+            <Animated.View style={[s.card, { opacity: cardAnim, transform: [{ translateY: cardSlide }] }]}>
 
-                {/* Phone line */}
-                <View style={s.phoneRow}>
-                  <Text style={s.phoneLabel}>Sent to WhatsApp: </Text>
-                  <Text style={s.phoneNum}>+91 {phone}</Text>
-                  <TouchableOpacity onPress={() => router.back()} style={s.editBtn}>
-                    <Text style={s.editBtnText}>Edit</Text>
-                  </TouchableOpacity>
+              {/* Card top accent line */}
+              <LinearGradient
+                colors={['#6C50C4', '#FF8500']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={s.cardTopLine}
+              />
+
+              <Text style={s.cardTitle}>Enter OTP</Text>
+
+              {/* Phone line */}
+              <View style={s.phoneRow}>
+                <View style={s.phonePill}>
+                  <Text style={s.phonePillText}>📲  +91 {phone}</Text>
                 </View>
-
-                {/* OTP boxes */}
-                <View style={s.otpRow}>
-                  {digits.map((d, i) => (
-                    <TextInput
-                      key={i}
-                      ref={r => (refs.current[i] = r)}
-                      style={[s.box, d ? s.boxFilled : null, isReady && s.boxReady]}
-                      value={d}
-                      onChangeText={t => onDigit(t, i)}
-                      onKeyPress={e => onKey(e, i)}
-                      keyboardType="numeric"
-                      maxLength={OTP_LEN}
-                      selectTextOnFocus
-                      caretHidden
-                      autoFocus={i === 0}
-                      returnKeyType="done"
-                      onSubmitEditing={handleVerify}
-                    />
-                  ))}
-                </View>
-
-                {/* Verify btn */}
-                <TouchableOpacity onPress={handleVerify} disabled={!isReady || loading} activeOpacity={0.86}>
-                  {isReady ? (
-                    <LinearGradient
-                      colors={['#FF8500', '#e86200']}
-                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                      style={s.btn}
-                    >
-                      {loading
-                        ? <ActivityIndicator color="#fff" />
-                        : <Text style={s.btnText}>Verify & Continue →</Text>
-                      }
-                    </LinearGradient>
-                  ) : (
-                    <View style={[s.btn, s.btnDisabled]}>
-                      <Text style={[s.btnText, { color: C.gray600 }]}>Verify & Continue →</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                {/* Resend — same wording as screen19 */}
-                <TouchableOpacity onPress={resend} disabled={timer > 0 || loading} style={s.resendRow}>
-                  <Text style={[s.resendText, timer > 0 && s.resendDisabled]}>
-                    {timer > 0
-                      ? `Resend code in ${timer}s`
-                      : "Didn't receive the code? Resend"}
-                  </Text>
+                <TouchableOpacity onPress={() => router.back()} style={s.editBtn}>
+                  <Text style={s.editBtnText}>Edit</Text>
                 </TouchableOpacity>
               </View>
+
+              {/* OTP boxes */}
+              <Animated.View style={[s.otpRow, { transform: [{ translateX: shakeAnim }] }]}>
+                {digits.map((d, i) => (
+                  <TextInput
+                    key={i}
+                    ref={r => (refs.current[i] = r)}
+                    style={[s.box, getBoxStyle(i)]}
+                    value={d}
+                    onChangeText={t => onDigit(t, i)}
+                    onKeyPress={e => onKey(e, i)}
+                    keyboardType="numeric"
+                    maxLength={OTP_LEN}
+                    selectTextOnFocus
+                    caretHidden
+                    autoFocus={i === 0}
+                    returnKeyType="done"
+                    onSubmitEditing={handleVerify}
+                  />
+                ))}
+              </Animated.View>
+
+              {/* Verify button */}
+              <TouchableOpacity onPress={handleVerify} disabled={!isReady || loading} activeOpacity={0.86}>
+                {isReady ? (
+                  <LinearGradient
+                    colors={['#FF8500', '#d96800']}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={s.btn}
+                  >
+                    {loading
+                      ? <ActivityIndicator color="#fff" />
+                      : <Text style={s.btnText}>Verify & Continue  →</Text>
+                    }
+                  </LinearGradient>
+                ) : (
+                  <View style={[s.btn, s.btnDisabled]}>
+                    <Text style={[s.btnText, { color: C.gray600 }]}>Verify & Continue  →</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              {/* Resend */}
+              <TouchableOpacity onPress={resend} disabled={timer > 0 || loading} style={s.resendRow}>
+                {timer > 0 ? (
+                  <View style={s.timerWrap}>
+                    <View style={s.timerDot} />
+                    <Text style={s.timerText}>Resend in {timer}s</Text>
+                  </View>
+                ) : (
+                  <Text style={s.resendActive}>Didn't receive it? Resend →</Text>
+                )}
+              </TouchableOpacity>
 
             </Animated.View>
+
+            {/* Bottom trust */}
+            <Animated.View style={[s.trust, { opacity: cardAnim }]}>
+              {['🔒 Secure', '🇮🇳 Made in India', '✦ GoChanakya'].map((t, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <View style={s.trustDiv} />}
+                  <Text style={s.trustText}>{t}</Text>
+                </React.Fragment>
+              ))}
+            </Animated.View>
+
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -596,71 +403,103 @@ const OtpScreen = () => {
 };
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: C.bg },
-  scroll: { flexGrow: 1, justifyContent: 'center', padding: 24 },
-  inner: { maxWidth: 420, alignSelf: 'center', width: '100%' },
+  root:   { flex: 1, backgroundColor: '#000' },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 60 },
 
-  backBtn: { marginBottom: 32 },
-  backBtnText: { fontSize: 14, color: C.gray400, fontWeight: '500' },
+  backBtn:     { marginBottom: 36 },
+  backBtnText: { fontSize: 14, color: C.gray500, fontWeight: '500' },
 
-  brand: { marginBottom: 28 },
-  brandSub: { fontSize: 13, color: C.gray400, fontWeight: '500', marginBottom: 4 },
-  brandName: { fontSize: 32, fontWeight: '800', color: C.orange, letterSpacing: -0.5 },
+  brand: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: 14, marginBottom: 32,
+  },
+  logoImg:        { width: 44, height: 44, borderRadius: 12 },
+  brandSub:       { fontSize: 12, color: C.gray500, fontWeight: '500', marginBottom: 2 },
+  brandName:      { fontSize: 26, fontWeight: '800', color: C.orange, letterSpacing: -0.5, fontFamily: 'Syne' },
+  brandNameLight: { color: 'rgba(255,255,255,0.55)', fontWeight: '300' },
 
+  // Card
   card: {
-    backgroundColor: C.card,
+    backgroundColor: 'rgba(13,17,23,0.85)',
     borderWidth: 1, borderColor: C.cardBorder,
-    borderRadius: 20, padding: 24,
+    borderRadius: 24, overflow: 'hidden',
+    paddingHorizontal: 24, paddingBottom: 28, paddingTop: 0,
+    maxWidth: 440, alignSelf: 'stretch',
   },
+  cardTopLine: { height: 2, width: '100%', marginBottom: 28 },
   cardTitle: {
-    fontSize: 22, fontWeight: '800',
-    color: C.white, marginBottom: 14, letterSpacing: -0.3,
+    fontSize: 24, fontWeight: '800', color: C.white,
+    marginBottom: 18, letterSpacing: -0.4, fontFamily: 'Syne',
   },
 
+  // Phone pill
   phoneRow: {
     flexDirection: 'row', alignItems: 'center',
-    marginBottom: 28, flexWrap: 'wrap', gap: 4,
+    gap: 10, marginBottom: 28, flexWrap: 'wrap',
   },
-  phoneLabel: { fontSize: 13, color: C.gray400 },
-  phoneNum:   { fontSize: 13, color: C.white, fontWeight: '700' },
+  phonePill: {
+    backgroundColor: 'rgba(255,133,0,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,133,0,0.2)',
+    borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
+  },
+  phonePillText: { fontSize: 13, color: C.gray300, fontWeight: '600' },
   editBtn: {
-    marginLeft: 6,
-    backgroundColor: C.orangeDim,
-    borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 3,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: C.cardBorder,
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
   },
-  editBtnText: { fontSize: 11, color: C.orange, fontWeight: '700' },
+  editBtnText: { fontSize: 12, color: C.gray400, fontWeight: '600' },
 
+  // OTP boxes
   otpRow: {
     flexDirection: 'row', justifyContent: 'space-between',
-    marginBottom: 24, gap: 8,
+    marginBottom: 26, gap: 8,
   },
   box: {
-    flex: 1, aspectRatio: 0.9,
+    flex: 1, aspectRatio: 0.85,
     backgroundColor: C.inputBg,
     borderWidth: 1.5, borderColor: C.cardBorder,
-    borderRadius: 12,
+    borderRadius: 14,
     fontSize: 22, fontWeight: '800',
     color: C.white, textAlign: 'center',
     maxWidth: 52,
   },
-  boxFilled: { borderColor: C.orange, backgroundColor: 'rgba(255,133,0,0.07)' },
-  boxReady:  { borderColor: C.green },
+  boxFilled: {
+    borderColor: C.orange,
+    backgroundColor: 'rgba(255,133,0,0.06)',
+  },
+  boxReady: {
+    borderColor: C.green,
+    backgroundColor: C.greenFaint,
+  },
 
+  // Buttons
   btn: {
-    borderRadius: 12, paddingVertical: 15,
+    borderRadius: 14, paddingVertical: 16,
     alignItems: 'center', justifyContent: 'center',
     marginBottom: 16,
   },
   btnDisabled: {
-    backgroundColor: '#0d1117',
+    backgroundColor: '#080d14',
     borderWidth: 1, borderColor: C.cardBorder,
   },
   btnText: { fontSize: 15, fontWeight: '800', color: C.white, letterSpacing: 0.3 },
 
-  resendRow: { alignItems: 'center', paddingTop: 4 },
-  resendText: { fontSize: 13, color: C.purple, fontWeight: '600' },
-  resendDisabled: { color: C.gray600 },
+  // Resend
+  resendRow:   { alignItems: 'center', paddingTop: 2 },
+  timerWrap:   { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  timerDot:    { width: 6, height: 6, borderRadius: 3, backgroundColor: C.gray700 },
+  timerText:   { fontSize: 13, color: C.gray600, fontWeight: '500' },
+  resendActive:{ fontSize: 13, color: C.orange, fontWeight: '700' },
+
+  // Trust
+  trust: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', marginTop: 28,
+    gap: 10, flexWrap: 'wrap',
+  },
+  trustDiv:  { width: 1, height: 10, backgroundColor: C.gray700 },
+  trustText: { fontSize: 11, color: 'rgba(255,255,255,0.2)', fontWeight: '500' },
 });
 
 export default OtpScreen;
