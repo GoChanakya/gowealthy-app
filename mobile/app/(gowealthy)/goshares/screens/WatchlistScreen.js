@@ -553,7 +553,7 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
               style={styles.modalInput}
               value={tagInput}
               onChangeText={setTagInput}
-              placeholder="e.g., Ankur"
+              placeholder="e.g., Ankur, Long-term, etc."
               placeholderTextColor="#666"
             />
 

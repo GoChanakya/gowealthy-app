@@ -106,7 +106,7 @@ useFocusEffect(
             <Text style={styles.backButtonText}>←</Text>
           </TouchableOpacity>
         )}
-        <Text style={styles.appName}>GoWealthy</Text>
+        {/* <Text style={styles.appName}>GoWealthy</Text> */}
         {!hideHeader && <View style={styles.backButton} />}
       </View>
 

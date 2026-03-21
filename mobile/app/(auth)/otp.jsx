@@ -13,6 +13,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../src/config/firebase';
 import { doc, setDoc, getDoc, collection } from 'firebase/firestore';
 
+
 const { width: W, height: H } = Dimensions.get('window');
 const ND = Platform.OS !== 'web';
 
@@ -111,7 +112,9 @@ const PARTICLES = [
 // ── Screen ───────────────────────────────────────────────────────────────────
 const OtpScreen = () => {
   const router = useRouter();
-  const { phone, otp: initOtp, expiry: initExpiry } = useLocalSearchParams();
+  // const { phone, otp: initOtp, expiry: initExpiry } = useLocalSearchParams();
+  const { phone, otp: initOtp, expiry: initExpiry, name, email, isSignup } = useLocalSearchParams();
+
 
   const [genOTP, setGenOTP]   = useState(initOtp || '');
   const [expiry, setExpiry]   = useState(parseInt(initExpiry) || 0);
@@ -182,55 +185,91 @@ const OtpScreen = () => {
       refs.current[i - 1]?.focus();
   };
 
+  // const saveToFirebase = async (phoneNumber) => {
+  //   try {
+  //     const ts   = new Date();
+  //     const sid  = ts.toISOString().replace(/[:.]/g, '-');
+  //     const ref  = doc(db, 'questionnaire_submissions', phoneNumber);
+  //     const snap = await getDoc(ref);
+  //     const count = snap.exists() ? (snap.data().total_submissions || 0) : 0;
+  //     await setDoc(doc(collection(ref, 'submissions'), sid), {
+  //       raw_answers: {}, timestamp: ts.toISOString(),
+  //       submitted_at: ts, version: count + 1, auth_only: true,
+  //     });
+  //     await setDoc(ref, {
+  //       phone_number: phoneNumber, full_name: '', email: '',
+  //       latest_submission_date: ts.toISOString(),
+  //       latest_submission_id: sid,
+  //       total_submissions: count + 1,
+  //       last_updated: ts,
+  //       createdAt: snap.exists() ? (snap.data().createdAt ?? ts.toISOString()) : ts.toISOString(),
+  //       timestamp: ts.toISOString(),
+  //     }, { merge: true });
+  //   } catch (e) { console.error('❌ Firebase save error:', e); }
+  // };
+
+
   const saveToFirebase = async (phoneNumber) => {
-    try {
-      const ts   = new Date();
-      const sid  = ts.toISOString().replace(/[:.]/g, '-');
-      const ref  = doc(db, 'questionnaire_submissions', phoneNumber);
-      const snap = await getDoc(ref);
-      const count = snap.exists() ? (snap.data().total_submissions || 0) : 0;
-      await setDoc(doc(collection(ref, 'submissions'), sid), {
-        raw_answers: {}, timestamp: ts.toISOString(),
-        submitted_at: ts, version: count + 1, auth_only: true,
-      });
-      await setDoc(ref, {
-        phone_number: phoneNumber, full_name: '', email: '',
-        latest_submission_date: ts.toISOString(),
-        latest_submission_id: sid,
-        total_submissions: count + 1,
-        last_updated: ts,
-        createdAt: snap.exists() ? (snap.data().createdAt ?? ts.toISOString()) : ts.toISOString(),
-        timestamp: ts.toISOString(),
-      }, { merge: true });
-    } catch (e) { console.error('❌ Firebase save error:', e); }
-  };
+  try {
+    const ts  = new Date();
+    const sid = ts.toISOString().replace(/[:.]/g, '-');
+    const ref = doc(db, 'questionnaire_submissions', phoneNumber);
+    const snap = await getDoc(ref);
+    const count = snap.exists() ? (snap.data().total_submissions || 0) : 0;
+    await setDoc(doc(collection(ref, 'submissions'), sid), {
+      raw_answers: {}, timestamp: ts.toISOString(),
+      submitted_at: ts, version: count + 1, auth_only: true,
+    });
+    await setDoc(ref, {
+      phone_number: phoneNumber,
+      full_name: isSignup === 'true' ? (name || '') : (snap.data()?.full_name || ''),
+      email: isSignup === 'true' ? (email || '') : (snap.data()?.email || ''),
+      latest_submission_date: ts.toISOString(),
+      latest_submission_id: sid,
+      total_submissions: count + 1,
+      last_updated: ts,
+      createdAt: snap.exists() ? (snap.data().createdAt ?? ts.toISOString()) : ts.toISOString(),
+      timestamp: ts.toISOString(),
+    }, { merge: true });
+  } catch (e) { console.error('Firebase save error:', e); }
+};
 
   const verify = async (code) => {
-    setLoading(true);
-    try {
-      if (code === genOTP && Date.now() <= expiry) {
-        await AsyncStorage.setItem('user_phone', phone);
-        await AsyncStorage.setItem('auth_token', 'verified');
-        await AsyncStorage.setItem('auth_timestamp', Date.now().toString());
-        await saveToFirebase(phone);
-        router.replace('/(gowealthy)');
-      } else if (Date.now() > expiry) {
-        Alert.alert('OTP Expired', 'Please request a new one.');
-        setDigits(Array(OTP_LEN).fill(''));
-        refs.current[0]?.focus();
-      } else {
-        shakeBoxes();
-        Alert.alert('Incorrect OTP', 'Please try again.');
-        setDigits(Array(OTP_LEN).fill(''));
-        refs.current[0]?.focus();
-      }
-    } catch {
-      Alert.alert('Error', 'Verification failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  setLoading(true);
+  try {
+    if (code === genOTP && Date.now() <= expiry) {
+      await AsyncStorage.setItem('user_phone', phone);
+      await AsyncStorage.setItem('auth_token', 'verified');
+      await AsyncStorage.setItem('auth_timestamp', Date.now().toString());
 
+      const snap = await getDoc(doc(db, 'questionnaire_submissions', phone));
+const snapAlt = !snap.exists()
+  ? await getDoc(doc(db, 'questionnaire_submissions', `+91${phone}`))
+  : null;
+const finalSnap = snap.exists() ? snap : snapAlt;
+
+if (!finalSnap?.exists() || !finalSnap.data()?.full_name) {
+  router.replace({ pathname: '/(auth)/details', params: { phone } });
+} else {
+  await saveToFirebase(phone);
+  router.replace('/(gowealthy)');
+}
+    } else if (Date.now() > expiry) {
+      Alert.alert('OTP Expired', 'Please request a new one.');
+      setDigits(Array(OTP_LEN).fill(''));
+      refs.current[0]?.focus();
+    } else {
+      shakeBoxes();
+      Alert.alert('Incorrect OTP', 'Please try again.');
+      setDigits(Array(OTP_LEN).fill(''));
+      refs.current[0]?.focus();
+    }
+  } catch {
+    Alert.alert('Error', 'Verification failed. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
   const handleVerify = () => { if (isReady && !loading) verify(fullOtp); };
 
   const resend = async () => {
@@ -334,20 +373,22 @@ const OtpScreen = () => {
               <Animated.View style={[s.otpRow, { transform: [{ translateX: shakeAnim }] }]}>
                 {digits.map((d, i) => (
                   <TextInput
-                    key={i}
-                    ref={r => (refs.current[i] = r)}
-                    style={[s.box, getBoxStyle(i)]}
-                    value={d}
-                    onChangeText={t => onDigit(t, i)}
-                    onKeyPress={e => onKey(e, i)}
-                    keyboardType="numeric"
-                    maxLength={OTP_LEN}
-                    selectTextOnFocus
-                    caretHidden
-                    autoFocus={i === 0}
-                    returnKeyType="done"
-                    onSubmitEditing={handleVerify}
-                  />
+  key={i}
+  ref={r => (refs.current[i] = r)}
+  style={[s.box, getBoxStyle(i)]}
+  value={d}
+  onChangeText={t => onDigit(t, i)}
+  onKeyPress={e => onKey(e, i)}
+  keyboardType="numeric"
+  maxLength={OTP_LEN}
+  textContentType="oneTimeCode"
+  autoComplete="sms-otp"
+  selectTextOnFocus
+  caretHidden
+  autoFocus={i === 0}
+  returnKeyType="done"
+  onSubmitEditing={handleVerify}
+/>
                 ))}
               </Animated.View>
 

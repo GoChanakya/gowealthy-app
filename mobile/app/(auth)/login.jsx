@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../src/config/firebase';
 
 const { width: W, height: H } = Dimensions.get('window');
 const ND = Platform.OS !== 'web';
@@ -137,31 +139,31 @@ const LoginScreen = () => {
   };
 
   const handleSendOTP = async () => {
-    if (!isValidPhone() || loading) return;
-    setLoading(true);
-    const otp    = generateOTP();
-    const expiry = (Date.now() + 5 * 60 * 1000).toString();
-    const clean  = phone.replace(/\D/g, '');
-    try {
-      const res = await fetch(BUBBLE_API_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': VITE_BUBBLE_AUTH },
-        body: JSON.stringify({
-          jid: `91${clean}`,
-          message: `Your OTP is ${otp} for GoWealthy. Please do not share it with anyone. Valid for 5 minutes.`,
-        }),
-      });
-      if (res.ok) {
-        router.push({ pathname: '/(auth)/otp', params: { phone: clean, otp, expiry } });
-      } else {
-        Alert.alert('Could not send OTP', 'Please check your number and try again.');
-      }
-    } catch {
-      Alert.alert('Network Error', 'Check your connection and try again.');
-    } finally {
-      setLoading(false);
+  if (!isValidPhone() || loading) return;
+  setLoading(true);
+  const otp    = generateOTP();
+  const expiry = (Date.now() + 5 * 60 * 1000).toString();
+  const clean  = phone.replace(/\D/g, '');
+  try {
+    const res = await fetch(BUBBLE_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': VITE_BUBBLE_AUTH },
+      body: JSON.stringify({
+        jid: `91${clean}`,
+        message: `Your OTP is ${otp} for GoWealthy. Please do not share it with anyone. Valid for 5 minutes.`,
+      }),
+    });
+    if (res.ok) {
+      router.push({ pathname: '/(auth)/otp', params: { phone: clean, otp, expiry } });
+    } else {
+      Alert.alert('Could not send OTP', 'Please check your number and try again.');
     }
-  };
+  } catch {
+    Alert.alert('Network Error', 'Check your connection and try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const valid = isValidPhone();
 
@@ -179,10 +181,10 @@ const LoginScreen = () => {
         />
 
         {/* Glow blobs */}
-        <GlowBlob color="#FF8500" duration={5000} delay={0}
+        {/* <GlowBlob color="#FF8500" duration={5000} delay={0}
           style={{ position: 'absolute', width: 300, height: 300, borderRadius: 150, top: -80, right: -80 }} />
         <GlowBlob color="#6C50C4" duration={4200} delay={600}
-          style={{ position: 'absolute', width: 280, height: 280, borderRadius: 140, bottom: 20, left: -80 }} />
+          style={{ position: 'absolute', width: 280, height: 280, borderRadius: 140, bottom: 20, left: -80 }} /> */}
 
         {/* Particles */}
         {PARTICLES.map((p, i) => <Particle key={i} {...p} />)}
@@ -280,6 +282,8 @@ const LoginScreen = () => {
                 <View style={s.waDot} />
                 <Text style={s.waNoteText}>OTP delivered via WhatsApp</Text>
               </View>
+
+          
 
             </Animated.View>
 
@@ -383,6 +387,8 @@ const s = StyleSheet.create({
   },
   waDot:     { width: 6, height: 6, borderRadius: 3, backgroundColor: '#25D366' },
   waNoteText:{ fontSize: 12, color: C.gray600, fontWeight: '500' },
+
+
 
   // Trust row
   trust: {
