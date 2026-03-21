@@ -476,12 +476,7 @@ const GoWealthyHome = () => {
 
   const renderLearn = () => <GowiserBlogList hideHeader={true} />;
 
-  const renderProfile = () => (
-    <View style={styles.emptyTabContainer}>
-      <Text style={styles.emptyTabEmoji}>👤</Text>
-      <Text style={styles.emptyTabText}>Profile coming soon</Text>
-    </View>
-  );
+const renderProfile = () => <ProfileScreen />;
 
   return (
     <>
