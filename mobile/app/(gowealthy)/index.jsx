@@ -520,6 +520,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../src/config/firebase';
 import { colors, globalStyles, shadows, isMobile } from '../../src/theme/globalStyles';
 import GowiserBlogList from './gowiser/index';
+import ProfileScreen from './profile';
 
 const { width: W, height: H } = Dimensions.get('window');
 const ND = Platform.OS !== 'web';
@@ -974,6 +975,7 @@ const GoWealthyHome = () => {
   );
 
   const renderLearn = () => <GowiserBlogList hideHeader={true} />;
+
   const renderProfile = () => (
     <View style={styles.emptyTabContainer}>
       <Text style={styles.emptyTabEmoji}>👤</Text>

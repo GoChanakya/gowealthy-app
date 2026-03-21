@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   View,
   Text,
@@ -25,10 +28,19 @@ const GowiserBlogList = ({ hideHeader = false }) => {
   const [activeFilter, setActiveFilter] = useState('new');
   const [completedIds, setCompletedIds] = useState([]);
 
+  // useEffect(() => {
+  //   fetchArticles();
+  //   fetchCompletedBlogs();
+  // }, []);
   useEffect(() => {
-    fetchArticles();
+  fetchArticles();
+}, []);
+
+useFocusEffect(
+  useCallback(() => {
     fetchCompletedBlogs();
-  }, []);
+  }, [])
+);
 
   const fetchArticles = async () => {
     try {
@@ -98,12 +110,24 @@ const GowiserBlogList = ({ hideHeader = false }) => {
         {!hideHeader && <View style={styles.backButton} />}
       </View>
 
-      <View style={styles.iqBanner}>
+      {/* <View style={styles.iqBanner}>
         <Text style={styles.iqTitle}>Increase your Financial IQ</Text>
         <Text style={styles.iqSubtitle}>
           Read stories, learn and earn <Text style={styles.iqOrange}>XP</Text>. Use XP to upgrade your portfolio.
         </Text>
-      </View>
+      </View> */}
+      <View style={styles.iqBanner}>
+  <LinearGradient
+    colors={['rgba(108,80,196,0.14)', 'rgba(108,80,196,0.03)', 'transparent']}
+    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+    style={StyleSheet.absoluteFill}
+    pointerEvents="none"
+  />
+  <Text style={styles.iqTitle}>Increase your Financial IQ</Text>
+  <Text style={styles.iqSubtitle}>
+    Read stories, learn and earn <Text style={styles.iqOrange}>XP</Text>. Use XP to upgrade your portfolio.
+  </Text>
+</View>
 
       <View style={styles.filterRow}>
         <TouchableOpacity
@@ -242,17 +266,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
+ 
   iqBanner: {
-    marginHorizontal: 16,
-    marginTop: 10,
-    marginBottom: 14,
-    backgroundColor: 'rgba(108,80,196,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(108,80,196,0.3)',
-    borderRadius: 14,
-    padding: 14,
-    alignItems: 'center',
-  },
+  marginHorizontal: 16,
+  marginTop: 10,
+  marginBottom: 14,
+  backgroundColor: '#0d1117',
+  borderWidth: 2,
+  borderColor: 'rgba(96, 67, 190, 0.24)',
+  borderRadius: 14,
+  padding: 14,
+  alignItems: 'center',
+  overflow: 'hidden',
+  position: 'relative',
+  shadowColor: '#6C50C4',
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0.20,
+  shadowRadius: 8,
+  elevation: 3,
+},
 
   iqTitle: {
     fontSize: 18,
@@ -275,16 +307,21 @@ const styles = StyleSheet.create({
   },
 
   filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: colors.cardBackground,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-  },
+  flexDirection: 'row',
+  alignItems: 'center',
+  marginHorizontal: 16,
+  marginBottom: 16,
+  backgroundColor: '#0d1117',
+  borderRadius: 10,
+  borderWidth: 1.5,
+  borderColor: 'rgba(255,133,0,0.18)',
+  overflow: 'hidden',
+  shadowColor: '#FF8500',
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0.15,
+  shadowRadius: 6,
+  elevation: 3,
+},
 
   filterBtn: {
     flex: 1,

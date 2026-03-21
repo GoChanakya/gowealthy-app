@@ -59,6 +59,8 @@ TEST FLIGHT
 # 1. Build for TestFlight
 npx eas build -p ios --profile preview
 
+npx eas build -p ios --profile preview --clear-cache
+
 # 2. After build completes, submit to TestFlight
 npx eas submit -p ios
 
