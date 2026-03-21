@@ -237,12 +237,12 @@ const JourneyCard = ({ item, enterAnim, onPress }) => {
 
           {/* Left content */}
           <View style={jc.left}>
-            {/* Number badge */}
+            {/* Number badge
             <View style={[jc.numBadge, isOrange ? jc.numBadgeOrange : jc.numBadgePurple]}>
               <Text style={[jc.numText, isOrange ? jc.numTextOrange : jc.numTextPurple]}>
                 {item.num}
               </Text>
-            </View>
+            </View> */}
 
             <View style={jc.textBlock}>
               <Text style={jc.title}>{item.title}</Text>
@@ -250,9 +250,9 @@ const JourneyCard = ({ item, enterAnim, onPress }) => {
             </View>
 
             {/* Arrow */}
-            <View style={[jc.arrow, isOrange ? jc.arrowOrange : jc.arrowPurple]}>
+            {/* <View style={[jc.arrow, isOrange ? jc.arrowOrange : jc.arrowPurple]}>
               <Text style={[jc.arrowText, isOrange ? jc.arrowTextOrange : jc.arrowTextPurple]}>→</Text>
-            </View>
+            </View> */}
           </View>
 
           {/* Right — image slot */}
@@ -309,7 +309,7 @@ const jc = StyleSheet.create({
   card: {
     flexDirection: 'row', alignItems: 'center',
     borderRadius: 18, borderWidth: 1,
-    paddingVertical: 14, paddingLeft: 16, paddingRight: 14,
+    paddingVertical: 0, paddingLeft: 16, paddingRight: 0,
     overflow: 'hidden', position: 'relative', minHeight: 90,
   },
   // cardOrange: { backgroundColor: 'rgba(255,133,0,0.07)', borderColor: 'rgba(255,133,0,0.32)' },
@@ -331,10 +331,10 @@ const jc = StyleSheet.create({
 
   textBlock: { flex: 1, gap: 3 },
   title: {
-    fontSize: 15, fontWeight: '800', color: '#ffffff',
+    fontSize: 20, fontWeight: '800', color: '#ffffff',
     letterSpacing: -0.3, lineHeight: 19, fontFamily: 'Syne',
   },
-  sub: { fontSize: 11, color: 'rgba(255,255,255,0.40)', lineHeight: 15, fontWeight: '500' },
+  sub: { fontSize: 15, color: 'rgba(255,255,255,0.40)', lineHeight: 15, fontWeight: '500' },
 
   arrow: {
     width: 28, height: 28, borderRadius: 8,
@@ -348,9 +348,8 @@ const jc = StyleSheet.create({
   arrowTextPurple: { color: '#9B84F0' },
 
   imgWrap: {
-    width: 76, height: 76, borderRadius: 16, overflow: 'hidden',
-    borderWidth: 1, alignItems: 'center', justifyContent: 'center',
-    position: 'relative', flexShrink: 0,
+    width: 100, height: 100, overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
+    position: 'relative', flexShrink: 0, borderRadius: 12
   },
   imgWrapOrange: { borderColor: 'rgba(255,133,0,0.30)' },
   imgWrapPurple: { borderColor: 'rgba(108,80,196,0.32)' },
