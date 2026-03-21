@@ -1003,6 +1003,7 @@
 // });
 
 // export default ProfileScreen;
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -1123,10 +1124,11 @@ const ProfileScreen = () => {
       if (userDocSnap.exists()) {
         const firestoreData = userDocSnap.data();
         const userData = firestoreData.raw_answers || firestoreData.latest_data || firestoreData;
+        const userName= firestoreData.full_name
         setXpBalance(firestoreData?.xp?.balance || 0);
         setFamilyMembers(firestoreData.family_members || []);
         setProfileData({
-          fullName: userData.fullName || '',
+          fullName: userName || '',
           email: userData.email || '',
           phone: userPhone,
           kycDocuments: firestoreData.kyc_documents || {},
@@ -1180,10 +1182,12 @@ const ProfileScreen = () => {
   ];
 
   const docTypes = [
-    { key: 'aadhaar', label: 'Aadhaar Card', subtitle: 'Government ID · Required', required: true },
-    { key: 'pan', label: 'PAN Card', subtitle: 'Tax ID · Required', required: true },
-    { key: 'passport', label: 'Passport', subtitle: 'Travel Document · Optional', required: false },
-    { key: 'driving_license', label: 'Driving License', subtitle: 'Transport ID · Optional', required: false },
+    { key: 'aadhaar', label: 'Aadhaar Card', subtitle: 'Government ID · Required', required: true, imageSource: require('../../assets/images/profile/adhaar.png') },
+    
+    { key: 'pan', label: 'PAN Card', subtitle: 'Tax ID · Required', required: true, imageSource: require('../../assets/images/profile/pan.png') },
+     { key: 'driving_license', label: 'Driving License', subtitle: 'Transport ID · Optional', required: false, imageSource: require('../../assets/images/profile/dl.png') },
+    { key: 'passport', label: 'Other Documents', subtitle: 'Other Documents · Optional', required: false, imageSource: require('../../assets/images/profile/other.png') },
+   
   ];
 
   if (loading) {
@@ -1305,15 +1309,19 @@ const ProfileScreen = () => {
                   start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                   style={StyleSheet.absoluteFill} pointerEvents="none"
                 />
-                <View style={[s.docIconWrap,
-                  isOrange
-                    ? { borderColor: 'rgba(255,133,0,0.30)', backgroundColor: 'rgba(255,133,0,0.10)' }
-                    : { borderColor: 'rgba(108,80,196,0.32)', backgroundColor: 'rgba(108,80,196,0.12)' }
-                ]}>
-                  <View style={s.docImageFallback}>
-                    <Text style={s.docImageFallbackText}>IMG</Text>
-                  </View>
-                </View>
+<View style={[s.docIconWrap,
+  isOrange
+    ? { borderColor: 'rgba(255,133,0,0.30)', backgroundColor: 'rgba(0, 0, 0, 0.1)' }
+    : { borderColor: 'rgba(108,80,196,0.32)', backgroundColor: 'rgba(0, 0, 0, 0.12)' }
+]}>
+  {docItem.imageSource ? (
+    <Image source={docItem.imageSource} style={s.docImage} resizeMode="contain" />
+  ) : (
+    <View style={s.docImageFallback}>
+      <Text style={s.docImageFallbackText}>IMG</Text>
+    </View>
+  )}
+</View>
                 <View style={s.docMeta}>
                   <Text style={s.docLabel}>
                     {docItem.label}{docItem.required && <Text style={{ color: '#ef4444' }}> *</Text>}
@@ -1463,7 +1471,7 @@ familyCard: {
   position: 'relative',
   minWidth: 90,
 },
-
+docImage: { width: '100%', height: '100%' },
 familyMemberName: {
   fontSize: 15,
   fontWeight: '800',
@@ -1523,7 +1531,13 @@ familyMemberName: {
     backgroundColor: '#0d1117', borderRadius: 16, borderWidth: 1, padding: 16,
     flexDirection: 'row', alignItems: 'center', gap: 14, overflow: 'hidden', position: 'relative',
   },
-  docIconWrap: { width: 50, height: 50, borderRadius: 14, borderWidth: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', flexShrink: 0 },
+  docIconWrap: {
+  width: 50,
+  height: 50,
+  borderRadius: 14,
+  overflow: 'hidden',
+  flexShrink: 0,
+},
   docImageFallback: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
   docImageFallbackText: { fontSize: 8, color: 'rgba(255,255,255,0.20)', fontWeight: '700', letterSpacing: 1 },
   docMeta: { flex: 1 },
