@@ -28,7 +28,8 @@
       }
     },
     "android": {
-      "package": "com.gochanakya.mobile"
+      "package": "com.gochanakya.mobile",
+      "minSdkVersion": 21
     },
     "plugins": [
       "expo-font"
