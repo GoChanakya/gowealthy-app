@@ -1,55 +1,48 @@
 const crypto = require("crypto");
 
-/*
-NSE REQUIREMENTS:
-- AES 128 CBC
-- IV = 16 bytes
-- Salt = 16 bytes
-*/
+function aesEncrypt(apiSecret, apiKey) {
 
-function generateRandomHex(size = 16) {
-    return crypto.randomBytes(size).toString("hex");
-}
+    const iv = crypto.randomBytes(16).toString("hex");
+    const salt = crypto.randomBytes(16).toString("hex");
 
-function aesEncrypt(apiSecret, memberApiKey) {
+    const randomNumber =
+        Math.floor(Math.random() * 1000000000);
 
-    const iv = generateRandomHex(16);
-    const salt = generateRandomHex(16);
+    const plainText =
+        `${apiSecret}|${randomNumber}`;
 
-    const randomNumber = Math.floor(Math.random() * 1000000000);
+    const key =
+        crypto.pbkdf2Sync(
+            apiKey,
+            Buffer.from(salt, "hex"),
+            1000,
+            16,
+            "sha1"
+        );
 
-    const plainText = `${apiSecret}|${randomNumber}`;
+    const cipher =
+        crypto.createCipheriv(
+            "aes-128-cbc",
+            key,
+            Buffer.from(iv, "hex")
+        );
 
-    /*
-    Key derivation must match Java logic.
-    NSE AESUtil uses PBKDF2.
-    */
+    let encrypted =
+        cipher.update(
+            plainText,
+            "utf8",
+            "base64"
+        );
 
-    const key = crypto.pbkdf2Sync(
-        memberApiKey,
-        Buffer.from(salt, "hex"),
-        1000,
-        16,
-        "sha1"
-    );
-
-    const cipher = crypto.createCipheriv(
-        "aes-128-cbc",
-        key,
-        Buffer.from(iv, "hex")
-    );
-
-    let encrypted = cipher.update(plainText, "utf8", "base64");
     encrypted += cipher.final("base64");
 
-    const finalPayload = `${iv}::${salt}::${encrypted}`;
+    const combined =
+        `${iv}::${salt}::${encrypted}`;
 
-    const encryptedPassword = Buffer.from(finalPayload).toString("base64");
+    const encryptedPassword =
+        Buffer.from(combined).toString("base64");
 
     return {
-        iv,
-        salt,
-        randomNumber,
         plainText,
         encryptedPassword
     };

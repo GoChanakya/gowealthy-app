@@ -1,56 +1,30 @@
-// const axios = require("axios");
-
-// async function callNSE(endpoint, headers = {}, method = "GET", body = null) {
-
-//     const url = `${process.env.NSE_BASE_URL}${endpoint}`;
-
-//     try {
-//         const response = await axios({
-//             method,
-//             url,
-//             headers,
-//             data: body,
-//             timeout: 10000
-//         });
-
-//         return response.data;
-
-//     } catch (error) {
-
-//         if (error.response) {
-//             return {
-//                 status: error.response.status,
-//                 data: error.response.data
-//             };
-//         }
-
-//         return { error: error.message };
-//     }
-// }
-
-// module.exports = { callNSE };
 const axios = require("axios");
 const https = require("https");
 
-const tlsAgent = new https.Agent({
-    minVersion: "TLSv1.3",
-    maxVersion: "TLSv1.3"
-});
+const httpsAgent =
+    new https.Agent({
 
-async function callNSE(endpoint, headers = {}, method = "GET", body = null) {
-    const url = `${process.env.NSE_BASE_URL}${endpoint}`;
-    try {
-        const response = await axios({
-            method, url, headers, data: body,
-            timeout: 30000,
-            httpsAgent: tlsAgent   // ← add this
-        });
-        return response.data;
-    } catch (error) {
-        if (error.response) {
-            return { status: error.response.status, data: error.response.data };
-        }
-        return { error: error.message };
-    }
-}
-module.exports = { callNSE };
+        keepAlive: true,
+
+        minVersion: "TLSv1.3",
+
+        maxVersion: "TLSv1.3",
+
+        ciphers:
+            "TLS_AES_256_GCM_SHA384:" +
+            "TLS_CHACHA20_POLY1305_SHA256:" +
+            "TLS_AES_128_GCM_SHA256"
+    });
+
+const client =
+    axios.create({
+
+        baseURL:
+            "https://nseinvestuat.nseindia.com",
+
+        httpsAgent,
+
+        timeout: 60000
+    });
+
+module.exports = client;
