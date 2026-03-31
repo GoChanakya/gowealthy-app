@@ -720,7 +720,7 @@ const loadExistingData = async () => {
       // Show the GCS image URL as preview (https:// URL, not local uri)
       if (saved.pan_image_url) {
         setFileUrl(saved.pan_image_url);
-        setPanImage(saved.pan_image_url); // shows in Image component
+         // shows in Image component
       }
  
       setIsProcessed(true);
@@ -928,15 +928,6 @@ const saveToFirebase = async (phoneNumber, data, gcsUri) => {
         pan_image_gcs_uri: gcsUri,
         uploaded_at:   new Date().toISOString(),
       },
-      // Initialise all downstream fields as null so they exist in the doc
-      aadhaar_data:   null,
-      kyc_status:     null,
-      email_data:     null,
-      fatca_data:     null,
-      bank_data:      null,
-      ucc_registered: false,
-      orders:         [],
-      sip_mandates:   [],
       created_at:     new Date().toISOString(),
     }, { merge: true });
  
@@ -1093,13 +1084,14 @@ const handleContinue = async () => {
 
           {isProcessed && (
             <View style={styles.extractedDataSection}>
-              <View style={styles.extractedHeader}>
-                <Text style={styles.extractedHeaderTitle}>Extracted Information</Text>
-                {isProcessed && !isEditing && (
+              {isProcessed && !isEditing && (
   <View style={styles.savedBanner}>
-    <Text style={styles.savedBannerText}>✓ Saved data loaded — tap Edit to change</Text>
+    <Text style={styles.savedBannerText}>✓ Saved data loaded — tap Edit to change or Upload new image</Text>
   </View>
 )}
+              <View style={styles.extractedHeader}>
+                <Text style={styles.extractedHeaderTitle}>Extracted Information</Text>
+                
                 <TouchableOpacity
                   onPress={() => setIsEditing(!isEditing)}
                   style={styles.editToggleBtn}
@@ -1157,10 +1149,10 @@ const handleContinue = async () => {
                 />
               </View>
 
-              <View style={styles.verifiedBadge}>
+              {/* <View style={styles.verifiedBadge}>
                 <Text style={styles.verifiedIcon}>✓</Text>
                 <Text style={styles.verifiedText}>Data extracted and saved to cloud</Text>
-              </View>
+              </View> */}
             </View>
           )}
 

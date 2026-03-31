@@ -1003,7 +1003,7 @@ const loadExistingData = async () => {
  
       if (saved.aadhaar_image_url) {
         setFileUrl(saved.aadhaar_image_url);
-        setAadharImage(saved.aadhaar_image_url);
+        
       }
  
       setIsProcessed(true);
@@ -1373,13 +1373,14 @@ const loadExistingData = async () => {
 
           {isProcessed && (
             <View style={styles.extractedDataSection}>
-              <View style={styles.extractedHeader}>
-                <Text style={styles.extractedHeaderTitle}>Extracted Information</Text>
-                {isProcessed && !isEditing && (
+              {isProcessed && !isEditing && (
   <View style={styles.savedBanner}>
-    <Text style={styles.savedBannerText}>✓ Saved data loaded — tap Edit to change</Text>
+    <Text style={styles.savedBannerText}>✓ Saved data loaded — tap Edit to change or Upload new Image</Text>
   </View>
 )}
+              <View style={styles.extractedHeader}>
+                <Text style={styles.extractedHeaderTitle}>Extracted Information</Text>
+                
                 <TouchableOpacity
                   onPress={() => setIsEditing(!isEditing)}
                   style={styles.editToggleBtn}
@@ -1437,10 +1438,10 @@ const loadExistingData = async () => {
                 />
               </View>
 
-              <View style={styles.verifiedBadge}>
+              {/* <View style={styles.verifiedBadge}>
                 <Text style={styles.verifiedIcon}>✓</Text>
                 <Text style={styles.verifiedText}>Data extracted and saved</Text>
-              </View>
+              </View> */}
             </View>
           )}
 
