@@ -21,11 +21,7 @@ const storage = new Storage({
 const bucketName = 'document-ocr203'; // Replace with your bucket name
 const bucket = storage.bucket(bucketName);
 
-app.use(cors({
-  origin: 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
+
 
 
 // app.post('/api/generate-upload-url', async (req, res) => {
@@ -53,7 +49,6 @@ app.use(cors({
 //     res.status(500).json({ error: 'Failed to generate upload URL' });
 //   }
 // });
-
 app.post('/api/generate-upload-url', async (req, res) => {
   try {
     const { fileName, contentType, userId, docType } = req.body;
@@ -83,6 +78,6 @@ app.post('/api/generate-upload-url', async (req, res) => {
 });
 
 
-app.listen(port, () => {
-  console.log(`Backend server running on http://localhost:${port}`);
+app.listen(port, "0.0.0.0", () => {
+  console.log(`Backend running on port ${port}`);
 });

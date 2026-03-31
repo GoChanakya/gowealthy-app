@@ -200,6 +200,13 @@ const JOURNEYS = [
     image: require('../../assets/images/home_page/Insure-requirement.webp'),
     route: null,
   },
+   {
+    num: 6, accent: 'orange',
+    title: 'Mutual Funds',
+    sub: 'Discover top funds',
+    image: require('../../assets/images/home_page/Insure-requirement.webp'),
+    route: '/(gowealthy)/mf/onboarding/screen1',
+  },
 ];
 
 const JourneyCard = ({ item, enterAnim, onPress }) => {
