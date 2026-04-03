@@ -651,7 +651,7 @@
 // });
 
 // export default Screen1PANUpload;
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -667,9 +667,9 @@ import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../../src/config/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
-const BACKEND_URL = 'http://192.168.1.20:3001'; // CHANGE TO YOUR IP
+const BACKEND_URL = 'http://172.20.10.2:3001'; // CHANGE TO YOUR IP
 const PAN_OCR_ENDPOINT = 'https://pan-parser-763133497996.asia-south1.run.app';
 
 const Screen1PANBackend = () => {
@@ -687,7 +687,55 @@ const Screen1PANBackend = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [fileUrl, setFileUrl] = useState(null);
+  const generateUCC = (fullName, phone) => {
+  const parts = fullName.trim().toUpperCase().replace(/[^A-Z ]/g, '').split(/\s+/);
+  const firstName = (parts[0] || 'XX').padEnd(2, 'X').slice(0, 2);
+  const lastName  = (parts[parts.length > 1 ? parts.length - 1 : 0] || 'XX').padEnd(2, 'X').slice(0, 2);
+  const lastFour  = String(phone).replace(/\D/g, '').slice(-4).padStart(4, '0');
+  return `${firstName}${lastName}${lastFour}`;
+};
 
+const [isLoadingExisting, setIsLoadingExisting] = useState(false);
+const loadExistingData = async () => {
+  try {
+    setIsLoadingExisting(true);
+    const phoneNumber = await AsyncStorage.getItem('user_phone');
+    if (!phoneNumber) return;
+ 
+    const docRef = doc(db, 'mf_onboarding', phoneNumber);
+    const docSnap = await getDoc(docRef);
+ 
+    if (docSnap.exists() && docSnap.data()?.pan_data) {
+      const saved = docSnap.data().pan_data;
+      console.log('📂 Existing PAN data found, restoring...');
+ 
+      // Restore OCR data into state
+      setPanData({
+        number:     saved.pan_number   || '',
+        name:       saved.name         || '',
+        fatherName: saved.father_name  || '',
+        dob:        saved.dob          || '',
+      });
+ 
+      // Show the GCS image URL as preview (https:// URL, not local uri)
+      if (saved.pan_image_url) {
+        setFileUrl(saved.pan_image_url);
+         // shows in Image component
+      }
+ 
+      setIsProcessed(true);
+      console.log('✅ PAN data restored from Firestore');
+    }
+  } catch (error) {
+    // Silently fail — user just needs to re-upload, not a blocker
+    console.log('ℹ️ No existing PAN data or fetch failed:', error.message);
+  } finally {
+    setIsLoadingExisting(false);
+  }
+};
+useEffect(() => {
+  loadExistingData();
+}, []);
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -753,6 +801,8 @@ const Screen1PANBackend = () => {
 
 const formData = new FormData();
 
+
+ 
 // add signed policy fields
 Object.entries(fields).forEach(([key, value]) => {
   formData.append(key, value);
@@ -857,34 +907,36 @@ const ocrUrl = `${PAN_OCR_ENDPOINT}?file_uri=${encodedFileUri}`;
     }
   };
 
-  const saveToFirebase = async (phoneNumber, data, gcsFileUrl) => {
-    try {
-      console.log('💾 Saving PAN to Firebase...');
-      
-      const userDocRef = doc(db, 'users', phoneNumber);
-      
-      await setDoc(userDocRef, {
-        pan_info: {
-          [phoneNumber]: {
-            panNumber: data.number,
-            name: data.name,
-            fatherName: data.fatherName,
-            dob: data.dob,
-            fileUrl: gcsFileUrl,
-            uploadedAt: new Date().toISOString(),
-            status: 'verified',
-            lastUpdated: new Date().toISOString()
-          }
-        }
-      }, { merge: true });
-
-      console.log('✅ Saved to Firebase: users/' + phoneNumber + '/pan_info/' + phoneNumber);
-      
-    } catch (error) {
-      console.error('❌ Firebase save error:', error);
-      throw new Error('Failed to save PAN to database');
-    }
-  };
+const saveToFirebase = async (phoneNumber, data, gcsUri) => {
+  try {
+    console.log('💾 Saving PAN data to mf_onboarding...');
+ 
+    const ucc = generateUCC(data.name, phoneNumber);
+    console.log('🆔 Generated UCC:', ucc);
+ 
+    const docRef = doc(db, 'mf_onboarding', phoneNumber);
+ 
+    await setDoc(docRef, {
+      ucc_code:       ucc,
+      onboarding_step: 1,
+      pan_data: {
+        pan_number:    data.number,
+        name:          data.name,
+        father_name:   data.fatherName,
+        dob:           data.dob, 
+        pan_image_url:     gcsUri,            // DD/MM/YYYY — as returned by OCR
+        pan_image_gcs_uri: gcsUri,
+        uploaded_at:   new Date().toISOString(),
+      },
+      created_at:     new Date().toISOString(),
+    }, { merge: true });
+ 
+    console.log('✅ Saved to mf_onboarding/' + phoneNumber);
+  } catch (error) {
+    console.error('❌ Firestore save error:', error);
+    throw new Error('Failed to save PAN data');
+  }
+};
 
   const handleInputChange = (field, value) => {
     setPanData(prev => ({ ...prev, [field]: value }));
@@ -895,32 +947,34 @@ const ocrUrl = `${PAN_OCR_ENDPOINT}?file_uri=${encodedFileUri}`;
     handleInputChange('number', formattedValue);
   };
 
-  const handleContinue = async () => {
-    try {
-      // Save updated data to AsyncStorage
-      await AsyncStorage.setItem('mf_pan_data', JSON.stringify({
-        panImage,
-        panData,
-        panProcessed: isProcessed,
-        fileUrl
-      }));
-
-      // Update Firebase with any manual edits
-      const phoneNumber = await AsyncStorage.getItem('user_phone');
-      if (phoneNumber && isProcessed) {
-        await saveToFirebase(phoneNumber, panData, fileUrl);
-      }
-      
-      // Navigate to next screen
-      router.push('/(gowealthy)/mf/onboarding/screen2');
-    } catch (error) {
-      console.error('Error continuing:', error);
-      Alert.alert('Error', 'Failed to save data');
+const handleContinue = async () => {
+  try {
+    const phoneNumber = await AsyncStorage.getItem('user_phone');
+    if (!phoneNumber) {
+      Alert.alert('Error', 'Session expired. Please log in again.');
+      return;
     }
-  };
+ 
+    // If user edited fields manually after OCR, persist the latest values
+    if (isProcessed) {
+      await saveToFirebase(phoneNumber, panData, fileUrl);
+    }
+ 
+    router.push('/(gowealthy)/mf/onboarding/screen2');
+  } catch (error) {
+    console.error('Error on continue:', error);
+    Alert.alert('Error', 'Something went wrong. Please try again.');
+  }
+};
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+      {isLoadingExisting && (
+  <View style={styles.loadingOverlay}>
+    <ActivityIndicator size="large" color="#6b50c4" />
+    <Text style={styles.loadingText}>Loading your saved data...</Text>
+  </View>
+)}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backButtonText}>← Back</Text>
@@ -1030,8 +1084,14 @@ const ocrUrl = `${PAN_OCR_ENDPOINT}?file_uri=${encodedFileUri}`;
 
           {isProcessed && (
             <View style={styles.extractedDataSection}>
+              {isProcessed && !isEditing && (
+  <View style={styles.savedBanner}>
+    <Text style={styles.savedBannerText}>✓ Saved data loaded — tap Edit to change or Upload new image</Text>
+  </View>
+)}
               <View style={styles.extractedHeader}>
                 <Text style={styles.extractedHeaderTitle}>Extracted Information</Text>
+                
                 <TouchableOpacity
                   onPress={() => setIsEditing(!isEditing)}
                   style={styles.editToggleBtn}
@@ -1089,10 +1149,10 @@ const ocrUrl = `${PAN_OCR_ENDPOINT}?file_uri=${encodedFileUri}`;
                 />
               </View>
 
-              <View style={styles.verifiedBadge}>
+              {/* <View style={styles.verifiedBadge}>
                 <Text style={styles.verifiedIcon}>✓</Text>
                 <Text style={styles.verifiedText}>Data extracted and saved to cloud</Text>
-              </View>
+              </View> */}
             </View>
           )}
 
@@ -1140,6 +1200,18 @@ const ocrUrl = `${PAN_OCR_ENDPOINT}?file_uri=${encodedFileUri}`;
 };
 
 const styles = StyleSheet.create({
+  savedBanner: {
+  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  borderWidth: 1, borderColor: 'rgba(16, 185, 129, 0.3)',
+  borderRadius: 8, padding: 10, marginBottom: 16, alignItems: 'center',
+},
+savedBannerText: { color: '#10b981', fontSize: 13, fontWeight: '500' },
+  loadingOverlay: {
+  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+  backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 99,
+  alignItems: 'center', justifyContent: 'center', gap: 12,
+},
+loadingText: { color: '#fff', fontSize: 15, fontWeight: '500' },
   container: { flex: 1, backgroundColor: '#000' },
   header: { padding: 20, paddingTop: 60 },
   backButton: { padding: 8 },

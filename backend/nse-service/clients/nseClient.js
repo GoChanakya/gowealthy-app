@@ -20,11 +20,12 @@ const client =
     axios.create({
 
         baseURL:
+            process.env.NSE_BASE_URL ||
             "https://nseinvestuat.nseindia.com",
 
         httpsAgent,
 
-        timeout: 60000
+        timeout: Number(process.env.NSE_TIMEOUT_MS || 60000)
     });
 
 module.exports = client;

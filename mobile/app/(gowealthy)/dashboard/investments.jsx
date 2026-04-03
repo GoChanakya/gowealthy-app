@@ -1024,7 +1024,7 @@ const sb = StyleSheet.create({
     wrap: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 14, borderRadius: 14, borderWidth: 1, borderColor: T.border, backgroundColor: T.card, overflow: 'hidden' },
     cell: { flex: 1, paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center' },
     cellBorder: { borderRightWidth: 1, borderRightColor: T.border },
-    val: { fontSize: 15, fontWeight: '800', color: T.white, fontFamily: 'Syne', marginBottom: 3 },
+    val: { fontSize: 15, fontWeight: '800', color: T.white, fontFamily: 'Poppins_700Bold', marginBottom: 3 },
     label: { fontSize: 10, color: T.dim, fontWeight: '600', letterSpacing: 0.4, textAlign: 'center' },
 });
 
@@ -1077,21 +1077,21 @@ const StocksView = ({ filtered, members, onAdd, onUpdate, onDelete, capFilter })
     }, [filtered, capFilter]);
 
     const submit = async () => {
-        if (!form.name || !form.quantity || !form.purchaseDate) { showToast( 'error', 'Name, qty & date required' ); return; }
+        if (!form.name || !form.quantity || !form.purchaseDate) { showToast('error', 'Name, qty & date required'); return; }
         setSaving(true);
         const base = { type: 'Stock', name: form.name, quantity: parseFloat(form.quantity), investedAmount: parseFloat(form.investedAmount) || 0, marketCap: form.marketCap, sector: form.sector, industry: form.industry, purchaseDate: form.purchaseDate, memberId: form.memberId };
         const res = editing
             ? await onUpdate({ ...editing, ...base, updatedAt: new Date().toISOString() })
             : await onAdd({ ...base, id: `stk_${Date.now()}`, addedAt: new Date().toISOString() });
-        if (res?.success) { reset(); showToast( 'success',  editing ? 'Stock updated' : 'Stock added' ); }
-        else showToast('error',  res?.error || 'Failed' );
+        if (res?.success) { reset(); showToast('success', editing ? 'Stock updated' : 'Stock added'); }
+        else showToast('error', res?.error || 'Failed');
         setSaving(false);
     };
 
     const confirmDel = async () => {
         setSaving(true);
         const res = await onDelete(delItem);
-        if (res?.success) { setDel(null); showToast(  'success', 'Deleted' ); }
+        if (res?.success) { setDel(null); showToast('success', 'Deleted'); }
         setSaving(false);
     };
 
@@ -1191,21 +1191,21 @@ const MFView = ({ filtered, members, onAdd, onUpdate, onDelete }) => {
     const mfs = useMemo(() => filtered.filter(h => h.type === 'Mutual Fund'), [filtered]);
 
     const submit = async () => {
-        if (!form.name || !form.units || !form.purchaseDate) { showToast( 'error', 'Name, units & date required' ); return; }
+        if (!form.name || !form.units || !form.purchaseDate) { showToast('error', 'Name, units & date required'); return; }
         setSaving(true);
         const base = { type: 'Mutual Fund', name: form.name, quantity: parseFloat(form.units), investedAmount: parseFloat(form.investedAmount) || 0, folioNumber: form.folioNumber, purchaseDate: form.purchaseDate, memberId: form.memberId };
         const res = editing
             ? await onUpdate({ ...editing, ...base, updatedAt: new Date().toISOString() })
             : await onAdd({ ...base, id: `mf_${Date.now()}`, addedAt: new Date().toISOString() });
-        if (res?.success) { reset(); showToast( 'success', editing ? 'Updated' : 'MF added' ); }
-        else showToast('error',  res?.error || 'Failed' );
+        if (res?.success) { reset(); showToast('success', editing ? 'Updated' : 'MF added'); }
+        else showToast('error', res?.error || 'Failed');
         setSaving(false);
     };
 
     const confirmDel = async () => {
         setSaving(true);
         const res = await onDelete(delItem);
-        if (res?.success) { setDel(null); showToast('success',  'Deleted' ); }
+        if (res?.success) { setDel(null); showToast('success', 'Deleted'); }
         setSaving(false);
     };
 
@@ -1296,15 +1296,15 @@ const InsuranceView = ({ filtered, members, onAdd, onUpdate, onDelete }) => {
         const res = editing
             ? await onUpdate({ ...editing, ...base, updatedAt: new Date().toISOString() })
             : await onAdd({ ...base, id: `ins_${Date.now()}`, addedAt: new Date().toISOString() });
-        if (res?.success) { reset(); showToast( 'success', editing ? 'Policy updated' : 'Policy added' ); }
-        else showToast( 'error',  res?.error || 'Failed' );
+        if (res?.success) { reset(); showToast('success', editing ? 'Policy updated' : 'Policy added'); }
+        else showToast('error', res?.error || 'Failed');
         setSaving(false);
     };
 
     const confirmDel = async () => {
         setSaving(true);
         const res = await onDelete(delItem);
-        if (res?.success) { setDel(null); showToast( 'success',  'Deleted' ); }
+        if (res?.success) { setDel(null); showToast('success', 'Deleted'); }
         setSaving(false);
     };
 
@@ -1415,7 +1415,7 @@ const FDView = ({ filtered, members, onAdd, onUpdate, onDelete }) => {
     }, [form.principalAmount, form.interestRate, form.startDate, form.maturityDate, form.compoundingFrequency]);
 
     const submit = async () => {
-        if (!form.bank || !form.fdNumber || !form.principalAmount || !form.interestRate || !form.startDate || !form.maturityDate) { showToast('error', 'All required fields needed' ); return; }
+        if (!form.bank || !form.fdNumber || !form.principalAmount || !form.interestRate || !form.startDate || !form.maturityDate) { showToast('error', 'All required fields needed'); return; }
         setSaving(true);
         const p = parseFloat(form.principalAmount), r = parseFloat(form.interestRate);
         const mat = calcMaturity(p, r, form.startDate, form.maturityDate, form.compoundingFrequency);
@@ -1423,15 +1423,15 @@ const FDView = ({ filtered, members, onAdd, onUpdate, onDelete }) => {
         const res = editing
             ? await onUpdate({ ...editing, ...base, updatedAt: new Date().toISOString() })
             : await onAdd({ ...base, id: `fd_${Date.now()}`, addedAt: new Date().toISOString() });
-        if (res?.success) { reset(); showToast( 'success',  editing ? 'FD updated' : 'FD added' ); }
-        else showToast( 'error',  res?.error || 'Failed' );
+        if (res?.success) { reset(); showToast('success', editing ? 'FD updated' : 'FD added'); }
+        else showToast('error', res?.error || 'Failed');
         setSaving(false);
     };
 
     const confirmDel = async () => {
         setSaving(true);
         const res = await onDelete(delItem);
-        if (res?.success) { setDel(null); showToast('success', 'FD deleted' ); }
+        if (res?.success) { setDel(null); showToast('success', 'FD deleted'); }
         setSaving(false);
     };
 
@@ -1549,21 +1549,21 @@ const OthersView = ({ filtered, members, onAdd, onUpdate, onDelete }) => {
     };
 
     const submit = async () => {
-        if (!form.name || !form.investedAmount || !form.purchaseDate) { showToast('error',  'Name, amount & date required' ); return; }
+        if (!form.name || !form.investedAmount || !form.purchaseDate) { showToast('error', 'Name, amount & date required'); return; }
         setSaving(true);
         const base = { type: form.type, name: form.name, investedAmount: parseFloat(form.investedAmount), quantity: form.quantity, unit: form.unit, purchaseDate: form.purchaseDate, notes: form.notes, memberId: form.memberId };
         const res = editing
             ? await onUpdate({ ...editing, ...base, updatedAt: new Date().toISOString() })
             : await onAdd({ ...base, id: `inv_${Date.now()}`, addedAt: new Date().toISOString() });
-        if (res?.success) { reset(); showToast('success',  editing ? 'Updated' : 'Investment added' ); }
-        else showToast( 'error',  res?.error || 'Failed' );
+        if (res?.success) { reset(); showToast('success', editing ? 'Updated' : 'Investment added'); }
+        else showToast('error', res?.error || 'Failed');
         setSaving(false);
     };
 
     const confirmDel = async () => {
         setSaving(true);
         const res = await onDelete(delItem);
-        if (res?.success) { setDel(null); showToast('success', 'Deleted' ); }
+        if (res?.success) { setDel(null); showToast('success', 'Deleted'); }
         setSaving(false);
     };
 
@@ -1641,7 +1641,7 @@ const FamilySheet = ({ visible, onClose, members, onAdd, onDelete }) => {
     const RELATIONS = ['Parent', 'Spouse', 'Child', 'Sibling', 'Other'];
 
     const submit = async () => {
-        if (!name.trim()) { showToast( 'error',  'Name required' ); return; }
+        if (!name.trim()) { showToast('error', 'Name required'); return; }
         setSaving(true);
         await onAdd({ id: `${Date.now()}`, name: name.trim(), relation: relation.trim(), addedAt: new Date().toISOString() });
         setName(''); setRel('');
@@ -1718,6 +1718,7 @@ export default function AssetHoldingsScreen() {
     const [memberTab, setMemberTab] = useState('all');   // 'all' | 'self' | memberId
     const [capTab, setCapTab] = useState('All');
     const [familyOpen, setFamilyOpen] = useState(false);
+    const [ownerOpen, setOwnerOpen] = useState(false);
 
     // ── Fetch ──────────────────────────────────────────────────────────────────
     const fetchUser = async () => {
@@ -1824,8 +1825,8 @@ export default function AssetHoldingsScreen() {
         } catch (e) { return { success: false, error: e.message }; }
     };
 
-    const addMember = async (m) => { try { await updateDoc(doc(db, COLL, userData._phone), { family_members: arrayUnion(m) }); await refreshUser(); } catch (e) { showToast( 'error', e.message ); } };
-    const deleteMember = async (m) => { try { await updateDoc(doc(db, COLL, userData._phone), { family_members: arrayRemove(m) }); await refreshUser(); } catch (e) { showToast( 'error', e.message ); } };
+    const addMember = async (m) => { try { await updateDoc(doc(db, COLL, userData._phone), { family_members: arrayUnion(m) }); await refreshUser(); } catch (e) { showToast('error', e.message); } };
+    const deleteMember = async (m) => { try { await updateDoc(doc(db, COLL, userData._phone), { family_members: arrayRemove(m) }); await refreshUser(); } catch (e) { showToast('error', e.message); } };
 
     // ── Loading / Error ────────────────────────────────────────────────────────
     if (loading) return (
@@ -1857,7 +1858,7 @@ export default function AssetHoldingsScreen() {
             <View style={s.blob2} pointerEvents="none" />
 
             {/* Header */}
-            <View style={s.header}>
+            {/* <View style={s.header}>
                 <Text style={s.logo}>
                     <Text style={{ color: T.orange }}>Go</Text>
                     <Text style={{ color: T.white }}>Wealthy</Text>
@@ -1866,10 +1867,54 @@ export default function AssetHoldingsScreen() {
                     <Users size={14} color={T.dim} />
                     <Text style={s.familyBtnT}>Family</Text>
                 </TouchableOpacity>
+            </View> */}
+
+            <View style={s.header}>
+                <Text style={s.logo}>
+                    <Text style={{ color: T.orange }}>Go</Text>
+                    <Text style={{ color: T.white }}>Wealthy</Text>
+                </Text>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {/* Member dropdown — only if family members exist */}
+                    {members.length > 0 && (
+                        <View style={{ position: 'relative', zIndex: 100 }}>
+                            <TouchableOpacity
+                                style={s.ownerPill}
+                                onPress={() => setOwnerOpen(v => !v)}
+                            >
+                                <Text style={s.ownerPillT}>
+                                    {memberTab === 'all' ? 'All' : memberTab === 'self' ? 'You' : members.find(m => m.id === memberTab)?.name || 'All'}
+                                </Text>
+                                <ChevronDown size={13} color={T.dim} style={{ transform: [{ rotate: ownerOpen ? '180deg' : '0deg' }] }} />
+                            </TouchableOpacity>
+
+                            {ownerOpen && (
+                                <View style={s.ownerDropdown}>
+                                    {memberTabs.map(o => (
+                                        <TouchableOpacity
+                                            key={o.id}
+                                            style={[s.ownerItem, memberTab === o.id && s.ownerItemActive]}
+                                            onPress={() => { setMemberTab(o.id); setOwnerOpen(false); }}
+                                        >
+                                            <Text style={[s.ownerItemT, memberTab === o.id && { color: T.white }]}>{o.label}</Text>
+                                            {memberTab === o.id && <Check size={13} color={T.purple} />}
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
+                        </View>
+                    )}
+
+                    <TouchableOpacity style={s.familyBtn} onPress={() => setFamilyOpen(true)}>
+                        <Users size={14} color={T.dim} />
+                        <Text style={s.familyBtnT}>Family</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Row 1 — Member filter tabs */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabRow} contentContainerStyle={s.tabContent}>
+            {/* <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabRow} contentContainerStyle={s.tabContent}>
                 {memberTabs.map(tab => {
                     const active = memberTab === tab.id;
                     return active ? (
@@ -1882,7 +1927,7 @@ export default function AssetHoldingsScreen() {
                         </TouchableOpacity>
                     );
                 })}
-            </ScrollView>
+            </ScrollView> */}
 
             {/* Row 2 — Asset class tabs */}
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[s.tabRow, { marginBottom: 0 }]} contentContainerStyle={s.tabContent}>
@@ -1942,8 +1987,8 @@ const tv = StyleSheet.create({
     hc: { fontSize: 10, color: T.dim, fontWeight: '700', letterSpacing: 0.8 },
     row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12 },
     rowAlt: { backgroundColor: 'rgba(255,255,255,0.015)' },
-    c: { fontSize: 13, color: T.white, fontWeight: '500' },
-    sub: { fontSize: 10, color: T.dim, marginTop: 2 },
+    // c: { fontSize: 13, color: T.white, fontWeight: '500' },
+    sub: { fontSize: 10, color: T.dim, marginTop: 2, fontFamily: 'Poppins_600SemiBold' },
     cap: { fontSize: 10, fontWeight: '700', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5, overflow: 'hidden' },
     rowActions: { flexDirection: 'row', gap: 6, width: 58, justifyContent: 'flex-end' },
     editBtn: { width: 26, height: 26, borderRadius: 7, backgroundColor: 'rgba(166,75,255,0.12)', borderWidth: 1, borderColor: 'rgba(166,75,255,0.30)', alignItems: 'center', justifyContent: 'center' },
@@ -1951,12 +1996,16 @@ const tv = StyleSheet.create({
     empty: { alignItems: 'center', paddingVertical: 40, gap: 10 },
     emptyT: { fontSize: 13, color: T.dim },
     footer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderTopWidth: 1, borderTopColor: T.border },
+    c: { fontSize: 13, color: T.white, fontWeight: '500', fontFamily: 'Poppins_600SemiBold' },
+    footerV: { fontSize: 13, fontWeight: '800', color: T.orange, fontFamily: 'Poppins_700Bold' },
     footerL: { fontSize: 11, color: T.dim, fontWeight: '600' },
-    footerV: { fontSize: 13, fontWeight: '800', color: T.orange },
+    // footerV: { fontSize: 13, fontWeight: '800', color: T.orange },
 });
 
 // ── Shared card styles ─────────────────────────────────────────────────────────
 const cv = StyleSheet.create({
+    gridVal: { fontSize: 13, color: T.white, fontWeight: '700', fontFamily: 'Poppins_700Bold' },
+    badgeT: { fontSize: 10, fontWeight: '700', fontFamily: 'Poppins_700Bold' },
     card: { borderRadius: 16, borderWidth: 1, borderColor: T.border, backgroundColor: T.card, marginBottom: 12, overflow: 'hidden', padding: 16 },
     cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 },
     typeIcon: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
@@ -1964,11 +2013,11 @@ const cv = StyleSheet.create({
     provider: { fontSize: 14, fontWeight: '700', color: T.white },
     typeLabel: { fontSize: 11, color: T.dim, marginTop: 2 },
     badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-    badgeT: { fontSize: 10, fontWeight: '700' },
+    // badgeT: { fontSize: 10, fontWeight: '700' },
     cardGrid: { flexDirection: 'row', gap: 8, marginBottom: 12 },
     gridCell: { flex: 1 },
     gridLabel: { fontSize: 10, color: T.dim, marginBottom: 3, fontWeight: '600', letterSpacing: 0.4 },
-    gridVal: { fontSize: 13, color: T.white, fontWeight: '700' },
+    // gridVal: { fontSize: 13, color: T.white, fontWeight: '700' },
     progressWrap: { marginBottom: 12 },
     progressTrack: { height: 3, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 2, overflow: 'hidden' },
     progressFill: { height: '100%', borderRadius: 2, overflow: 'hidden' },
@@ -1987,8 +2036,10 @@ pk.iconBox = { width: 34, height: 34, borderRadius: 9, alignItems: 'center', jus
 const pv = StyleSheet.create({
     box: { backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 12, padding: 16, marginTop: 16, borderWidth: 1, borderColor: T.border, alignItems: 'center' },
     label: { fontSize: 10, color: T.dim, letterSpacing: 1, marginBottom: 6 },
-    big: { fontSize: 26, fontWeight: '800', color: T.green, fontFamily: 'Syne' },
-    sm: { fontSize: 12, color: T.dim, marginTop: 4 },
+    // big: { fontSize: 26, fontWeight: '800', color: T.green, fontFamily: 'Syne' },
+    // sm: { fontSize: 12, color: T.dim, marginTop: 4 },
+    big: { fontSize: 26, fontWeight: '800', color: T.green, fontFamily: 'Poppins_700Bold' },
+    sm: { fontSize: 12, color: T.dim, marginTop: 4, fontFamily: 'Poppins_600SemiBold' },
 });
 
 // ── Cap button (in form) ───────────────────────────────────────────────────────
@@ -2027,4 +2078,11 @@ const s = StyleSheet.create({
     capTabLabel: { fontSize: 12, fontWeight: '600', color: T.dim },
 
     content: { flex: 1 },
+
+    ownerPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: T.border },
+    ownerPillT: { fontSize: 13, color: T.white, fontWeight: '700' },
+    ownerDropdown: { position: 'absolute', top: 38, right: 0, backgroundColor: '#0e0e18', borderRadius: 14, borderWidth: 1, borderColor: T.border, overflow: 'hidden', minWidth: 140 },
+    ownerItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: T.border },
+    ownerItemActive: { backgroundColor: 'rgba(166,75,255,0.12)' },
+    ownerItemT: { fontSize: 13, color: T.dim, fontWeight: '600' },
 });
