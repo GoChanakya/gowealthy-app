@@ -3,6 +3,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import { useFonts, Syne_700Bold, Syne_600SemiBold } from '@expo-google-fonts/syne';
 import { SpaceGrotesk_400Regular, SpaceGrotesk_500Medium } from '@expo-google-fonts/space-grotesk';
+import { Poppins_600SemiBold, Poppins_700Bold } from '@expo-google-fonts/poppins'; // ← add
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
@@ -14,6 +15,8 @@ export default function RootLayout() {
     Syne_600SemiBold,
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
+    Poppins_600SemiBold,   // ← add
+    Poppins_700Bold,       // ← add
   });
 
   useEffect(() => {
