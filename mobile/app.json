@@ -26,14 +26,20 @@
         "expo-build-properties",
         {
           "ios": {
-            "useHermes": false
+            "useHermes": false,
+            "newArchEnabled": false
           },
           "android": {
-            "useHermes": false
+            "useHermes": false,
+            "newArchEnabled": false
           }
         }
       ],
       "expo-font"
-    ]
+    ],
+
+    "experiments": {
+      "reactCompiler": false
+    }
   }
 }
