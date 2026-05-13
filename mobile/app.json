@@ -3,41 +3,43 @@
     "name": "mobile",
     "slug": "mobile",
     "version": "1.0.0",
-
+    "updates": {
+      "enabled": false
+    },
     "ios": {
       "bundleIdentifier": "com.gochanakya.mobile",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
-
     "android": {
       "package": "com.gochanakya.mobile"
     },
-
     "extra": {
       "eas": {
         "projectId": "af0b9f33-ca49-46c1-a377-9fe2cb83e14a"
       }
     },
-
     "plugins": [
       [
         "expo-build-properties",
         {
           "ios": {
-            "useHermes": false,
-            "newArchEnabled": false
+            "deploymentTarget": "15.1"
           },
           "android": {
-            "useHermes": false,
-            "newArchEnabled": false
+            "minSdkVersion": 24
           }
         }
       ],
-      "expo-font"
+      "expo-font",
+      "@react-native-community/datetimepicker",
+      "expo-asset",
+      "expo-image",
+      "expo-router",
+      "expo-web-browser",
+      "expo-video"
     ],
-
     "experiments": {
       "reactCompiler": false
     }

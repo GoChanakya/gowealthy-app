@@ -1,28 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
   StatusBar,
   StyleSheet,
   Animated
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Video } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
 import ScreenScrollView from '../../../../src/components/ScreenScrollView';
 
-import { 
-  colors, 
+import {
+  colors,
   globalStyles,
-  isMobile 
+  isMobile
 } from '../../../../src/theme/globalStyles';
 
 const Screen17 = () => {
   const router = useRouter();
   const { answers, updateAnswer } = useQuestionnaire();
-  
+
   const [progress, setProgress] = useState(0);
   const [isAnalyzing, setIsAnalyzing] = useState(true);
   const [showResults, setShowResults] = useState(false);
@@ -57,9 +57,15 @@ const Screen17 = () => {
     insurance_choice: { SI: 0.1, FO: 0.4, LT: 0.2, CO: 0.1, AT: 0.5 }
   };
 
+  const player = useVideoPlayer(require('../../../../assets/Analyzing_Responses.mp4'), player => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
+
   const calculateRiskScores = () => {
     const responses = answers.psychology_scores || {};
-    
+
     // Initialize dimension scores
     const dimensions = {
       SI: 0, // Social Influence Tendency
@@ -73,7 +79,7 @@ const Screen17 = () => {
     Object.keys(responses).forEach(questionKey => {
       const score = responses[questionKey];
       const weights = questionWeights[questionKey];
-      
+
       if (weights) {
         Object.keys(weights).forEach(dimension => {
           dimensions[dimension] += weights[dimension] * score;
@@ -165,7 +171,7 @@ const Screen17 = () => {
     if (showResults && riskScores) {
       let currentIndex = 0;
       const fullText = riskScores.description;
-      
+
       const typeInterval = setInterval(() => {
         if (currentIndex <= fullText.length) {
           setTypewriterText(fullText.substring(0, currentIndex));
@@ -199,7 +205,7 @@ const Screen17 = () => {
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#0a0a0a" />
-      
+
       <View style={[globalStyles.backgroundContainer, { backgroundColor: '#0a0a0a' }]}>
         <ScreenScrollView>
           <View style={globalStyles.appContainer}>
@@ -245,23 +251,21 @@ const Screen17 = () => {
                     </Text>
 
                     <View style={styles.videoContainer}>
-                      <Video
-                        source={require('../../../../assets/Analyzing_Responses.mp4')}
+                      <VideoView
+                        player={player}
                         style={styles.video}
-                        resizeMode="cover"
-                        shouldPlay
-                        isLooping
-                        isMuted
+                        contentFit="cover"
+                        nativeControls={false}
                       />
                     </View>
 
                     <View style={styles.analysisProgressContainer}>
                       <View style={styles.progressBarBg}>
-                        <View 
+                        <View
                           style={[
                             styles.progressBarFill,
                             { width: `${progress}%` }
-                          ]} 
+                          ]}
                         />
                       </View>
                       <Text style={styles.progressText}>
@@ -298,10 +302,10 @@ const Screen17 = () => {
                           end={{ x: 1, y: 0 }}
                           style={styles.gradientBar}
                         />
-                        <View 
+                        <View
                           style={[
                             styles.marker,
-                            { 
+                            {
                               left: `${riskScores.riskCapacity}%`,
                               borderColor: getBarColor(riskScores.riskCapacity)
                             }

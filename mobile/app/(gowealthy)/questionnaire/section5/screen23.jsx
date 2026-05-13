@@ -1,4 +1,4 @@
-import { Video } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import {
@@ -23,13 +23,13 @@ const { width: screenWidth } = Dimensions.get('window');
 const Screen23 = () => {
   const router = useRouter();
   const { answers, updateAnswer } = useQuestionnaire();
-useEffect(() => {
-  console.log('='.repeat(50));
-  console.log('🔍 SCREEN 23 - ALL DATA:');
-  console.log('='.repeat(50));
-  console.log('COMPLETE ANSWERS:', JSON.stringify(answers, null, 2));
-  console.log('='.repeat(50));
-}, []);
+  useEffect(() => {
+    console.log('='.repeat(50));
+    console.log('🔍 SCREEN 23 - ALL DATA:');
+    console.log('='.repeat(50));
+    console.log('COMPLETE ANSWERS:', JSON.stringify(answers, null, 2));
+    console.log('='.repeat(50));
+  }, []);
   const [currentSection, setCurrentSection] = useState(0);
   const [sectionsCompleted, setSectionsCompleted] = useState([false, false, false, false, false, false]);
   const [showLoader, setShowLoader] = useState(false);
@@ -42,6 +42,21 @@ useEffect(() => {
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const loaderFadeAnim = useRef(new Animated.Value(0)).current;
   const textFadeAnim = useRef(new Animated.Value(0)).current;
+
+  const player = useVideoPlayer(require('../../../../assets/animations/loader2.mp4'), player => {
+    player.loop = false;
+    player.muted = true;
+    player.play();
+  });
+
+  useEffect(() => {
+    const sub = player.addListener('playingChange', ({ isPlaying }) => {
+      if (!isPlaying && player.currentTime > 0) {
+        setLoaderComplete(true);
+      }
+    });
+    return () => sub.remove();
+  }, [player]);
 
   const progressData = {
     sectionData: {
@@ -76,7 +91,7 @@ useEffect(() => {
       } else {
         // All sections completed, start smooth crossfade
         setFadeOut(true);
-        
+
         // Fade out sections
         Animated.timing(fadeAnim, {
           toValue: 0,
@@ -87,7 +102,7 @@ useEffect(() => {
         // Start showing loader
         setTimeout(() => {
           setShowLoader(true);
-          
+
           // Fade in loader
           Animated.timing(loaderFadeAnim, {
             toValue: 1,
@@ -139,9 +154,9 @@ useEffect(() => {
         // Mark questionnaire as complete
         updateAnswer('questionnaire_completed', true);
         updateAnswer('completion_timestamp', new Date().toISOString());
-        
+
         // Navigate to dashboard or next screen
-    router.replace('/(gowealthy)/dashboard/home');
+        router.replace('/(gowealthy)/dashboard/home');
       }, 2000);
       return () => clearTimeout(delay);
     }
@@ -195,20 +210,14 @@ useEffect(() => {
               {showLoader && (
                 <Animated.View style={[styles.loaderContainer, { opacity: loaderFadeAnim }]}>
                   <View style={styles.loaderImageWrapper}>
-                    <Video
-                      source={require('../../../../assets/animations/loader2.mp4')}
+                    <VideoView
+                      player={player}
                       style={styles.loaderVideo}
-                      resizeMode="contain"
-                      shouldPlay
-                      isLooping={false}
-                      onPlaybackStatusUpdate={(status) => {
-                        if (status.didJustFinish) {
-                          setLoaderComplete(true);
-                        }
-                      }}
+                      contentFit="contain"
+                      nativeControls={false}
                     />
                   </View>
-                  
+
                   {loaderComplete && (
                     <Animated.View style={[styles.loaderTextWrapper, { opacity: textFadeAnim }]}>
                       <Text style={styles.loaderText}>
@@ -287,17 +296,17 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
 
-loaderContainer: {
-  position: 'absolute',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: 20,
-  transform: [{ translateY: -60 }], // Shift up by 60 pixels
-},
+  loaderContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+    transform: [{ translateY: -60 }], // Shift up by 60 pixels
+  },
 
   loaderImageWrapper: {
     width: isMobile ? screenWidth * 0.9 : 400,
