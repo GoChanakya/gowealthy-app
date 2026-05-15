@@ -23,7 +23,7 @@ import {
   View,
 } from "react-native";
 import { db } from "../../../../src/config/firebase"; 
-import { ALL_STOCKS, getStockBySymbol } from "../utils/stockData";
+import { ALL_STOCKS, getStockBySymbol } from "../utils/_stockData";
 
 export default function WatchlistScreen({ navigation, refreshTrigger }) {
   const [watchlist, setWatchlist] = useState([]);

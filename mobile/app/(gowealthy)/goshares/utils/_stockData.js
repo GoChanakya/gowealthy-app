@@ -124,3 +124,5 @@ export const searchStocks = (query) => {
     stock.symbol.toLowerCase().includes(lowerQuery)
   );
 };
+
+export default {};
