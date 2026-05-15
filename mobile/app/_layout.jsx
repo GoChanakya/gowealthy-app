@@ -132,16 +132,20 @@ export default function RootLayout() {
   }
 
   return (
-    <ErrorBoundary>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: '#000' }
-          }}
-        />
-        <Toast />
-      </GestureHandlerRootView>
-    </ErrorBoundary>
-  );
+  <ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: '#000' }
+        }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(gowealthy)" />
+      </Stack>
+      <Toast />
+    </GestureHandlerRootView>
+  </ErrorBoundary>
+);
 }

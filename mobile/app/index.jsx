@@ -96,7 +96,7 @@ export default function RootIndex() {
         const isValid = token === 'verified' && !!phone;
         const isExpired = TOKEN_TTL_MS > 0 && (Date.now() - ts > TOKEN_TTL_MS);
         if (isValid && !isExpired) {
-          router.replace('/(gowealthy)');
+          router.replace('/(gowealthy)/home');
         } else {
           await AsyncStorage.multiRemove(['auth_token', 'user_phone', 'auth_timestamp']);
           router.replace('/(auth)/landing');
