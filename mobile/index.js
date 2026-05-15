@@ -22,18 +22,18 @@
 //   Alert.alert('Require Error!', e?.message + '\n' + (e?.stack || '').substring(0, 300));
 // }
 
-import { Alert } from 'react-native';
+import { ErrorUtils, Alert } from 'react-native';
 
-if (typeof ErrorUtils !== 'undefined') {
-  ErrorUtils.setGlobalHandler((error, isFatal) => {
-    setTimeout(() => {
-      Alert.alert(
-        'App Error',
-        error?.message + '\n' + (error?.stack || '').substring(0, 400),
-        [{ text: 'OK' }]
-      );
-    }, 500);
-  });
-}
+Alert.alert('App Started', 'JS is loading...');
+
+ErrorUtils.setGlobalHandler((error, isFatal) => {
+  setTimeout(() => {
+    Alert.alert(
+      'Global Error!',
+      `Fatal: ${isFatal}\n${error?.message}\n${(error?.stack || '').substring(0, 300)}`,
+      [{ text: 'OK' }]
+    );
+  }, 500);
+});
 
 require('expo-router/entry');

@@ -72,11 +72,12 @@ export default function RootIndex() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
 
-  Alert.alert('7. RootIndex rendering');
+  useEffect(() => {
+    Alert.alert('index.jsx rendered!');
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      Alert.alert('8. Ready to check auth');
       setReady(true);
     }, 150);
     return () => clearTimeout(timer);
@@ -84,36 +85,27 @@ export default function RootIndex() {
 
   useEffect(() => {
     if (!ready) return;
-
     const checkAuth = async () => {
       try {
-        Alert.alert('9. Checking AsyncStorage');
         const results = await AsyncStorage.multiGet([
-          'auth_token',
-          'user_phone',
-          'auth_timestamp',
+          'auth_token', 'user_phone', 'auth_timestamp',
         ]);
-
         const token = results[0][1];
         const phone = results[1][1];
         const ts = parseInt(results[2][1] || '0', 10);
         const isValid = token === 'verified' && !!phone;
         const isExpired = TOKEN_TTL_MS > 0 && (Date.now() - ts > TOKEN_TTL_MS);
-
         if (isValid && !isExpired) {
-          Alert.alert('10. Navigating to gowealthy');
           router.replace('/(gowealthy)');
         } else {
-          Alert.alert('10. Navigating to auth/landing');
           await AsyncStorage.multiRemove(['auth_token', 'user_phone', 'auth_timestamp']);
           router.replace('/(auth)/landing');
         }
       } catch (e) {
-        Alert.alert('10. Auth error, going to landing', e?.message);
+        Alert.alert('Auth error', e?.message);
         router.replace('/(auth)/landing');
       }
     };
-
     checkAuth();
   }, [ready]);
 

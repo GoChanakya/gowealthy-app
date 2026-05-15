@@ -105,8 +105,6 @@ class ErrorBoundary extends React.Component {
 }
 
 export default function RootLayout() {
-  Alert.alert('4. RootLayout rendering');
-
   const [fontsLoaded, fontError] = useFonts({
     Syne_700Bold,
     Syne_600SemiBold,
@@ -116,11 +114,11 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded) {
-      Alert.alert('5. Fonts loaded!');
+      Alert.alert('Fonts loaded!');
       SplashScreen.hideAsync().catch(() => {});
     }
     if (fontError) {
-      Alert.alert('5. Font Error!', fontError?.message || 'unknown');
+      Alert.alert('Font Error!', fontError?.message || 'unknown');
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontError]);
@@ -132,8 +130,6 @@ export default function RootLayout() {
       </View>
     );
   }
-
-  Alert.alert('6. Rendering Stack');
 
   return (
     <ErrorBoundary>
