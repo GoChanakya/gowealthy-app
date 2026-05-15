@@ -30,7 +30,6 @@
 // }
 
 // export default function RootLayout() {
-//   Alert.alert('4. RootLayout rendering');
 //   const [fontsLoaded, fontError] = useFonts({
 //     Syne_700Bold,
 //     Syne_600SemiBold,
@@ -40,11 +39,11 @@
 
 //   useEffect(() => {
 //     if (fontsLoaded) {
-//       Alert.alert('Fonts Loaded!', 'proceeding to app');
+//       Alert.alert('Fonts loaded!');
 //       SplashScreen.hideAsync().catch(() => {});
 //     }
 //     if (fontError) {
-//       Alert.alert('Font Error!', fontError?.message || 'unknown font error');
+//       Alert.alert('Font Error!', fontError?.message || 'unknown');
 //       SplashScreen.hideAsync().catch(() => {});
 //     }
 //   }, [fontsLoaded, fontError]);
@@ -58,22 +57,25 @@
 //   }
 
 //   return (
-//     <ErrorBoundary>
-//       <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
-//         <Stack
-//           screenOptions={{
-//             headerShown: false,
-//             contentStyle: { backgroundColor: '#000' }
-//           }}
-//         />
-//         <Toast />
-//       </GestureHandlerRootView>
-//     </ErrorBoundary>
-//   );
+//   <ErrorBoundary>
+//     <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
+//       <Stack
+//         screenOptions={{
+//           headerShown: false,
+//           contentStyle: { backgroundColor: '#000' }
+//         }}
+//       >
+//         <Stack.Screen name="index" />
+//         <Stack.Screen name="(auth)" />
+//         <Stack.Screen name="(gowealthy)" />
+//       </Stack>
+//       <Toast />
+//     </GestureHandlerRootView>
+//   </ErrorBoundary>
+// );
 // }
 
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
@@ -105,12 +107,22 @@ class ErrorBoundary extends React.Component {
 }
 
 export default function RootLayout() {
+  const [fontTimeout, setFontTimeout] = useState(false);
+
   const [fontsLoaded, fontError] = useFonts({
     Syne_700Bold,
     Syne_600SemiBold,
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
   });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Alert.alert('Font timeout triggered!');
+      setFontTimeout(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded) {
@@ -123,7 +135,7 @@ export default function RootLayout() {
     }
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) {
+  if (!fontsLoaded && !fontError && !fontTimeout) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' }}>
         <ActivityIndicator color="#FF8500" />
@@ -132,20 +144,21 @@ export default function RootLayout() {
   }
 
   return (
-  <ErrorBoundary>
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: '#000' }
-        }}
-      >
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(gowealthy)" />
-      </Stack>
-      <Toast />
-    </GestureHandlerRootView>
-  </ErrorBoundary>
-);
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#000' }}>
+        <Stack
+          initialRouteName="index"
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: '#000' }
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(gowealthy)" />
+        </Stack>
+        <Toast />
+      </GestureHandlerRootView>
+    </ErrorBoundary>
+  );
 }
