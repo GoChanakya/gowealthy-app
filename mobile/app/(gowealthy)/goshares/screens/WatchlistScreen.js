@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect } from "react";
-// import { useFocusEffect } from "@react-navigation/native";
 import {
   collection,
   deleteDoc,
