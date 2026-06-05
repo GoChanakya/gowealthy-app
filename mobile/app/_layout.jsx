@@ -4,11 +4,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import { useFonts, Syne_700Bold, Syne_600SemiBold } from '@expo-google-fonts/syne';
 import { SpaceGrotesk_400Regular, SpaceGrotesk_500Medium } from '@expo-google-fonts/space-grotesk';
-import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { View, ActivityIndicator, Text, ScrollView, Alert } from 'react-native';
-
-SplashScreen.preventAutoHideAsync().catch(() => {});
 
 class ErrorBoundary extends React.Component {
   state = { error: null };
@@ -44,7 +41,6 @@ export default function RootLayout() {
   useEffect(() => {
     const timer = setTimeout(() => {
       Alert.alert('Font timeout triggered!');
-      SplashScreen.hideAsync().catch(() => {});
       setFontTimeout(true);
     }, 3000);
     return () => clearTimeout(timer);
@@ -53,11 +49,9 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) {
       Alert.alert('Fonts loaded!');
-      SplashScreen.hideAsync().catch(() => {});
     }
     if (fontError) {
       Alert.alert('Font Error!', fontError?.message || 'unknown');
-      SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontError]);
 
