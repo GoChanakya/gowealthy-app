@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
+import { Alert } from 'react-native';
+
+Alert.alert('2. Layout Imported');
+
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import { useFonts, Syne_700Bold, Syne_600SemiBold } from '@expo-google-fonts/syne';
 import { SpaceGrotesk_400Regular, SpaceGrotesk_500Medium } from '@expo-google-fonts/space-grotesk';
 import { useEffect } from 'react';
-import { View, ActivityIndicator, Text, ScrollView, Alert } from 'react-native';
+import { View, ActivityIndicator, Text, ScrollView } from 'react-native';
 
 class ErrorBoundary extends React.Component {
   state = { error: null };
@@ -29,6 +33,7 @@ class ErrorBoundary extends React.Component {
 }
 
 export default function RootLayout() {
+  Alert.alert('3. RootLayout Entered');
   const [fontTimeout, setFontTimeout] = useState(false);
 
   const [fontsLoaded, fontError] = useFonts({
@@ -37,6 +42,9 @@ export default function RootLayout() {
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
   });
+
+  console.log('fontsLoaded =', fontsLoaded);
+  console.log('fontError =', fontError);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -56,12 +64,14 @@ export default function RootLayout() {
   }, [fontsLoaded, fontError]);
 
   if (!fontsLoaded && !fontError && !fontTimeout) {
+    Alert.alert('4. Waiting For Fonts');
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0C10' }}>
         <ActivityIndicator color="#FF8500" />
       </View>
     );
   }
+  Alert.alert('5. Rendering Stack');
 
   return (
     <ErrorBoundary>

@@ -11,13 +11,21 @@
     "lint": "expo lint"
   },
   "expo": {
-    "install": {
-      "exclude": [
-        "expo-router",
-        "expo"
-      ]
-    }
-  },
+  "install": {
+    "exclude": [
+      "expo-router",
+      "expo",
+      "expo-asset",
+      "expo-build-properties",
+      "expo-constants",
+      "expo-dev-client",
+      "expo-image",
+      "expo-image-picker",
+      "expo-symbols",
+      "expo-updates"
+    ]
+  }
+},
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.1",
     "@expo-google-fonts/space-grotesk": "^0.4.1",

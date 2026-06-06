@@ -5,6 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
+Alert.alert('6. Index Screen Rendered');
+
 export default function RootIndex() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
