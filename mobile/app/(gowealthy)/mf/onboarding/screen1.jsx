@@ -1189,7 +1189,7 @@ const handleContinue = async () => {
         )}
         
         <TouchableOpacity
-          onPress={() => router.push('/(gowealthy)/mf/onboarding/screen2')}
+          onPress={() => router.push('/(gowealthy)/mf/onboarding/screen6')}
           style={styles.nextDevButton}
         >
           <Text style={styles.nextDevButtonText}>Skip (Dev) →</Text>

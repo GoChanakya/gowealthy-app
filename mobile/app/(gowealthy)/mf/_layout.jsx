@@ -6,6 +6,7 @@ export default function mfLayout() {
     <QuestionnaireProvider>
       <Stack screenOptions={{ headerShown: false,animation: 'slide_from_right', }}>
         <Stack.Screen name="onboarding" />
+        <Stack.Screen name="trading" />
       </Stack>
     </QuestionnaireProvider>
   );
