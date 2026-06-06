@@ -75,7 +75,7 @@ const Screen6Bank = () => {
   const handleComplete = async () => {
     try {
       await AsyncStorage.setItem('mf_bank_data', JSON.stringify(bankData));
-      router.push('/(gowealthy)/mf/onboarding/preview');
+      router.push('/(gowealthy)/mf/trading/trading');
     } catch (error) {
       console.error('Error saving bank data:', error);
     }
@@ -290,7 +290,7 @@ const Screen6Bank = () => {
         )}
         
         <TouchableOpacity
-          onPress={() => router.push('/(gowealthy)/mf/onboarding/preview')}
+          onPress={() => router.push('/(gowealthy)/mf/trading/funds')}
           style={styles.nextDevButton}
         >
           <Text style={styles.nextDevButtonText}>Next →</Text>
