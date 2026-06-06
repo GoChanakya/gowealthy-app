@@ -683,19 +683,31 @@ app.post("/api/nse/mandate-register", async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 app.post("/api/nse/client-auth-status", async (req, res) => {
     const { client_code } = req.body;
-
     if (!client_code) {
         return res.status(400).json({ success: false, error: "client_code is required" });
     }
 
     try {
         console.log(`📊 [client-auth-status] UCC: ${client_code}`);
+
+        // Build date range — from 7 days ago to today
+        const today = new Date();
+        const from  = new Date(today);
+        from.setDate(from.getDate() - 7);
+        const fmt = (d) =>
+            `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+
         const response = await nseClient.post(
-            "/nsemfdesk/api/v2/reports/CLIENT_AUTH_REPORT",
-            { client_code },
+            "/nsemfdesk/api/v2/reports/client_authorization",  // ← correct URL
+            {
+                from_date:   fmt(from),
+                to_date:     fmt(today),
+                client_code: client_code,
+                date_type:   "AUTH_SENT_DATE",
+            },
             { headers: buildNseHeaders() }
         );
-        console.log(`✅ [client-auth-status] auth: ${response.data?.report_data?.[0]?.auth_status}`);
+        console.log(`✅ [client-auth-status]:`, JSON.stringify(response.data));
         res.json(response.data);
     } catch (err) {
         handleNseError(err, res, "client-auth-status");
