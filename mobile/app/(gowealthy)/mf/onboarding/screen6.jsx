@@ -126,12 +126,6 @@ const Screen6FATCAAndUCC = () => {
 
   const loadExistingData = async () => {
     try {
-<<<<<<< HEAD
-      await AsyncStorage.setItem('mf_bank_data', JSON.stringify(bankData));
-      router.push('/(gowealthy)/mf/trading/trading');
-    } catch (error) {
-      console.error('Error saving bank data:', error);
-=======
       setIsLoadingData(true);
       const phone = await AsyncStorage.getItem('user_phone');
       if (!phone) return;
@@ -170,7 +164,6 @@ const Screen6FATCAAndUCC = () => {
       console.log('Screen 6 load error:', e.message);
     } finally {
       setIsLoadingData(false);
->>>>>>> 799b6ec3f88925076cc89da0aa7abc61bf40a7f6
     }
   };
 
@@ -876,13 +869,8 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
         </TouchableOpacity>
 
         <TouchableOpacity
-<<<<<<< HEAD
-          onPress={() => router.push('/(gowealthy)/mf/trading/funds')}
-          style={styles.nextDevButton}
-=======
           onPress={() => router.push('/(gowealthy)/mf/onboarding/preview')}
           style={styles.devButton}
->>>>>>> 799b6ec3f88925076cc89da0aa7abc61bf40a7f6
         >
           <Text style={styles.devButtonText}>Skip (Dev) →</Text>
         </TouchableOpacity>
