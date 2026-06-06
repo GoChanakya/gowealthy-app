@@ -668,8 +668,8 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../../src/config/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-
-const BACKEND_URL = 'http://172.20.10.2:3001'; // CHANGE TO YOUR IP
+import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';
+ // CHANGE TO YOUR IP
 const PAN_OCR_ENDPOINT = 'https://pan-parser-763133497996.asia-south1.run.app';
 
 const Screen1PANBackend = () => {

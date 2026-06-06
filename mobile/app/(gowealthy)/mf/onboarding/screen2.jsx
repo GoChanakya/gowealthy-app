@@ -954,10 +954,7 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../../src/config/firebase';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';  // ← added getDoc, updateDoc
-
-const BACKEND_URL = 'http://172.20.10.2:3001';   // upload service
-const NSE_SERVICE_URL = 'http://172.20.10.2:3000'; // nse service  ← ADD THIS
-const OCR_ENDPOINT = 'https://adhar-parser-763133497996.asia-south1.run.app';
+import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';const OCR_ENDPOINT = 'https://adhar-parser-763133497996.asia-south1.run.app';
 
 const Screen2AadhaarBackend = () => {
   const router = useRouter();
