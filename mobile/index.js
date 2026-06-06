@@ -14,8 +14,14 @@
 
 // require('expo-router/entry');
 
-import { Alert } from 'react-native';
+import { ErrorUtils, Alert } from 'react-native';
 
-Alert.alert('App Started', 'JS is loading...');
+ErrorUtils.setGlobalHandler((error, isFatal) => {
+  Alert.alert(
+    'JS ERROR!',
+    error?.message + '\n\n' + (error?.stack || '').substring(0, 500),
+    [{ text: 'OK' }]
+  );
+});
 
 require('expo-router/entry');
