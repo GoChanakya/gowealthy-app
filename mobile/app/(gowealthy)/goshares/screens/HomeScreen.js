@@ -11,7 +11,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { ALL_STOCKS, searchStocks } from '../utils/stockData';
+import { ALL_STOCKS, searchStocks } from '../utils/_stockData';
 
 export default function HomeScreen({ navigation }) {
   const [stocks, setStocks] = useState([]);

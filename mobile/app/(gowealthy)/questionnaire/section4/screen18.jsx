@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
 import ScreenScrollView from '../../../../src/components/ScreenScrollView';
-import { Video } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import {
     colors,
     globalStyles,
@@ -24,6 +24,12 @@ const Screen18 = () => {
     const [showContent, setShowContent] = useState(false);
     const fadeAnim = useRef(new Animated.Value(0)).current;
     const translateAnim = useRef(new Animated.Value(20)).current;
+
+    const player = useVideoPlayer(require('../../../../assets/animations/goal_strategy3_ca4b4ac5.mp4'), player => {
+        player.loop = true;
+        player.muted = true;
+        player.play();
+    });
 
     const progressData = {
         sectionData: {
@@ -68,7 +74,7 @@ const Screen18 = () => {
 
     const handleContinue = () => {
         setTimeout(() => {
-              router.push('/(gowealthy)/questionnaire/section5/screen20');
+            router.push('/(gowealthy)/questionnaire/section5/screen20');
         }, 500);
     };
 
@@ -131,15 +137,13 @@ const Screen18 = () => {
                                 </Text>
 
                                 <View style={styles.riveContainer}>
-    <Video
-        source={require('../../../../assets/animations/goal_strategy3_ca4b4ac5.mp4')}
-        style={styles.videoPlayer}
-        resizeMode="contain"
-        shouldPlay
-        isLooping
-        isMuted
-    />
-</View>
+                                    <VideoView
+                                        player={player}
+                                        style={styles.videoPlayer}
+                                        contentFit="contain"
+                                        nativeControls={false}
+                                    />
+                                </View>
                                 <View style={globalStyles.confirmButton}>
                                     <TouchableOpacity onPress={handleContinue} activeOpacity={0.8}>
                                         <LinearGradient
@@ -191,11 +195,11 @@ const styles = StyleSheet.create({
         width: '100%',
         height: '100%',
     },
-videoPlayer: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 10,
-},
+    videoPlayer: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 10,
+    },
     emojiPlaceholder: {
         fontSize: 80,
         marginBottom: 10,

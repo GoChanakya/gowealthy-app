@@ -21,7 +21,8 @@
         "gradleCommand": ":app:assembleRelease"
       },
       "env": {
-        "EXPO_NO_MINIFY": "1"
+        "EXPO_NO_MINIFY": "1",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "ios": {
         "autoIncrement": true

@@ -226,7 +226,7 @@ const LoginScreen = () => {
 
               <Text style={s.cardTitle}>Sign in</Text>
               <Text style={s.cardSub}>
-                Enter your WhatsApp number.{'\n'}We'll send a one-time code to verify you.
+                Enter your WhatsApp number.{'\n'}We'll send a one-time code to verify You.
               </Text>
 
               {/* Input label */}

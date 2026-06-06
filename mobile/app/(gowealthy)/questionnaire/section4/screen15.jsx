@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   TouchableOpacity, 
   StatusBar,
   StyleSheet,
-  Dimensions
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Video } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useQuestionnaire } from '../../../../src/context/QuestionnaireContext';
 import ScreenScrollView from '../../../../src/components/ScreenScrollView';
@@ -23,6 +22,20 @@ const Screen15 = () => {
   const router = useRouter();
   const { answers, updateAnswer } = useQuestionnaire();
   const [isReady, setIsReady] = useState(false);
+
+  const player = useVideoPlayer(require('../../../../assets/animations/brain_psycho1.mp4'), player => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
+
+  useEffect(() => {
+    const sub = player.addListener('statusChange', ({ status, error }) => {
+      if (error) console.log('Video error:', error);
+      if (status === 'readyToPlay') setIsReady(true);
+    });
+    return () => sub.remove();
+  }, [player]);
 
   const progressData = {
     sectionData: {
@@ -101,17 +114,11 @@ const Screen15 = () => {
                 </Text>
 
                 <View style={styles.gifContainer}>
-                  <Video
-                    source={require('../../../../assets/animations/brain_psycho1.mp4')}
+                  <VideoView
+                    player={player}
                     style={styles.video}
-                    resizeMode="contain"
-                    shouldPlay
-                    isLooping
-                    isMuted
-                    onLoad={() => setIsReady(true)}
-                    onError={(error) => {
-                      console.log('Video error:', error);
-                    }}
+                    contentFit="contain"
+                    nativeControls={false}
                   />
                 </View>
 

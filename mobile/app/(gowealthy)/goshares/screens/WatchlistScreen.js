@@ -1,7 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect } from "react";
-// import { useFocusEffect } from "@react-navigation/native";
 import {
   collection,
   deleteDoc,
@@ -23,7 +22,7 @@ import {
   View,
 } from "react-native";
 import { db } from "../../../../src/config/firebase"; 
-import { ALL_STOCKS, getStockBySymbol } from "../utils/stockData";
+import { ALL_STOCKS, getStockBySymbol } from "../utils/_stockData";
 
 export default function WatchlistScreen({ navigation, refreshTrigger }) {
   const [watchlist, setWatchlist] = useState([]);
