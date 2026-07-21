@@ -757,11 +757,14 @@ require("dotenv").config();
 const express = require("express");
 const { aesEncrypt } = require("./utils/encryption");
 const { buildAuthHeader } = require("./utils/auth");
+const morgan = require("morgan");
 const nseClient = require("./clients/nseClient");
+const fs = require("fs");
+const path = require("path");
 
 const app = express();
 app.use(express.json());
-
+app.use(morgan("dev"));
 // ─── CORS ────────────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -1315,7 +1318,46 @@ app.post("/api/nse/client-auth-status", async (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // EXISTING ROUTES (unchanged)
 // ═══════════════════════════════════════════════════════════════════════════════
+
+function parseMasterDownload(rawText) {
+    // Split into lines, drop empty ones (NSE files often end with trailing \n or a stray blank line)
+    const lines = rawText.split(/\r?\n/).filter(line => line.trim().length > 0);
+
+    if (lines.length < 2) return [];
+
+    // Header row — split on "|", trim, drop trailing empty column (file ends with a "|")
+    const headers = lines[0].split("|").map(h => h.trim()).filter(h => h.length > 0);
+
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+        const cols = lines[i].split("|");
+        if (cols.length < 2) continue; // skip junk/blank lines
+
+        const row = {};
+        headers.forEach((h, idx) => {
+            row[h] = (cols[idx] ?? "").trim();
+        });
+        rows.push(row);
+    }
+
+    // Map to the clean shape your app actually needs
+    return rows.map(r => ({
+        sch_code:     r["SCHEME CODE"],
+        amc_code:     r["AMC CODE"],
+        scheme_name:  r["SCHEME NAME"],
+        scheme_type:  r["SCHEME TYPE"],
+        plan_type:    r["PLAN TYPE"],
+        isin:         r["ISIN"],
+        min_sip:      r["NEW PURCHASE MIN AMOUNT"],
+        sip_allowed:  r["SIP ALLOWED"],
+        purchase_allowed:   r["PURCHASE ALLOWED"],
+        redemption_allowed: r["REDEMPTION ALLOWED"],
+        amc_active_flag:    r["AMC ACTIVE FLAG"],
+    }));
+}
+
 app.post("/api/nse/master-download", async (req, res) => {
+    console.log("hit");
     try {
         const file_type = req.body?.file_type || "SCH";
         const response = await nseClient.post(
@@ -1323,11 +1365,29 @@ app.post("/api/nse/master-download", async (req, res) => {
             { file_type },
             { headers: buildNseHeaders() }
         );
-        res.json(response.data);
+
+        // response.data is the raw pipe-delimited text
+        const rawText = typeof response.data === "string"
+            ? response.data
+            : JSON.stringify(response.data); // fallback safety net
+
+        const schemes = parseMasterDownload(rawText);
+
+        // Optional: cache to disk so you don't hit NSE every time the frontend loads funds
+        const outPath = path.join(__dirname, "schemes_app.json");
+        fs.writeFileSync(outPath, JSON.stringify(schemes, null, 2));
+
+        res.json({
+            count: schemes.length,
+            schemes
+        });
     } catch (err) {
         handleNseError(err, res, "master-download");
+        console.log(err.response?.data || err.message);
     }
 });
+
+
 
 app.post("/test-master", async (req, res) => {
     try {
@@ -1340,6 +1400,7 @@ app.post("/test-master", async (req, res) => {
         res.json(response.data);
     } catch (err) {
         handleNseError(err, res, "test-master");
+        console.log(err.response?.data || err.message);
     }
 });
 
