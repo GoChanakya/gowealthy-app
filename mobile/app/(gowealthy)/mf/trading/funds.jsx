@@ -1,120 +1,90 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView,
-  StyleSheet, TextInput,
+  StyleSheet, TextInput, FlatList, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SCHEMES_URL } from '../../../../src/config/services';
 
-const DUMMY_FUNDS = [
-  {
-    id: 1,
-    schemeCode: 'INF879O01019',
-    name: 'Parag Parikh Flexi Cap Fund',
-    amc: 'PPFAS Mutual Fund',
-    category: 'Flexi Cap',
-    nav: 82.34,
-    returns1Y: 18.2,
-    returns3Y: 16.8,
-    returns5Y: 22.1,
-    rating: 5,
-    minSIP: 1000,
-    tag: 'Top Pick',
-    tagColor: '#532ea6',
-    riskLevel: 'Moderate',
-  },
-  {
-    id: 2,
-    schemeCode: 'INF769K01010',
-    name: 'Mirae Asset Large Cap Fund',
-    amc: 'Mirae Asset MF',
-    category: 'Large Cap',
-    nav: 104.56,
-    returns1Y: 14.5,
-    returns3Y: 12.1,
-    returns5Y: 16.3,
-    rating: 4,
-    minSIP: 1000,
-    tag: 'Stable',
-    tagColor: '#10b981',
-    riskLevel: 'Low-Moderate',
-  },
-  {
-    id: 3,
-    schemeCode: 'INF174K01LS2',
-    name: 'SBI Small Cap Fund',
-    amc: 'SBI Mutual Fund',
-    category: 'Small Cap',
-    nav: 148.22,
-    returns1Y: 24.8,
-    returns3Y: 21.3,
-    returns5Y: 28.5,
-    rating: 4,
-    minSIP: 500,
-    tag: 'High Growth',
-    tagColor: '#ff6500',
-    riskLevel: 'High',
-  },
-  {
-    id: 4,
-    schemeCode: 'INF204K01U27',
-    name: 'Nippon India Balanced Advantage',
-    amc: 'Nippon India MF',
-    category: 'Balanced Advantage',
-    nav: 24.67,
-    returns1Y: 12.1,
-    returns3Y: 10.4,
-    returns5Y: 13.8,
-    rating: 3,
-    minSIP: 100,
-    tag: 'Conservative',
-    tagColor: '#7C766E',
-    riskLevel: 'Low',
-  },
-  {
-    id: 5,
-    schemeCode: 'INF090I01EL4',
-    name: 'HDFC Mid-Cap Opportunities',
-    amc: 'HDFC Mutual Fund',
-    category: 'Mid Cap',
-    nav: 186.43,
-    returns1Y: 21.4,
-    returns3Y: 18.7,
-    returns5Y: 23.6,
-    rating: 5,
-    minSIP: 100,
-    tag: 'Popular',
-    tagColor: '#3b82f6',
-    riskLevel: 'High',
-  },
-];
-
-const CATEGORIES = ['All', 'Flexi Cap', 'Large Cap', 'Mid Cap', 'Small Cap', 'Balanced Advantage'];
+// Categories map to NSE scheme_type values (uppercase in the data).
+const CATEGORIES = ['All', 'EQUITY', 'DEBT', 'HYBRID', 'ELSS', 'LIQUID'];
+const catLabel = (c) =>
+  c === 'All' ? 'All' : c.charAt(0) + c.slice(1).toLowerCase();
 
 const FundsListScreen = () => {
   const router = useRouter();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
+  const [funds, setFunds] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const filtered = DUMMY_FUNDS.filter(f => {
-    const matchSearch = f.name.toLowerCase().includes(search.toLowerCase()) ||
-      f.amc.toLowerCase().includes(search.toLowerCase());
-    const matchCat = activeCategory === 'All' || f.category === activeCategory;
-    return matchSearch && matchCat;
-  });
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch(SCHEMES_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (alive) setFunds(Array.isArray(data.funds) ? data.funds : []);
+      } catch (e) {
+        if (alive) setError(e.message || 'Failed to load funds');
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, []);
 
-  const StarRow = ({ rating }) => (
-    <View style={styles.stars}>
-      {[1,2,3,4,5].map(i => (
-        <Text key={i} style={i <= rating ? styles.starOn : styles.starOff}>★</Text>
-      ))}
-    </View>
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return funds.filter(f => {
+      const matchCat = activeCategory === 'All' || f.category === activeCategory;
+      if (!matchCat) return false;
+      if (!q) return true;
+      return (f.name || '').toLowerCase().includes(q) ||
+             (f.amc || '').toLowerCase().includes(q);
+    });
+  }, [funds, search, activeCategory]);
+
+  const renderCard = ({ item: fund }) => (
+    <TouchableOpacity
+      style={styles.card}
+      onPress={() => router.push(`/(gowealthy)/mf/trading/fund-detail?schemeCode=${encodeURIComponent(fund.schemeCode)}`)}
+    >
+      {/* Card header */}
+      <View style={styles.cardHead}>
+        <View style={styles.fundIconBox}>
+          <Text style={styles.fundIcon}>📊</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.fundName} numberOfLines={2}>{fund.name}</Text>
+          <Text style={styles.fundAmc}>{fund.amc}</Text>
+        </View>
+        <View style={styles.tagBadge}>
+          <Text style={styles.tagTxt}>{catLabel(fund.category || '')}</Text>
+        </View>
+      </View>
+
+      {/* Stats row — only real fields */}
+      <View style={styles.statsRow}>
+        <View style={styles.statBox}>
+          <Text style={styles.statLbl}>NAV</Text>
+          <Text style={styles.statVal}>{fund.nav != null ? `₹${fund.nav}` : '—'}</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={styles.statLbl}>Min SIP</Text>
+          <Text style={styles.statVal}>{fund.minSIP != null ? `₹${fund.minSIP}` : '—'}</Text>
+        </View>
+        <View style={styles.statBox}>
+          <Text style={styles.statLbl}>As of</Text>
+          <Text style={styles.statValSm}>{fund.navDate || '—'}</Text>
+        </View>
+      </View>
+    </TouchableOpacity>
   );
-
-  const riskColor = (r) => {
-    if (r === 'High') return '#ef4444';
-    if (r === 'Moderate' || r === 'Low-Moderate') return '#f59e0b';
-    return '#10b981';
-  };
 
   return (
     <View style={styles.container}>
@@ -145,72 +115,45 @@ const FundsListScreen = () => {
         {CATEGORIES.map(c => (
           <TouchableOpacity key={c} onPress={() => setActiveCategory(c)}
             style={[styles.catChip, activeCategory === c && styles.catChipActive]}>
-            <Text style={[styles.catTxt, activeCategory === c && styles.catTxtActive]}>{c}</Text>
+            <Text style={[styles.catTxt, activeCategory === c && styles.catTxtActive]}>{catLabel(c)}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
-      {/* Fund cards */}
-      <ScrollView style={styles.list} showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, gap: 12 }}>
-        {filtered.map(fund => (
-          <TouchableOpacity key={fund.id} style={styles.card}
-            onPress={() => router.push(`/(gowealthy)/mf/trading/fund-detail?schemeCode=${fund.schemeCode}&fundId=${fund.id}`)}>
-
-            {/* Card header */}
-            <View style={styles.cardHead}>
-              <View style={styles.fundIconBox}>
-                <Text style={styles.fundIcon}>📊</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.fundName}>{fund.name}</Text>
-                <Text style={styles.fundAmc}>{fund.amc}</Text>
-              </View>
-              <View style={[styles.tagBadge, { backgroundColor: fund.tagColor + '22', borderColor: fund.tagColor + '44' }]}>
-                <Text style={[styles.tagTxt, { color: fund.tagColor }]}>{fund.tag}</Text>
-              </View>
+      {/* Body */}
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#532ea6" />
+          <Text style={styles.centerTxt}>Loading funds…</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Text style={styles.emptyIcon}>⚠️</Text>
+          <Text style={styles.centerTxt}>Couldn't load funds ({error})</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item.schemeCode}
+          renderItem={renderCard}
+          style={styles.list}
+          contentContainerStyle={{ padding: 16, gap: 12 }}
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={10}
+          removeClippedSubviews
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            <Text style={styles.countTxt}>{filtered.length} funds</Text>
+          }
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Text style={styles.emptyIcon}>🔍</Text>
+              <Text style={styles.emptyTxt}>No funds found</Text>
             </View>
-
-            {/* Stats row */}
-            <View style={styles.statsRow}>
-              <View style={styles.statBox}>
-                <Text style={styles.statLbl}>NAV</Text>
-                <Text style={styles.statVal}>₹{fund.nav}</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statLbl}>1Y</Text>
-                <Text style={[styles.statVal, { color: '#10b981' }]}>+{fund.returns1Y}%</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statLbl}>3Y</Text>
-                <Text style={[styles.statVal, { color: '#10b981' }]}>+{fund.returns3Y}%</Text>
-              </View>
-              <View style={styles.statBox}>
-                <Text style={styles.statLbl}>5Y</Text>
-                <Text style={[styles.statVal, { color: '#10b981' }]}>+{fund.returns5Y}%</Text>
-              </View>
-            </View>
-
-            {/* Footer */}
-            <View style={styles.cardFoot}>
-              <StarRow rating={fund.rating} />
-              <View style={styles.footRight}>
-                <View style={[styles.riskBadge, { backgroundColor: riskColor(fund.riskLevel) + '22' }]}>
-                  <Text style={[styles.riskTxt, { color: riskColor(fund.riskLevel) }]}>{fund.riskLevel}</Text>
-                </View>
-                <Text style={styles.minSip}>Min ₹{fund.minSIP}/mo</Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        ))}
-
-        {filtered.length === 0 && (
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🔍</Text>
-            <Text style={styles.emptyTxt}>No funds found</Text>
-          </View>
-        )}
-      </ScrollView>
+          }
+        />
+      )}
     </View>
   );
 };
@@ -224,32 +167,28 @@ const styles = StyleSheet.create({
   searchBox: { flexDirection: 'row', alignItems: 'center', margin: 16, backgroundColor: '#FFFDF9', borderRadius: 14, borderWidth: 0.5, borderColor: '#E8E4DC', paddingHorizontal: 14 },
   searchIcon: { fontSize: 16, marginRight: 8 },
   searchInput: { flex: 1, color: '#1A1512', fontSize: 14, paddingVertical: 13 },
-  catScroll: { marginBottom: 4 },
+  catScroll: { marginBottom: 4, flexGrow: 0 },
   catChip: { paddingVertical: 7, paddingHorizontal: 14, borderRadius: 20, backgroundColor: '#FFFDF9', borderWidth: 0.5, borderColor: '#E8E4DC' },
   catChipActive: { backgroundColor: '#532ea6', borderColor: '#532ea6' },
   catTxt: { fontSize: 13, color: '#7C766E', fontWeight: '500' },
   catTxtActive: { color: '#fff' },
   list: { flex: 1 },
+  countTxt: { fontSize: 12, color: '#A89F95', fontWeight: '600', marginBottom: 8 },
   card: { backgroundColor: '#FFFDF9', borderRadius: 20, padding: 18, borderWidth: 0.5, borderColor: '#E8E4DC' },
   cardHead: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14, gap: 12 },
   fundIconBox: { width: 44, height: 44, backgroundColor: '#532ea610', borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   fundIcon: { fontSize: 22 },
   fundName: { fontSize: 15, fontWeight: '700', color: '#1A1512', marginBottom: 2, lineHeight: 20 },
   fundAmc: { fontSize: 11, color: '#A89F95' },
-  tagBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
-  tagTxt: { fontSize: 10, fontWeight: '700' },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderTopWidth: 0.5, borderBottomWidth: 0.5, borderColor: '#F0EDE6', marginBottom: 12 },
-  statBox: { alignItems: 'center' },
+  tagBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20, borderWidth: 1, backgroundColor: '#532ea622', borderColor: '#532ea644' },
+  tagTxt: { fontSize: 10, fontWeight: '700', color: '#532ea6' },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12, borderTopWidth: 0.5, borderColor: '#F0EDE6' },
+  statBox: { alignItems: 'center', flex: 1 },
   statLbl: { fontSize: 10, color: '#A89F95', marginBottom: 3, fontWeight: '600' },
   statVal: { fontSize: 14, fontWeight: '700', color: '#1A1512' },
-  cardFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  stars: { flexDirection: 'row', gap: 2 },
-  starOn: { color: '#ff6500', fontSize: 14 },
-  starOff: { color: '#E8E4DC', fontSize: 14 },
-  footRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  riskBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  riskTxt: { fontSize: 10, fontWeight: '600' },
-  minSip: { fontSize: 11, color: '#A89F95' },
+  statValSm: { fontSize: 12, fontWeight: '600', color: '#1A1512' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 40 },
+  centerTxt: { fontSize: 14, color: '#7C766E', fontWeight: '500', textAlign: 'center' },
   empty: { alignItems: 'center', paddingVertical: 60, gap: 12 },
   emptyIcon: { fontSize: 48 },
   emptyTxt: { fontSize: 16, color: '#7C766E', fontWeight: '600' },

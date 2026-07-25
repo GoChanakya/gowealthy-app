@@ -38,7 +38,7 @@
       "expo-font",
       "@react-native-community/datetimepicker",
       "expo-asset",
-      "expo-image",
+      
       "expo-router",
       "expo-web-browser",
       "expo-video"
