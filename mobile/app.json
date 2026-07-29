@@ -2,6 +2,7 @@
   "expo": {
     "name": "mobile",
     "slug": "mobile",
+    "scheme": "gowealthy",
     "version": "1.0.0",
     "assetBundlePatterns": [
       "**/*"
