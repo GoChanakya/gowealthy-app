@@ -1,46 +1,24 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useRef, useEffect, useMemo, useCallback
+ } from "react";
 import {
   View, Text, Pressable, ScrollView, Animated, Easing,
-  StyleSheet, Dimensions, PanResponder, Platform,
+  StyleSheet, PanResponder,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useFonts, SpaceGrotesk_700Bold, SpaceGrotesk_600SemiBold } from "@expo-google-fonts/space-grotesk";
-import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from "@expo-google-fonts/inter";
 
 import { useQuestionnaireV2 } from "../../../../src/context/QuestionnaireV2Context";
 // ^ adjust relative depth if you place files differently:
 //   app/(gowealthy)/questionnaire-v2/section1/index.jsx -> src/context/*
 
 import {
-  QUIZ, getPersonality, bandLabel, dimCode, personaDelayCost,
-  B1_MSG, B1_EMO,
+  QUIZ, getPersonality, bandLabel, B1_MSG, B1_EMO,
 } from "../../../../src/lib/goPersonaEngine";
 
-/* ============================================================
-   THEME — "ember forge", ported 1:1 from the HTML :root block
-   ============================================================ */
-const C = {
-  bg: "#08060a", bg2: "#0e0a10", bg3: "#151019",
-  surface: "#181219", surface2: "#1f1722",
-  line: "rgba(255,180,120,0.09)", line2: "rgba(255,180,120,0.16)",
-  ink: "#fbf5ef", muted: "#a99ba6", faint: "#332a36",
-  o: "#ff6a1a", o2: "#ff8f3c", oDeep: "#d4470a",
-  gold: "#f7c85a", gold2: "#ffe0a3",
-  gd: "#4fd39a", rd: "#ff6b6b",
-  glass: "rgba(30,22,34,0.72)", // slightly more opaque than web glass — RN has no real backdrop-blur on Android
-};
-const RADIUS = { lg: 22, md: 15, sm: 11 };
-const { width: SCREEN_W } = Dimensions.get("window");
-
-const FONT = {
-  display: "SpaceGrotesk_700Bold",
-  displaySemi: "SpaceGrotesk_600SemiBold",
-  body: "Inter_400Regular",
-  bodyMed: "Inter_500Medium",
-  bodySemi: "Inter_600SemiBold",
-  bodyBold: "Inter_700Bold",
-};
+import {
+  C, FONT, RADIUS, Embers, ProgressBar, TopBar, PrimaryButton, FadeInUp, Eyebrow, kitStyles,
+} from "../../../../src/lib/ui-kit";
+// Fonts are loaded once in questionnaire-v2/_layout.jsx — no per-screen font gate needed here.
 
 const STEP_LABEL = { landing: "Start", quiz: "Personality read", loading: "Reading", reveal: "Your persona" };
 
@@ -50,15 +28,8 @@ export default function Section1() {
     state, recordAnswer, setQuizIdx, setPersonaResult, markStarted,
   } = useQuestionnaireV2();
 
-  const [fontsLoaded] = useFonts({
-    SpaceGrotesk_700Bold, SpaceGrotesk_600SemiBold,
-    Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold,
-  });
-
   const [step, setStep] = useState("landing"); // landing | quiz | loading | reveal
   const [tripleSel, setTripleSel] = useState({}); // { [rowIndex]: optionIndex } for the q3 triple question
-
-  
 
   /* ---------------- quiz handlers ---------------- */
 
@@ -127,12 +98,12 @@ export default function Section1() {
     step === "quiz" ? (state.quizIdx / QUIZ.length) * 0.7 :
     step === "loading" ? 0.85 :
     1;
-if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: C.bg }} />;
+
   return (
     <View style={styles.root}>
       <Embers />
       <ProgressBar progress={progress} />
-      <TopBar visible={step !== "landing"} label={STEP_LABEL[step]} onBack={handleBack} />
+      <TopBar visible={step !== "landing" && step !== "loading"} label={STEP_LABEL[step]} onBack={handleBack} />
 
       {step === "landing" && <Landing onStart={handleStart} />}
 
@@ -163,98 +134,17 @@ if (!fontsLoaded) return <View style={{ flex: 1, backgroundColor: C.bg }} />;
 }
 
 /* ============================================================
-   Ambient embers — rising particles, ported from .ember/@keyframes rise
-   ============================================================ */
-function Embers() {
-  const particles = useMemo(() => (
-    Array.from({ length: 14 }).map((_, i) => ({
-      id: i,
-      left: Math.random() * 100,
-      size: 1 + Math.random() * 2.5,
-      duration: 7000 + Math.random() * 8000,
-      delay: Math.random() * 4000,
-    }))
-  ), []);
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {particles.map(p => <Ember key={p.id} {...p} />)}
-    </View>
-  );
-}
-function Ember({ left, size, duration, delay }) {
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    let mounted = true;
-    const loop = () => {
-      anim.setValue(0);
-      Animated.timing(anim, { toValue: 1, duration, delay, easing: Easing.linear, useNativeDriver: true })
-        .start(({ finished }) => { if (finished && mounted) loop(); });
-    };
-    loop();
-    return () => { mounted = false; };
-  }, []);
-  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [0, -700] });
-  const opacity = anim.interpolate({ inputRange: [0, 0.12, 0.85, 1], outputRange: [0, 0.7, 0.5, 0] });
-  return (
-    <Animated.View
-      style={{
-        position: "absolute", bottom: -10, left: `${left}%`, width: size, height: size,
-        borderRadius: size, backgroundColor: C.o2, opacity, transform: [{ translateY }],
-      }}
-    />
-  );
-}
-
-/* ============================================================
-   Top chrome — progress bar + back button + step tag
-   ============================================================ */
-function ProgressBar({ progress }) {
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(anim, { toValue: progress, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
-  }, [progress]);
-  const width = anim.interpolate({ inputRange: [0, 1], outputRange: ["0%", "100%"] });
-  return (
-    <View style={styles.progWrap}>
-      <Animated.View style={{ height: "100%", width }}>
-        <LinearGradient colors={[C.oDeep, C.o, C.gold]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={{ flex: 1 }} />
-      </Animated.View>
-    </View>
-  );
-}
-function TopBar({ visible, label, onBack }) {
-  if (!visible) return null;
-  return (
-    <View style={styles.topbar}>
-      <Pressable onPress={onBack} style={styles.backBtn} hitSlop={10}>
-        <Text style={{ color: C.muted, fontSize: 17 }}>←</Text>
-      </Pressable>
-      <View style={styles.stepTag}>
-        <Text style={{ color: C.muted, fontSize: 10.5, fontFamily: FONT.bodySemi, letterSpacing: 1.5, textTransform: "uppercase" }}>
-          {label}
-        </Text>
-      </View>
-      <View style={{ width: 38 }} />
-    </View>
-  );
-}
-
-/* ============================================================
    Screen 0 — Landing
    ============================================================ */
 function Landing({ onStart }) {
   return (
-    <View style={styles.stage}>
-      <View style={styles.eyebrow}>
-        <View style={styles.eyebrowLine} />
-        <Text style={styles.eyebrowText}>GOPERSONA × GOWEALTHY</Text>
-        <View style={styles.eyebrowLine} />
-      </View>
-      <Text style={[styles.h1, { marginBottom: 16 }]}>
+    <View style={kitStyles.stage}>
+      <Eyebrow>GoPersona × GoWealthy</Eyebrow>
+      <Text style={[kitStyles.h1, { marginBottom: 16 }]}>
         Your money,{"\n"}
-        <Text style={styles.gradText}>forged</Text> around what you actually want.
+        <Text style={kitStyles.gradText}>forged</Text> around what you actually want.
       </Text>
-      <Text style={styles.sub}>
+      <Text style={kitStyles.sub}>
         Eight quick gut-checks. No spreadsheets, no jargon. We read how you really move with
         money, then turn it into a live plan built around the goals you rank first.
       </Text>
@@ -273,12 +163,10 @@ function Landing({ onStart }) {
    ============================================================ */
 function QuizScreen({ question, index, total, tripleSel, onSingleAnswer, onTriplePick, onTripleConfirm }) {
   return (
-    <ScrollView style={styles.stageTopScroll} contentContainerStyle={styles.stageTopContent} showsVerticalScrollIndicator={false}>
-      <View style={styles.eyebrowSolo}>
-        <Text style={styles.eyebrowText}>{question.tag} · {index + 1} / {total}</Text>
-      </View>
-      <Text style={styles.h2}>{question.title}</Text>
-      <Text style={styles.sub}>{question.sub}</Text>
+    <ScrollView style={styles.stageTopScroll} contentContainerStyle={kitStyles.stageTopContent} showsVerticalScrollIndicator={false}>
+      <Eyebrow withLines={false}>{question.tag} · {index + 1} / {total}</Eyebrow>
+      <Text style={kitStyles.h2}>{question.title}</Text>
+      <Text style={kitStyles.sub}>{question.sub}</Text>
 
       {question.type === "single" ? (
         <View style={styles.choicesWrap}>
@@ -308,10 +196,9 @@ function ChoiceCard({ icon, text, onPress, delay = 0 }) {
     <FadeInUp delay={delay}>
       <Animated.View style={{ transform: [{ scale }] }}>
         <Pressable
-  onPress={press}
-  android_ripple={{ color: "transparent" }}
-  style={[styles.choice, selected && styles.choiceSelected]}
->
+          onPress={press}
+          style={[styles.choice, selected && styles.choiceSelected]}
+        >
           <Text style={styles.chIcon}>{icon}</Text>
           <Text style={styles.chText}>{text}</Text>
         </Pressable>
@@ -333,11 +220,10 @@ function TripleQuestion({ question, sel, onPick, onConfirm }) {
                 const active = sel[ri] === oi;
                 return (
                   <Pressable
-  key={oi}
-  onPress={() => onPick(ri, oi)}
-  android_ripple={{ color: "transparent" }}
-  style={[styles.rowqOpt, active && styles.rowqOptSelected]}
->
+                    key={oi}
+                    onPress={() => onPick(ri, oi)}
+                    style={[styles.rowqOpt, active && styles.rowqOptSelected]}
+                  >
                     <Text style={styles.rowqIc}>{o.icon}</Text>
                     <Text style={[styles.rowqOptText, active && { color: C.o2, fontFamily: FONT.bodySemi }]}>
                       {o.text}
@@ -384,7 +270,7 @@ function BuildLoading({ onDone }) {
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
 
   return (
-    <View style={styles.stage}>
+    <View style={kitStyles.stage}>
       <View style={styles.buildOrbWrap}>
         <Animated.View style={[styles.buildOrbRing, { transform: [{ rotate }] }]}>
           <LinearGradient colors={["transparent", C.o, C.gold, "transparent"]} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
@@ -393,7 +279,7 @@ function BuildLoading({ onDone }) {
           <Text style={{ fontSize: 44 }}>{B1_EMO[msgIdx]}</Text>
         </View>
       </View>
-      <Text style={[styles.h2, { marginTop: 8 }]}>
+      <Text style={[kitStyles.h2, { marginTop: 8 }]}>
         {pct >= 100 ? "Your persona is ready ✦" : "Reading how you move…"}
       </Text>
       <View style={styles.buildTrack}>
@@ -420,12 +306,12 @@ function RevealScreen({ scores, answers, personaCode, onContinue }) {
   const cardOpacity = dealAnim;
 
   return (
-    <ScrollView style={styles.stageTopScroll} contentContainerStyle={styles.stageTopContent} showsVerticalScrollIndicator={false}>
-      <View style={styles.eyebrowSolo}><Text style={styles.eyebrowText}>YOUR GOPERSONA</Text></View>
-      <Text style={[styles.h2, { marginBottom: 6 }]}>
-        Here's how <Text style={styles.gradText}>you</Text> move.
+    <ScrollView style={styles.stageTopScroll} contentContainerStyle={kitStyles.stageTopContent} showsVerticalScrollIndicator={false}>
+      <Eyebrow withLines={false}>Your GoPersona</Eyebrow>
+      <Text style={[kitStyles.h2, { marginBottom: 6 }]}>
+        Here's how <Text style={kitStyles.gradText}>you</Text> move.
       </Text>
-      <Text style={[styles.sub, { marginBottom: 22 }]}>Pulled straight from your gut-calls — nothing generic.</Text>
+      <Text style={[kitStyles.sub, { marginBottom: 22 }]}>Pulled straight from your gut-calls — nothing generic.</Text>
 
       <Animated.View style={{ opacity: cardOpacity, transform: [{ scale: cardScale }], width: "100%", maxWidth: 360, alignSelf: "center" }}>
         <TiltCard persona={persona} opened={opened} onOpen={() => setOpened(true)} />
@@ -481,7 +367,7 @@ function TiltCard({ persona, opened, onOpen }) {
       onLayout={e => { cardSize.current = { w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height }; }}
     >
       <Animated.View style={[styles.tcard, { transform: [{ perspective: 900 }, { rotateX: rotateXStr }, { rotateY: rotateYStr }] }]}>
-        <Text style={styles.tcardRank}>GOPERSONA</Text>
+        <Text style={styles.tcardRank}>GoPersona</Text>
         <Text style={styles.tcardIcon}>{persona.icon}</Text>
         <Text style={styles.tcardName}>{persona.name}</Text>
 
@@ -580,73 +466,11 @@ function WhyRow({ left, right, positive, bold, color }) {
 }
 
 /* ============================================================
-   Shared small components
-   ============================================================ */
-function FadeInUp({ children, delay = 0 }) {
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(anim, { toValue: 1, duration: 400, delay, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-  }, []);
-  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [18, 0] });
-  return <Animated.View style={{ opacity: anim, transform: [{ translateY }] }}>{children}</Animated.View>;
-}
-
-function PrimaryButton({ label, onPress, disabled, style }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const onPressIn = () => Animated.timing(scale, { toValue: 0.985, duration: 90, useNativeDriver: true }).start();
-  const onPressOut = () => Animated.timing(scale, { toValue: 1, duration: 140, useNativeDriver: true }).start();
-  return (
-    <Animated.View style={[{ transform: [{ scale }], width: "100%", maxWidth: 420 }, style]}>
-      <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} disabled={disabled}>
-        <LinearGradient
-          colors={disabled ? [C.faint, C.faint] : [C.o2, C.o]}
-          style={[styles.btn, disabled && { opacity: 0.5 }]}
-        >
-          <Text style={styles.btnText}>{label}</Text>
-        </LinearGradient>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
-/* ============================================================
    Styles — values ported from the HTML's CSS as closely as RN allows
    ============================================================ */
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
-  progWrap: { position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: "rgba(255,255,255,0.05)", zIndex: 60 },
-topbar: {
-  position: "absolute", top: Platform.OS === "ios" ? 60 : 60, left: 18, right: 18, zIndex: 55,
-  flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-},
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19, backgroundColor: C.glass,
-    borderWidth: 1, borderColor: C.line2, alignItems: "center", justifyContent: "center",
-  },
-  stepTag: {
-    backgroundColor: C.glass, borderWidth: 1, borderColor: C.line,
-    paddingHorizontal: 13, paddingVertical: 6, borderRadius: 30,
-  },
-
-  stage: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 22, paddingTop: 130, paddingBottom: 40 },
   stageTopScroll: { flex: 1 },
-  stageTopContent: { alignItems: "center", paddingHorizontal: 22, paddingTop: 130, paddingBottom: 60 },
-
-  eyebrow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 },
-  eyebrowSolo: { marginBottom: 14, alignItems: "center" },
-  eyebrowLine: { width: 20, height: 1, backgroundColor: C.o2 },
-  eyebrowText: { color: C.o2, fontSize: 11, fontFamily: FONT.bodySemi, letterSpacing: 2, textTransform: "uppercase" },
-
-  h1: {
-    fontFamily: FONT.display, color: C.ink, fontSize: 36, lineHeight: 40,
-    letterSpacing: -1, textAlign: "center",
-  },
-  h2: {
-    fontFamily: FONT.display, color: C.ink, fontSize: 26, lineHeight: 31,
-    letterSpacing: -0.8, textAlign: "center", marginBottom: 12,
-  },
-  gradText: { color: C.gold }, // true gradient text needs MaskedView; solid gold is the RN fallback
-  sub: { color: C.muted, fontSize: 14.5, textAlign: "center", lineHeight: 22, maxWidth: 420 },
 
   landingChipsRow: { flexDirection: "row", gap: 16, marginTop: 20, flexWrap: "wrap", justifyContent: "center" },
   landingChip: { color: C.muted, fontSize: 12 },
@@ -658,9 +482,9 @@ topbar: {
     borderRadius: RADIUS.md, paddingVertical: 15, paddingHorizontal: 17,
   },
   choiceSelected: {
-  borderColor: C.o, backgroundColor: "rgba(255,106,26,0.14)",
-  shadowColor: C.o, shadowOpacity: 0.4, shadowRadius: 12,
-},
+    borderColor: C.o, backgroundColor: "rgba(255,106,26,0.14)",
+    shadowColor: C.o, shadowOpacity: 0.4, shadowRadius: 12, elevation: 4,
+  },
   chIcon: { fontSize: 22, width: 26, textAlign: "center" },
   chText: { color: C.ink, fontSize: 14.5, fontFamily: FONT.bodyMed, flex: 1, lineHeight: 20 },
 
@@ -678,13 +502,6 @@ topbar: {
   rowqIc: { fontSize: 18, marginBottom: 5 },
   rowqOptText: { color: C.ink, fontSize: 12.5, textAlign: "center" },
 
-  btn: {
-    borderRadius: RADIUS.md, paddingVertical: 16, paddingHorizontal: 26,
-    alignItems: "center", justifyContent: "center",
-    shadowColor: C.o, shadowOpacity: 0.45, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 6,
-  },
-  btnText: { color: "#1a0d04", fontSize: 15.5, fontFamily: FONT.bodySemi },
-
   buildOrbWrap: { width: 120, height: 120, marginBottom: 26, alignItems: "center", justifyContent: "center" },
   buildOrbRing: { position: "absolute", width: 120, height: 120, borderRadius: 60, overflow: "hidden" },
   buildOrbCenter: {
@@ -701,7 +518,7 @@ topbar: {
     shadowColor: "#000", shadowOpacity: 0.5, shadowRadius: 30, shadowOffset: { width: 0, height: 20 }, elevation: 10,
     alignItems: "center", overflow: "hidden",
   },
-  tcardRank: { position: "absolute", top: 16, right: 18, color: C.gold, fontFamily: FONT.displaySemi, fontSize: 11, letterSpacing: 2 },
+  tcardRank: { position: "absolute", top: 16, right: 18, color: C.gold, fontFamily: FONT.displaySemi, fontSize: 11, letterSpacing: 2, textTransform: "uppercase" },
   tcardIcon: { fontSize: 60, marginTop: 4 },
   tcardName: { fontFamily: FONT.display, color: C.ink, fontSize: 25, marginTop: 10, textAlign: "center" },
   tcardTap: {

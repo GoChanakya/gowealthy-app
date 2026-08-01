@@ -10379,7 +10379,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../../src/config/firebase';
-
+import { useRouter } from 'expo-router';
 const { width: W } = Dimensions.get('window');
 
 // ── Tokens ─────────────────────────────────────────────────────────────────────
@@ -10518,10 +10518,11 @@ const pb = StyleSheet.create({
 });
 
 // ── Action buttons ─────────────────────────────────────────────────────────────
-const ActionBtn = ({ label, accent }) => (
+const ActionBtn = ({ label, accent, onPress }) => (
   <TouchableOpacity
     style={[ab.btn, accent === 'orange' ? ab.orange : ab.purple]}
     activeOpacity={0.8}
+    onPress={onPress}
   >
     <Text style={ab.text}>{label}</Text>
   </TouchableOpacity>
@@ -10698,10 +10699,14 @@ const EmergencyFundCard = ({ layerName, totalAmount, layerData, parseAmount: pa 
             </View>
           )}
 
-          <ActionRow>
-            <ActionBtn label="🔗 Link Investments" accent="purple" />
-            <ActionBtn label="✓ Mark Done" accent="orange" />
-          </ActionRow>
+         <ActionRow>
+  <ActionBtn
+    label="View Goal Details"
+    accent="purple"
+    onPress={() => router.push('/your-route-here')}
+  />
+  <ActionBtn label="Discover Funds" accent="orange" />
+</ActionRow>
         </>
       )}
     </GlassBorder>
@@ -10811,7 +10816,7 @@ const ins = StyleSheet.create({
 // ══════════════════════════════════════════════════════════════════════════════
 //  GOALS CARD — all goals stacked
 // ══════════════════════════════════════════════════════════════════════════════
-const GoalsCard = ({ goals, parseAmount: pa, submissionDate }) => {
+const GoalsCard = ({ goals, parseAmount: pa, submissionDate, router }) => {
   const [open, setOpen] = useState(false);
 
   const totalSIP = goals.reduce((s, g) => s + pa(g.customAllocation || 0), 0);
@@ -10988,6 +10993,7 @@ const gl = StyleSheet.create({
 const DashboardHome = () => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -11138,11 +11144,19 @@ const DashboardHome = () => {
           <GoalsCard
             goals={goals}
             parseAmount={parseAmount}
+            router={router}
             submissionDate={userData?.latest_submission_date}  // ← add this
           />
         )}
 
         <View style={{ height: 120 }} />
+        <TouchableOpacity
+  style={s.newScreenButton}
+  onPress={() => router.push('/(gowealthy)/index')}
+  activeOpacity={0.8}
+>
+  <Text style={s.newScreenButtonText}>Open New Screen</Text>
+</TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -11150,6 +11164,18 @@ const DashboardHome = () => {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: T.bg },
+  newScreenButton: {
+  marginTop: 8,
+  paddingVertical: 14,
+  borderRadius: 12,
+  alignItems: 'center',
+  backgroundColor: T.purple,
+},
+newScreenButtonText: {
+  color: T.white,
+  fontSize: 14,
+  fontWeight: '700',
+},
   scroll: { paddingHorizontal: 16, paddingTop: 88, paddingBottom: 40 },
   blob1: { position: 'absolute', width: 280, height: 280, borderRadius: 140, backgroundColor: 'rgba(255,126,64,0.05)', top: -80, right: -80 },
   blob2: { position: 'absolute', width: 260, height: 260, borderRadius: 130, backgroundColor: 'rgba(166,75,255,0.06)', bottom: 80, left: -80 },
