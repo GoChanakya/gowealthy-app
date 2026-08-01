@@ -167,7 +167,7 @@ const rm = StyleSheet.create({
 const JOURNEYS = [
   {
     num: 1, accent: 'orange',
-    title: 'Combine Holdings',
+    title: 'Combine Holdingsssss',
     sub: 'Brokers · Family · Banks',
     image: require('../../assets/images/home_page/CombineHoldings.webp'),   // swap: require('../../assets/images/journey/combine.png')
     route: '/(gowealthy)/mf/onboarding/screen1',   // swap: '/(gowealthy)/combine'
@@ -177,7 +177,7 @@ const JOURNEYS = [
     title: 'Financial Plan',
     sub: 'Pro Users · Comprehensive',
     image: require('../../assets/images/home_page/comprehensive-fp.webp'),
-    route: '/(gowealthy)/questionnaire/section1/screen1',
+    route: '/(gowealthy)/questionnaire-v2',
   },
   {
     num: 3, accent: 'orange',
