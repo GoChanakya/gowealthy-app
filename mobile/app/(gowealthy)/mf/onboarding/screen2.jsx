@@ -954,7 +954,9 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../../src/config/firebase';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';  // ← added getDoc, updateDoc
-import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';const OCR_ENDPOINT = 'https://adhar-parser-763133497996.asia-south1.run.app';
+import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';
+import { uploadToSignedPost } from '../../../../src/utils/upload';
+const OCR_ENDPOINT = 'https://adhar-parser-763133497996.asia-south1.run.app';
 
 const Screen2AadhaarBackend = () => {
   const router = useRouter();
@@ -1067,16 +1069,7 @@ const loadExistingData = async () => {
 
       // Step 2: Upload to GCS via signed POST
       console.log('📤 Uploading to GCS...');
-      const formData = new FormData();
-      Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
-      formData.append('file', { uri: aadharImage, type: 'image/jpeg', name: fileName });
-
-      const uploadResponse = await fetch(url, { method: 'POST', body: formData });
-      if (!uploadResponse.ok) {
-        const errText = await uploadResponse.text();
-        console.error('Upload error:', errText);
-        throw new Error('Failed to upload to GCS');
-      }
+      await uploadToSignedPost({ url, fields, uri: aadharImage });
 
       console.log('✅ GCS upload successful');
       setUploadProgress(50);

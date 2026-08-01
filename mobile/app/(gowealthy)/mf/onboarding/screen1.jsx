@@ -669,6 +669,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../../src/config/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';
+import { uploadToSignedPost } from '../../../../src/utils/upload';
  // CHANGE TO YOUR IP
 const PAN_OCR_ENDPOINT = 'https://pan-parser-763133497996.asia-south1.run.app';
 
@@ -799,32 +800,7 @@ useEffect(() => {
 
       console.log('📤 Uploading PAN to Google Cloud Storage (POST)...');
 
-const formData = new FormData();
-
-
- 
-// add signed policy fields
-Object.entries(fields).forEach(([key, value]) => {
-  formData.append(key, value);
-});
-
-// add file
-formData.append('file', {
-  uri: panImage,
-  type: 'image/jpeg',
-  name: fileName,
-});
-
-const uploadResponse = await fetch(url, {
-  method: 'POST',
-  body: formData,
-});
-
-if (!uploadResponse.ok) {
-  const errText = await uploadResponse.text();
-  console.error('GCS Upload Error:', errText);
-  throw new Error('Failed to upload PAN to Google Cloud Storage');
-}
+await uploadToSignedPost({ url, fields, uri: panImage });
 
 console.log('✅ Upload to GCS successful');
 

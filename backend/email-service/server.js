@@ -516,7 +516,7 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 GoWealthy Email Service running on port ${PORT}`);
   console.log(`📧 Mailgun Domain: ${DOMAIN || 'Not configured'}`);
   console.log(`🔑 API Key: ${process.env.MAILGUN_API_KEY ? 'Set ✅' : 'Missing ❌'}`);

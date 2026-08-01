@@ -21,6 +21,7 @@ import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src
   const [ifscCode, setIfscCode] = useState('');
   const [accountType, setAccountType] = useState('SB'); // default savings
   const [isLoading, setIsLoading] = useState(false);
+  const [verifyStep, setVerifyStep] = useState(''); // progress label during penny drop
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   // Account type options — NSE codes
@@ -92,27 +93,78 @@ import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src
         return;
       }
 
-      // Save bank data to Firestore — Screen 6 will use this for UCC registration
       const docRef = doc(db, 'mf_onboarding', phone);
+
+      // Pull the investor name (from PAN OCR) for penny-drop name matching
+      let expectedName = '';
+      try {
+        const snap = await getDoc(docRef);
+        expectedName = snap.data()?.pan_data?.name || '';
+      } catch { /* name match is best-effort */ }
+
+      // ── Penny drop: verify the account is real & operable before saving ──
+      setVerifyStep('Verifying bank account…');
+      const vRes = await fetch(`${NSE_SERVICE_URL}/api/razorpay/verify-bank`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          account_number: accountNumber,
+          ifsc: ifscCode,
+          name: expectedName,
+          reference_id: phone,
+        }),
+      });
+      const vData = await vRes.json().catch(() => ({}));
+
+      if (!vRes.ok || !vData.success || vData.account_status !== 'active') {
+        Alert.alert(
+          'Verification Failed',
+          vData.error || 'We could not verify this bank account. Please double-check the account number and IFSC.'
+        );
+        return;
+      }
+
+      // Soft warning if the account holder name doesn't match the PAN name
+      if (vData.name_match === false && vData.registered_name) {
+        const proceed = await new Promise((resolve) => {
+          Alert.alert(
+            'Name Mismatch',
+            `This account is registered to "${vData.registered_name}", which doesn't match your PAN name. Continue only if this is your own account.`,
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+              { text: "It's my account", onPress: () => resolve(true) },
+            ]
+          );
+        });
+        if (!proceed) return;
+      }
+
+      // Save verified bank data — Screen 6 uses this for UCC registration
+      setVerifyStep('Saving…');
       await updateDoc(docRef, {
         bank_data: {
           account_no:       accountNumber,
           ifsc_code:        ifscCode,
           account_type:     accountType,  // "SB", "CB", "NE", "NO"
           default_bank:     'Y',
+          verified:         true,
+          registered_name:  vData.registered_name || null,
+          verification_id:  vData.validation_id || null,
+          verified_at:      new Date().toISOString(),
           saved_at:         new Date().toISOString(),
         },
         onboarding_step: 5,
       });
 
-      console.log('✅ Bank data saved to Firestore');
+      console.log('✅ Bank verified & saved to Firestore');
       router.push('/(gowealthy)/mf/onboarding/screen6');
 
     } catch (error) {
-      console.error('❌ Bank save error:', error);
-      Alert.alert('Error', 'Failed to save bank details. Please try again.');
+      console.error('❌ Bank verify/save error:', error);
+      Alert.alert('Error', 'Something went wrong verifying your bank account. Please try again.');
     } finally {
       setIsLoading(false);
+      setVerifyStep('');
     }
   };
 
@@ -276,7 +328,7 @@ import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src
           {isLoading ? (
             <View style={styles.buttonRow}>
               <ActivityIndicator size="small" color="#fff" />
-              <Text style={styles.continueButtonText}>Saving...</Text>
+              <Text style={styles.continueButtonText}>{verifyStep || 'Saving...'}</Text>
             </View>
           ) : (
             <Text style={styles.continueButtonText}>→ Continue to Final Step</Text>
