@@ -665,7 +665,7 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
           onboarding_complete: true,
         });
         setShowAuthModal(false);
-        router.replace('/(gowealthy)/mf/onboarding/preview'); // your trading screen route
+        router.replace('/(gowealthy)/mf/trading/funds'); // your trading screen route
       } else {
         Alert.alert(
           'Not Yet Authorized',
