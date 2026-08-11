@@ -39,10 +39,10 @@
       "expo-font",
       "@react-native-community/datetimepicker",
       "expo-asset",
-      
       "expo-router",
       "expo-web-browser",
-      "expo-video"
+      "expo-video",
+      "expo-image"
     ],
     "experiments": {
       "reactCompiler": false
