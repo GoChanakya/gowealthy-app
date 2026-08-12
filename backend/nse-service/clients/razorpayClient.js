@@ -44,18 +44,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  * @returns {Promise<{account_status:string, registered_name:string|null, validation_id:string, raw:object}>}
  */
 async function verifyBankAccount({ name, ifsc, accountNumber, referenceId }) {
+  const mode = String(process.env.RAZORPAY_KEY_ID || "").startsWith("rzp_live") ? "LIVE" : "TEST";
+  const acctMasked = String(accountNumber || "").replace(/.(?=.{4})/g, "X");
+  console.log(`💧 [razorpay] START penny drop | mode=${mode} | acc=${acctMasked} | ifsc=${ifsc} | name="${name || ""}" | ref=${referenceId || "-"}`);
+
   const { sourceAccount } = getRzpEnv();
   const client = rzpClient();
 
   // 1. Contact
+  console.log(`➡️  [razorpay] Step 1/3: creating contact...`);
   const contactRes = await client.post("/contacts", {
     name: name || "Investor",
     type: "customer",
     reference_id: referenceId || undefined,
   });
   const contactId = contactRes.data?.id;
+  console.log(`✅ [razorpay] Step 1/3: contact created | id=${contactId}`);
 
   // 2. Fund account (bank)
+  console.log(`➡️  [razorpay] Step 2/3: creating fund account for contact ${contactId}...`);
   const faRes = await client.post("/fund_accounts", {
     contact_id: contactId,
     account_type: "bank_account",
@@ -66,8 +73,10 @@ async function verifyBankAccount({ name, ifsc, accountNumber, referenceId }) {
     },
   });
   const fundAccountId = faRes.data?.id;
+  console.log(`✅ [razorpay] Step 2/3: fund account created | id=${fundAccountId}`);
 
   // 3. Validation (penny drop)
+  console.log(`➡️  [razorpay] Step 3/3: creating validation (₹1 penny drop) from source ${sourceAccount}...`);
   let val = (await client.post("/fund_accounts/validations", {
     account_number: sourceAccount,
     fund_account: { id: fundAccountId },
@@ -75,21 +84,28 @@ async function verifyBankAccount({ name, ifsc, accountNumber, referenceId }) {
     currency: "INR",
     notes: { purpose: "gowealthy_bank_verification", ref: referenceId || "" },
   })).data;
+  const validationId = val?.id;
+  console.log(`✅ [razorpay] Step 3/3: validation created | id=${validationId} | status=${val?.status}`);
 
   // Validation may be async — poll briefly until it completes.
-  const validationId = val?.id;
+  let attempts = 0;
   for (let i = 0; i < 5 && val?.status === "created"; i++) {
+    attempts = i + 1;
+    console.log(`⏳ [razorpay] polling validation ${validationId} (attempt ${attempts}/5, status=${val?.status})...`);
     await sleep(1500);
     val = (await client.get(`/fund_accounts/validations/${validationId}`)).data;
   }
+  if (attempts > 0) console.log(`🔁 [razorpay] polling done after ${attempts} attempt(s) | final status=${val?.status}`);
 
-  return {
+  const out = {
     account_status: val?.results?.account_status || val?.status || "unknown",
     registered_name: val?.results?.registered_name || null,
     validation_id: validationId,
     status: val?.status,
     raw: val,
   };
+  console.log(`🏁 [razorpay] DONE | account_status=${out.account_status} | registered_name="${out.registered_name || ""}" | validation_id=${out.validation_id}`);
+  return out;
 }
 
 module.exports = { verifyBankAccount };

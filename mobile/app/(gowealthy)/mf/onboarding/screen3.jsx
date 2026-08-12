@@ -77,7 +77,7 @@ const Screen3FreshKYC = () => {
 
       console.log('📝 Calling EKYC Register...');
       console.log('  PAN:', panNumber, 'Mobile:', mobileNumber, 'Email:', email);
-
+      console.log( 'AMC Code:', AMC_CODE);
       const response = await fetch(`${NSE_SERVICE_URL}/api/nse/ekyc-register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
