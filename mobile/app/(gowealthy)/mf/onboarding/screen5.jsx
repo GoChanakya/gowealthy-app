@@ -16,6 +16,10 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';const Screen5Bank = () => {
   const router = useRouter();
 
+  // Penny-drop bank verification. OFF until a RazorpayX account + keys are set up.
+  // Flip to true (and configure RAZORPAY_* in nse-service/.env) to re-enable.
+  const ENABLE_PENNY_DROP = false;
+
   const [accountNumber, setAccountNumber] = useState('');
   const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
   const [ifscCode, setIfscCode] = useState('');
@@ -95,51 +99,61 @@ import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src
 
       const docRef = doc(db, 'mf_onboarding', phone);
 
-      // Pull the investor name (from PAN OCR) for penny-drop name matching
-      let expectedName = '';
-      try {
-        const snap = await getDoc(docRef);
-        expectedName = snap.data()?.pan_data?.name || '';
-      } catch { /* name match is best-effort */ }
+      let verified = false;
+      let registeredName = null;
+      let verificationId = null;
 
       // ── Penny drop: verify the account is real & operable before saving ──
-      setVerifyStep('Verifying bank account…');
-      const vRes = await fetch(`${NSE_SERVICE_URL}/api/razorpay/verify-bank`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          account_number: accountNumber,
-          ifsc: ifscCode,
-          name: expectedName,
-          reference_id: phone,
-        }),
-      });
-      const vData = await vRes.json().catch(() => ({}));
+      if (ENABLE_PENNY_DROP) {
+        // Pull the investor name (from PAN OCR) for name matching
+        let expectedName = '';
+        try {
+          const snap = await getDoc(docRef);
+          expectedName = snap.data()?.pan_data?.name || '';
+        } catch { /* name match is best-effort */ }
 
-      if (!vRes.ok || !vData.success || vData.account_status !== 'active') {
-        Alert.alert(
-          'Verification Failed',
-          vData.error || 'We could not verify this bank account. Please double-check the account number and IFSC.'
-        );
-        return;
-      }
-
-      // Soft warning if the account holder name doesn't match the PAN name
-      if (vData.name_match === false && vData.registered_name) {
-        const proceed = await new Promise((resolve) => {
-          Alert.alert(
-            'Name Mismatch',
-            `This account is registered to "${vData.registered_name}", which doesn't match your PAN name. Continue only if this is your own account.`,
-            [
-              { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-              { text: "It's my account", onPress: () => resolve(true) },
-            ]
-          );
+        setVerifyStep('Verifying bank account…');
+        const vRes = await fetch(`${NSE_SERVICE_URL}/api/razorpay/verify-bank`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            account_number: accountNumber,
+            ifsc: ifscCode,
+            name: expectedName,
+            reference_id: phone,
+          }),
         });
-        if (!proceed) return;
+        const vData = await vRes.json().catch(() => ({}));
+
+        if (!vRes.ok || !vData.success || vData.account_status !== 'active') {
+          Alert.alert(
+            'Verification Failed',
+            vData.error || 'We could not verify this bank account. Please double-check the account number and IFSC.'
+          );
+          return;
+        }
+
+        // Soft warning if the account holder name doesn't match the PAN name
+        if (vData.name_match === false && vData.registered_name) {
+          const proceed = await new Promise((resolve) => {
+            Alert.alert(
+              'Name Mismatch',
+              `This account is registered to "${vData.registered_name}", which doesn't match your PAN name. Continue only if this is your own account.`,
+              [
+                { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                { text: "It's my account", onPress: () => resolve(true) },
+              ]
+            );
+          });
+          if (!proceed) return;
+        }
+
+        verified = true;
+        registeredName = vData.registered_name || null;
+        verificationId = vData.validation_id || null;
       }
 
-      // Save verified bank data — Screen 6 uses this for UCC registration
+      // Save bank data — Screen 6 uses this for UCC registration
       setVerifyStep('Saving…');
       await updateDoc(docRef, {
         bank_data: {
@@ -147,10 +161,10 @@ import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src
           ifsc_code:        ifscCode,
           account_type:     accountType,  // "SB", "CB", "NE", "NO"
           default_bank:     'Y',
-          verified:         true,
-          registered_name:  vData.registered_name || null,
-          verification_id:  vData.validation_id || null,
-          verified_at:      new Date().toISOString(),
+          verified:         verified,
+          registered_name:  registeredName,
+          verification_id:  verificationId,
+          verified_at:      verified ? new Date().toISOString() : null,
           saved_at:         new Date().toISOString(),
         },
         onboarding_step: 5,

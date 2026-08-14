@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../../src/config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { refreshUccActivation, UCC_STATUS } from '../../../../src/lib/ucc';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';// const NSE_SERVICE_URL = 'http://172.20.10.2:3000'; // ← your IP
 
 // ─── NSE lookup tables ────────────────────────────────────────────────────────
@@ -52,38 +53,43 @@ const WEALTH_SOURCES = [
   { label: 'Others',               value: '08' },
 ];
 
+// State codes VERIFIED against NSE UAT CLIENTCOMMON183 (UCC registration).
+// Several differ from the usual 2-letter abbreviations (e.g. Maharashtra = MA,
+// Gujarat = GU, Kerala = KE, Jharkhand = JM) — do NOT "correct" them back to
+// MH/GJ/KL/JH etc., NSE rejects those with "STATE IS NOT VALID".
 const STATES = [
   { label: 'Andhra Pradesh',       value: 'AP' },
   { label: 'Arunachal Pradesh',    value: 'AR' },
   { label: 'Assam',                value: 'AS' },
-  { label: 'Bihar',                value: 'BR' },
+  { label: 'Bihar',                value: 'BH' },   // was BR
   { label: 'Chhattisgarh',         value: 'CG' },
-  { label: 'Goa',                  value: 'GA' },
-  { label: 'Gujarat',              value: 'GJ' },
-  { label: 'Haryana',              value: 'HR' },
+  { label: 'Goa',                  value: 'GO' },   // was GA
+  { label: 'Gujarat',              value: 'GU' },   // was GJ
+  { label: 'Haryana',              value: 'HA' },   // was HR
   { label: 'Himachal Pradesh',     value: 'HP' },
-  { label: 'Jharkhand',            value: 'JH' },
+  { label: 'Jharkhand',            value: 'JM' },   // was JH
   { label: 'Karnataka',            value: 'KA' },
-  { label: 'Kerala',               value: 'KL' },
+  { label: 'Kerala',               value: 'KE' },   // was KL
   { label: 'Madhya Pradesh',       value: 'MP' },
-  { label: 'Maharashtra',          value: 'MH' },
+  { label: 'Maharashtra',          value: 'MA' },   // was MH
   { label: 'Manipur',              value: 'MN' },
-  { label: 'Meghalaya',            value: 'ML' },
-  { label: 'Mizoram',              value: 'MZ' },
-  { label: 'Nagaland',             value: 'NL' },
+  { label: 'Meghalaya',            value: 'ME' },   // was ML
+  { label: 'Mizoram',              value: 'MI' },   // was MZ
+  { label: 'Nagaland',             value: 'NA' },   // was NL
   { label: 'Odisha',               value: 'OR' },
-  { label: 'Punjab',               value: 'PB' },
-  { label: 'Rajasthan',            value: 'RJ' },
-  { label: 'Sikkim',               value: 'SK' },
+  { label: 'Punjab',               value: 'PU' },   // was PB
+  { label: 'Rajasthan',            value: 'RA' },   // was RJ
+  { label: 'Sikkim',               value: 'SI' },   // was SK
   { label: 'Tamil Nadu',           value: 'TN' },
   { label: 'Telangana',            value: 'TS' },
   { label: 'Tripura',              value: 'TR' },
   { label: 'Uttar Pradesh',        value: 'UP' },
-  { label: 'Uttarakhand',          value: 'UK' },
+  { label: 'Uttarakhand',          value: 'UC' },   // was UK
   { label: 'West Bengal',          value: 'WB' },
   { label: 'Delhi',                value: 'DL' },
   { label: 'Jammu & Kashmir',      value: 'JK' },
-  { label: 'Ladakh',               value: 'LA' },
+  // Ladakh omitted — not present in the NSE UAT state master (v1.9.6).
+  // Add back with its real code once confirmed on the production master.
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -118,6 +124,8 @@ const Screen6FATCAAndUCC = () => {
   const [authLink, setAuthLink]           = useState(null); // final NSE auth link
   const [showAuthModal, setShowAuthModal]   = useState(false); // auth link modal
   const [error, setError]                 = useState('');
+  const [authState, setAuthState]         = useState(null);  // { status, authorized, ... }
+  const [checkingAuth, setCheckingAuth]   = useState(false); // manual "Done" in progress
 
   // ── On mount: load Aadhaar address to pre-fill city/pincode
   useEffect(() => {
@@ -555,6 +563,49 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
     }
   };
 
+  // Auto-poll UCC authorization status while the modal is open (every 8s).
+  useEffect(() => {
+    if (!showAuthModal) return;
+    if (authState?.authorized) return;
+    let cancelled = false;
+
+    const tick = async () => {
+      const phone = await AsyncStorage.getItem('user_phone');
+      if (!phone || cancelled) return;
+      const r = await refreshUccActivation(phone);
+      if (cancelled) return;
+      setAuthState(r);
+    };
+
+    tick(); // immediate first check
+    const id = setInterval(tick, 8000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [showAuthModal, authState?.authorized]);
+
+  // Manual check (the "Done" button). Routes to trading once ACTIVE.
+  const handleCheckAuth = async () => {
+    try {
+      setCheckingAuth(true);
+      const phone = await AsyncStorage.getItem('user_phone');
+      if (!phone) throw new Error('Session expired');
+      const r = await refreshUccActivation(phone);
+      setAuthState(r);
+      if (r.authorized) {
+        setShowAuthModal(false);
+        router.replace('/(gowealthy)/mf/trading/funds');
+      } else {
+        Alert.alert(
+          'Not Yet Authorized',
+          `Status: ${r.authStatusRaw || 'PENDING'}\n\nComplete authorization on NSE's page, then tap again. We also keep checking automatically every few seconds.`
+        );
+      }
+    } catch (e) {
+      Alert.alert('Error', e.message);
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
+
   // ── Reusable Dropdown ─────────────────────────────────────────────────────
   const Dropdown = ({ label, options, value, onChange }) => (
     <View style={styles.inputGroup}>
@@ -617,9 +668,31 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
               <Text style={styles.modalStepText}>UCC account registered</Text>
             </View>
             <View style={styles.modalStep}>
-              <Text style={styles.modalStepPending}>⏳</Text>
-              <Text style={styles.modalStepText}>Authorization pending</Text>
+              <Text style={authState?.authorized ? styles.modalStepDone : styles.modalStepPending}>
+                {authState?.authorized ? '✅' : '⏳'}
+              </Text>
+              <Text style={styles.modalStepText}>
+                {authState?.authorized ? 'Account authorized' : 'Authorization pending'}
+              </Text>
             </View>
+          </View>
+
+          {/* Live status banner (auto-refreshes every few seconds) */}
+          <View style={[
+            styles.authStatusBanner,
+            authState?.authorized ? styles.authStatusActive
+              : authState?.status === UCC_STATUS.ERROR ? styles.authStatusError
+              : styles.authStatusPending,
+          ]}>
+            <Text style={styles.authStatusText}>
+              {authState?.authorized
+                ? '✅ Authorized — your account is active'
+                : authState?.status === UCC_STATUS.NOT_FOUND
+                  ? '⏳ NSE is still processing your registration…'
+                  : authState?.status === UCC_STATUS.ERROR
+                    ? '⚠️ Could not reach NSE — retrying…'
+                    : '⏳ Waiting for authorization… (checking automatically)'}
+            </Text>
           </View>
 
           {/* Open link button */}
@@ -641,45 +714,21 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
 
           {/* Done button */}
   <TouchableOpacity
-  onPress={async () => {
-    try {
-      const phone = await AsyncStorage.getItem('user_phone');
-      const docSnap = await getDoc(doc(db, 'mf_onboarding', phone));
-      const ucc = docSnap.data()?.ucc_code;
-
-      const res = await fetch(`${NSE_SERVICE_URL}/api/nse/client-auth-status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_code: ucc }),
-      });
-      const data = await res.json();
-      console.log('📋 Auth status response:', JSON.stringify(data));
-
-      const report    = data?.report_data?.[0];
-      const authStatus = report?.auth_status || report?.first_holder_auth_status;
-
-      if (authStatus === 'SUCCESS') {
-        await updateDoc(doc(db, 'mf_onboarding', phone), {
-          ucc_authorized:      true,
-          ucc_authorized_at:   new Date().toISOString(),
-          onboarding_complete: true,
-        });
-        setShowAuthModal(false);
-        router.replace('/(gowealthy)/mf/trading/funds'); // your trading screen route
-      } else {
-        Alert.alert(
-          'Not Yet Authorized',
-          `Status: ${authStatus || 'PENDING'}\n\nPlease complete authorization on NSE's page first, then tap Done again.`
-        );
-      }
-    } catch (e) {
-      Alert.alert('Error', e.message);
-    }
-  }}
-  style={styles.modalDoneBtn}
->
-  <Text style={styles.modalDoneBtnText}>✅ Done — I've Authorized</Text>
-</TouchableOpacity>
+    onPress={handleCheckAuth}
+    disabled={checkingAuth}
+    style={[styles.modalDoneBtn, checkingAuth && { opacity: 0.6 }]}
+  >
+    {checkingAuth ? (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <ActivityIndicator size="small" color="#fff" />
+        <Text style={styles.modalDoneBtnText}>Checking…</Text>
+      </View>
+    ) : (
+      <Text style={styles.modalDoneBtnText}>
+        {authState?.authorized ? '✅ Continue to Investing' : "✅ I've Authorized — Check Status"}
+      </Text>
+    )}
+  </TouchableOpacity>
 
           {/* Dismiss */}
           <TouchableOpacity
@@ -695,7 +744,7 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
 
   return (
     <>
-    <AuthModal />
+    {AuthModal()}
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -951,6 +1000,11 @@ const styles = StyleSheet.create({
   modalNote: { fontSize: 12, color: '#666', textAlign: 'center', marginBottom: 20, lineHeight: 18 },
   modalDoneBtn: { width: '100%', backgroundColor: '#10b981', paddingVertical: 14, borderRadius: 14, alignItems: 'center', marginBottom: 10 },
   modalDoneBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  authStatusBanner: { width: '100%', borderRadius: 12, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 14 },
+  authStatusActive: { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: 'rgba(16,185,129,0.4)' },
+  authStatusPending: { backgroundColor: 'rgba(255,165,0,0.10)', borderColor: 'rgba(255,165,0,0.35)' },
+  authStatusError: { backgroundColor: 'rgba(239,68,68,0.10)', borderColor: 'rgba(239,68,68,0.35)' },
+  authStatusText: { fontSize: 12.5, color: '#ddd', textAlign: 'center', fontWeight: '500' },
   modalDismissBtn: { paddingVertical: 8 },
   modalDismissBtnText: { color: '#555', fontSize: 13 },
   // Success state

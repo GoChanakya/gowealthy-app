@@ -14,7 +14,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../../src/config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';const AMC_CODE = 'AXF'; // ← replace with real AMC code when sir provides
+import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';const AMC_CODE = 'B'; // ← replace with real AMC code when sir provides
 
 const Screen3FreshKYC = () => {
   const router = useRouter();
