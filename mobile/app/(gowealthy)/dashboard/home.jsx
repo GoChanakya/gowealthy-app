@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -36,6 +37,8 @@ import { C as UI_C, FONT as UI_FONT, RADIUS as UI_RADIUS, Embers, Eyebrow } from
    gowealthy_full.html's :root. Keeps the design "as it is" even
    before every token exists on ui-kit.
    ============================================================ */
+   const BRAND_LOGO = require("../../../assets/images/logo.png");
+const PROFILE_IMAGE = require("../../../assets/images/profile/profileUser.png");
 const C = {
   bg: "#08060a",
   bg2: "#0e0a10",
@@ -318,12 +321,16 @@ export default function Home() {
       {/* STICKY IDENTITY HEADER */}
       <View style={styles.dhead}>
         <View style={styles.brandRow}>
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>G</Text>
-          </View>
+         <View style={styles.logo}>
+  <Image
+    source={BRAND_LOGO}
+    style={styles.logoImage}
+    resizeMode="contain"
+  />
+</View>
           <View>
             <Text style={styles.brandName}>GoWealthy</Text>
-            <Text style={styles.brandTag}>FINANCIAL LIFE OS</Text>
+            
           </View>
         </View>
         <View style={styles.userRow}>
@@ -335,9 +342,13 @@ export default function Home() {
               {persona.name}
             </Text>
           </View>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{(displayName || "?").charAt(0).toUpperCase()}</Text>
-          </View>
+        {/* <View style={styles.avatar}>
+  <Image
+    source={PROFILE_IMAGE}
+    style={styles.avatarImage}
+    resizeMode="cover"
+  />
+</View> */}
         </View>
       </View>
 
@@ -372,8 +383,7 @@ export default function Home() {
               <Text style={styles.statusText}>YOUR PLAN IS LIVE — DAY {planDay}</Text>
             </View>
             <Text style={styles.clockText}>
-              {clockLine} · {clockTime}
-              {"\n"}Day {planDay} of your plan · Age {ageLabel}
+               Age {ageLabel}
             </Text>
           </View>
 
@@ -464,7 +474,7 @@ export default function Home() {
             <Text style={styles.eyebrowOnDark}>Your first move</Text>
             <Text style={styles.swipeH3}>Let's put your money to work.</Text>
             <Text style={styles.swipeWhy}>
-              Toward <Text style={styles.bOnDark}>{topGoal.name}</Text> · {inrFull(topGoal.amount)}/mo — one swipe kicks off
+              Toward <Text style={styles.bOnDark}>{topGoal.name}</Text> · {inrFull(topGoal.amount)}/mo — one click kicks off
               the transfer.
             </Text>
             <StartInvestingButton
@@ -482,9 +492,9 @@ export default function Home() {
         <View style={styles.dblock} onLayout={(e) => (sectionY.current.secGoals = e.nativeEvent.layout.y)}>
           <View style={styles.blockHeadRow}>
             <Eyebrow>Where your money is headed</Eyebrow>
-            <Text style={styles.blockHeadR}>
+            {/* <Text style={styles.blockHeadR}>
               {A.goals.length} goals · ranked by you
-            </Text>
+            </Text> */}
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 2 }}>
             {A.goals.map((g, i) => {
@@ -553,7 +563,7 @@ export default function Home() {
             <Text style={styles.ghostBtnText}>↺ Start over</Text>
           </Pressable>
         </View>
-        <Text style={styles.footText}>GoWealthy</Text>
+        {/* <Text style={styles.footText}>GoWealthy</Text> */}
       </ScrollView>
     </View>
   );
@@ -850,11 +860,11 @@ function StartInvestingButton({ onComplete, done }) {
         </Pressable>
       </Animated.View>
 
-      {!done && (
+      {/* {!done && (
         <Text style={investStyles.helper}>
           One tap · you'll review everything before investing
         </Text>
-      )}
+      )} */}
     </View>
   );
 }
@@ -1052,16 +1062,26 @@ const styles = StyleSheet.create({
   },
   brandRow: { flexDirection: "row", alignItems: "center", gap: 9 },
   logo: {
-    width: 30,
-    height: 30,
+    width: 25,
+    height: 24,
     borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: C.gold,
     marginRight: 9,
   },
-  logoText: { color: "#180f08", fontWeight: "800", fontSize: 15 },
-  brandName: { color: C.ink, fontWeight: "700", fontSize: 14 },
+  logoText: { color: "#eb7114", fontWeight: "800", fontSize: 15 },
+  logoImage: {
+  width: "100%",
+  height: "110%",
+  // borderRadius: 0,
+},
+  brandName: {
+  color: C.ink,
+  fontWeight: "700",
+  fontSize: 18,
+  fontFamily: "Syne",
+},
   brandTag: { color: C.muted, fontSize: 7, letterSpacing: 1.5, marginTop: 2 },
   userRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   duName: { color: C.ink, fontSize: 12, fontWeight: "600", maxWidth: 104 },
@@ -1076,7 +1096,11 @@ const styles = StyleSheet.create({
     backgroundColor: C.o,
   },
   avatarText: { color: "#fff", fontWeight: "700", fontSize: 13 },
-
+avatarImage: {
+  width: "50%",
+  height: "50%",
+  // borderRadius: 16,
+},
   /* chip nav */
   dnav: {
     backgroundColor: "rgba(8,6,10,0.96)",
