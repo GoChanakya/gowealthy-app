@@ -647,7 +647,7 @@ const EMBER_COUNT = 14;
 const EmberField = () => {
   const embers = useMemo(() => (
     Array.from({ length: EMBER_COUNT }).map((_, i) => ({
-      key: i,
+      
       left: Math.random() * SCREEN_W,
       size: 2 + Math.random() * 2.5,
       duration: 5500 + Math.random() * 5000,
@@ -658,8 +658,8 @@ const EmberField = () => {
 
   return (
     <View style={styles.embersWrap} pointerEvents="none">
-      {embers.map((e) => (
-        <Ember key={e.key} {...e} />
+      {embers.map((e,i) => (
+        <Ember key={i} {...e} />
       ))}
     </View>
   );
