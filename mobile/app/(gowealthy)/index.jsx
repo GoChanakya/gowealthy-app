@@ -15,7 +15,7 @@ import {
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../src/config/firebase';
 import { colors, globalStyles, shadows, isMobile } from '../../src/theme/globalStyles';
 import GowiserBlogList from './gowiser/index';
@@ -24,6 +24,25 @@ import GoSharesShell from './goshares/index';
 
 const { width: W, height: H } = Dimensions.get('window');
 const ND = Platform.OS !== 'web';
+const readMfAccess = async () => {
+  const rawPhone = await AsyncStorage.getItem('user_phone');
+  if (!rawPhone) return { authorized: false, resumeAuthorization: false };
+
+  const phone = String(rawPhone).replace(/\D/g, '').slice(-10);
+  const candidates = [...new Set([phone, rawPhone])];
+  for (const key of candidates) {
+    const snapshot = await getDoc(doc(db, 'mf_onboarding', key));
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      if (data?.ucc_authorized === true) return { authorized: true, resumeAuthorization: true };
+      if (data?.ucc_registered === true || Number(data?.onboarding_step || 0) >= 6) {
+        return { authorized: false, resumeAuthorization: true };
+      }
+    }
+  }
+
+  return { authorized: false, resumeAuthorization: false };
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  Design tokens
@@ -379,6 +398,7 @@ const GoWealthyHome = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('home');
   const [articles, setArticles] = useState([]);
+  const [mfOnboardingComplete, setMfOnboardingComplete] = useState(false);
 
   const anims = useRef(Array.from({ length: 8 }, () => new Animated.Value(0))).current;
 
@@ -389,6 +409,20 @@ const GoWealthyHome = () => {
         anims.map(v => Animated.spring(v, { toValue: 1, tension: 58, friction: 9, useNativeDriver: ND }))
       ).start();
     }
+  }, [activeTab]);
+
+  useEffect(() => {
+    let alive = true;
+    readMfAccess()
+      .then((access) => {
+        if (!alive) return;
+        setMfOnboardingComplete(access.authorized);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setMfOnboardingComplete(false);
+      });
+    return () => { alive = false; };
   }, [activeTab]);
 
   useEffect(() => {
@@ -449,7 +483,13 @@ const GoWealthyHome = () => {
             key={item.num}
             item={item}
             enterAnim={anims[Math.min(idx + 3, 7)]}
-            onPress={() => { if (item.route) router.push(item.route); }}
+            onPress={() => {
+              if (item.num === 6 && mfOnboardingComplete) {
+                router.push('/(gowealthy)/mf/trading/funds');
+              } else if (item.route) {
+                router.push(item.route);
+              }
+            }}
           />
         ))}
 

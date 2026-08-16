@@ -1,204 +1,213 @@
 import React, { useState } from 'react';
-import {
-  View, Text, TouchableOpacity, ScrollView,
-  StyleSheet, TextInput,
-} from 'react-native';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../../../../src/config/firebase';
+import { NSE_SERVICE_URL } from '../../../../src/config/services';
 
-const QUICK_AMOUNTS = [500, 1000, 2000, 5000, 10000];
-const TENURES = [
-  { label: '1 Year', months: 12 },
-  { label: '3 Years', months: 36 },
-  { label: '5 Years', months: 60 },
-  { label: '10 Years', months: 120 },
+const DURATIONS = [
+  { label: '1 year', months: 12 },
+  { label: '3 years', months: 36 },
+  { label: '5 years', months: 60 },
   { label: 'Ongoing', months: 0 },
 ];
 
-const SIPAmountScreen = () => {
+const valueOf = (value, fallback = '') => Array.isArray(value) ? value[0] : (value ?? fallback);
+
+export default function SIPAmountScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const fundName = decodeURIComponent(params.fundName || 'Selected Fund');
-  const nav = parseFloat(params.nav || 0);
-  const minSIP = parseInt(params.minSIP || 500);
-  const schemeCode = params.schemeCode || '';
+  const fundName = valueOf(params.fundName, 'Selected scheme');
+  const schemeCode = valueOf(params.schemeCode);
+  const amcCode = valueOf(params.amcCode, 'IIFLMUTUALFUND_MF');
+  const minSIP = Number(valueOf(params.minSIP, 1000)) || 1000;
+  const [amount, setAmount] = useState(String(minSIP));
+  const [duration, setDuration] = useState(DURATIONS[1]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const numericAmount = Number(amount) || 0;
+  const isValid = numericAmount >= minSIP;
 
-  const [amount, setAmount] = useState('1000');
-  const [tenure, setTenure] = useState(TENURES[1]); // default 3Y
+  const createPurchaseOrder = async () => {
+    if (!isValid || loading) return;
+    try {
+      setLoading(true);
+      setError('');
+      const rawPhone = await AsyncStorage.getItem('user_phone')
+        || await AsyncStorage.getItem('userPhone')
+        || await AsyncStorage.getItem('phone');
+      const phone = rawPhone ? String(rawPhone).replace(/\D/g, '').slice(-10) : '';
+      if (!phone) throw new Error('Session expired. Please log in again.');
 
-  const numAmount = parseInt(amount) || 0;
-  const monthlyUnits = nav > 0 ? (numAmount / nav).toFixed(3) : '—';
-  const totalInvested = tenure.months > 0 ? numAmount * tenure.months : numAmount * 120;
-  const estimatedReturn = tenure.months > 0
-    ? Math.round(numAmount * (((1 + 0.14 / 12) ** tenure.months - 1) / (0.14 / 12)) * (1 + 0.14 / 12))
-    : '—';
-  const estimatedGain = tenure.months > 0 ? estimatedReturn - totalInvested : '—';
+      const snapshot = await getDoc(doc(db, 'mf_onboarding', phone));
+      if (!snapshot.exists()) throw new Error('Onboarding data not found.');
+      const data = snapshot.data();
+      const clientCode = data.ucc_code;
+      if (!clientCode) throw new Error('NSE client code is missing. Complete onboarding first.');
 
-  const isValid = numAmount >= minSIP;
+      const euinNumber = data.euin_number || '';
+      const euinDeclaration = data.euin_declaration || (euinNumber ? 'Y' : 'N');
+      const memberUniqueId = `MUPUR${Date.now()}`.slice(0, 20);
+      const orderPayload = {
+        order_ref_number: `PUR${Date.now()}`.slice(0, 19),
+        scheme_code: schemeCode,
+        trxn_type: 'P',
+        buy_sell_type: 'FRESH',
+        client_code: clientCode,
+        demat_physical: data.demat_physical || 'P',
+        order_amount: String(numericAmount),
+        folio_no: data.folio_no || '',
+        remarks: `First purchase for ${fundName}`.slice(0, 200),
+        kyc_flag: data.kyc_flag || 'Y',
+        sub_broker_code: data.sub_broker_code || '',
+        euin_number: euinNumber,
+        euin_declaration: euinDeclaration,
+        min_redemption_flag: 'N',
+        dpc_flag: 'Y',
+        all_units: 'N',
+        redemption_units: '',
+        sub_broker_arn: data.sub_broker_arn || '',
+        bank_ref_no: '',
+        account_no: data.bank_data?.account_no || '',
+        mobile_no: phone,
+        email: data.email_data?.email || '',
+        mandate_id: '',
+        filler1: '',
+        member_unique_id: memberUniqueId,
+      };
+
+      console.log('[MF][Purchase][ORDER_START]', {
+        clientCode,
+        schemeCode,
+        amount: orderPayload.order_amount,
+        memberUniqueId,
+      });
+      const response = await fetch(`${NSE_SERVICE_URL}/api/nse/order-entry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transaction_details: [orderPayload] }),
+      });
+      const responseData = await response.json().catch(() => ({}));
+      const result = responseData?.transaction_details?.[0];
+      console.log('[MF][Purchase][ORDER_RESULT]', {
+        httpStatus: response.status,
+        ok: response.ok,
+        orderId: result?.trxn_order_id,
+        status: result?.trxn_status,
+        remark: result?.trxn_remark || responseData?.error,
+      });
+      if (!response.ok || !String(result?.trxn_status || '').toUpperCase().includes('SUCCESS')) {
+        throw new Error(result?.trxn_remark || responseData?.error || 'Purchase order failed.');
+      }
+
+      const purchaseOrderId = result.trxn_order_id;
+      if (!purchaseOrderId) throw new Error('NSE did not return a purchase order ID.');
+      await updateDoc(snapshot.ref, {
+        first_purchase_order_id: purchaseOrderId,
+        first_purchase_order_status: result.trxn_status,
+        first_purchase_order_amount: numericAmount,
+        first_purchase_order_scheme: schemeCode,
+        first_purchase_order_created_at: new Date().toISOString(),
+      });
+
+      router.push(`/(gowealthy)/mf/trading/sip-mandate?schemeCode=${encodeURIComponent(schemeCode)}&amcCode=${encodeURIComponent(amcCode)}&fundName=${encodeURIComponent(fundName)}&amount=${numericAmount}&tenureMonths=${duration.months}&tenureLabel=${encodeURIComponent(duration.label)}&purchaseOrderId=${encodeURIComponent(purchaseOrderId)}`);
+    } catch (err) {
+      console.log('[MF][Purchase][ORDER_FAILED]', { error: err.message });
+      setError(err.message || 'Could not create purchase order.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Text style={styles.backTxt}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Setup SIP</Text>
-        <View style={{ width: 32 }} />
+        <TouchableOpacity onPress={() => router.back()} style={styles.back}><Text style={styles.backText}>‹</Text></TouchableOpacity>
+        <Text style={styles.headerTitle}>Set up SIP</Text>
+        <View style={styles.headerSpacer} />
       </View>
-
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: 120 }}>
-        {/* Fund name */}
-        <View style={styles.fundRow}>
-          <Text style={styles.fundRowIcon}>📊</Text>
-          <Text style={styles.fundRowName} numberOfLines={2}>{fundName}</Text>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <View style={styles.schemeCard}>
+          <Text style={styles.kicker}>SELECTED SCHEME</Text>
+          <Text style={styles.schemeName}>{fundName}</Text>
+          <Text style={styles.schemeCode}>{schemeCode}</Text>
         </View>
 
-        {/* Amount input */}
         <View style={styles.card}>
-          <Text style={styles.cardLbl}>MONTHLY SIP AMOUNT</Text>
+          <Text style={styles.label}>MONTHLY SIP AMOUNT</Text>
           <View style={styles.amountRow}>
             <Text style={styles.rupee}>₹</Text>
             <TextInput
               value={amount}
-              onChangeText={v => setAmount(v.replace(/[^0-9]/g, ''))}
+              onChangeText={(text) => setAmount(text.replace(/[^0-9]/g, ''))}
               keyboardType="number-pad"
               style={styles.amountInput}
               placeholder="Enter amount"
-              placeholderTextColor="#A89F95"
+              placeholderTextColor="#A0AAA4"
             />
           </View>
-          {numAmount > 0 && numAmount < minSIP && (
-            <Text style={styles.minNote}>Minimum SIP amount is ₹{minSIP}</Text>
-          )}
-          {/* Quick amounts */}
-          <View style={styles.quickRow}>
-            {QUICK_AMOUNTS.map(a => (
-              <TouchableOpacity key={a} onPress={() => setAmount(String(a))}
-                style={[styles.quickChip, parseInt(amount) === a && styles.quickChipActive]}>
-                <Text style={[styles.quickTxt, parseInt(amount) === a && styles.quickTxtActive]}>
-                  ₹{a >= 1000 ? `${a/1000}K` : a}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={styles.unitsNote}>
-            ≈ {monthlyUnits} units per month at NAV ₹{nav}
-          </Text>
+          <Text style={[styles.helper, !isValid && styles.error]}>Minimum SIP: ₹{minSIP.toLocaleString('en-IN')}</Text>
         </View>
 
-        {/* Tenure */}
         <View style={styles.card}>
-          <Text style={styles.cardLbl}>SIP DURATION</Text>
-          <View style={styles.tenureRow}>
-            {TENURES.map(t => (
-              <TouchableOpacity key={t.label} onPress={() => setTenure(t)}
-                style={[styles.tenureChip, tenure.label === t.label && styles.tenureChipActive]}>
-                <Text style={[styles.tenureTxt, tenure.label === t.label && styles.tenureTxtActive]}>
-                  {t.label}
-                </Text>
+          <Text style={styles.label}>SIP DURATION</Text>
+          <View style={styles.chips}>
+            {DURATIONS.map((item) => (
+              <TouchableOpacity key={item.label} onPress={() => setDuration(item)} style={[styles.chip, item.label === duration.label && styles.chipActive]}>
+                <Text style={[styles.chipText, item.label === duration.label && styles.chipTextActive]}>{item.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Projection */}
-        {isValid && tenure.months > 0 && (
-          <View style={styles.projCard}>
-            <Text style={styles.cardLbl}>ESTIMATED RETURNS (14% CAGR)</Text>
-            <View style={styles.projRow}>
-              <View style={styles.projBox}>
-                <Text style={styles.projLbl}>Total Invested</Text>
-                <Text style={styles.projVal}>₹{(totalInvested/1000).toFixed(1)}K</Text>
-              </View>
-              <Text style={styles.projArrow}>→</Text>
-              <View style={styles.projBox}>
-                <Text style={styles.projLbl}>Est. Value</Text>
-                <Text style={[styles.projVal, { color: '#ff6500' }]}>
-                  ₹{(estimatedReturn/1000).toFixed(1)}K
-                </Text>
-              </View>
-            </View>
-            <View style={styles.gainRow}>
-              <Text style={styles.gainLbl}>Est. Gain</Text>
-              <Text style={styles.gainVal}>
-                +₹{((estimatedGain)/1000).toFixed(1)}K ({Math.round((estimatedGain/totalInvested)*100)}%)
-              </Text>
-            </View>
-            <Text style={styles.disclaimer}>* Projections are indicative. Returns not guaranteed.</Text>
-          </View>
-        )}
-
-        {/* SIP dates info */}
-        <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>📅 SIP Details</Text>
-          <Text style={styles.infoLine}>Debit date: 5th of every month</Text>
-          <Text style={styles.infoLine}>First SIP: Next month after mandate activation</Text>
-          <Text style={styles.infoLine}>Bank: SBI (linked account)</Text>
+        <View style={styles.infoBox}>
+          <Text style={styles.infoTitle}>First purchase, then SIP setup</Text>
+          <Text style={styles.infoText}>Continue will first create the NSE purchase order. We will then register the bank mandate and continue with SIP registration.</Text>
         </View>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
       </ScrollView>
-
-      {/* CTA */}
-      <View style={styles.ctaBar}>
-        <View style={styles.ctaSummary}>
-          <Text style={styles.ctaAmtLbl}>Monthly SIP</Text>
-          <Text style={styles.ctaAmt}>₹{numAmount || '—'}</Text>
-        </View>
-        <TouchableOpacity
-          disabled={!isValid}
-          style={[styles.ctaBtn, !isValid && styles.ctaBtnDisabled]}
-          onPress={() => router.push(`/(gowealthy)/mf/trading/sip-mandate?schemeCode=${schemeCode}&fundName=${encodeURIComponent(fundName)}&amount=${amount}&tenureMonths=${tenure.months}&tenureLabel=${encodeURIComponent(tenure.label)}`)}>
-          <Text style={styles.ctaBtnTxt}>Continue →</Text>
+      <View style={styles.footer}>
+        <View><Text style={styles.footerLabel}>Monthly SIP</Text><Text style={styles.footerAmount}>₹{numericAmount.toLocaleString('en-IN')}</Text></View>
+        <TouchableOpacity disabled={!isValid || loading} onPress={createPurchaseOrder} style={[styles.primary, (!isValid || loading) && styles.primaryDisabled]}>
+          {loading ? <ActivityIndicator color="#FFFDF8" /> : <Text style={styles.primaryText}>Create purchase order & continue</Text>}
         </TouchableOpacity>
       </View>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F3EF' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, paddingTop: 60, backgroundColor: '#FFFDF9', borderBottomWidth: 0.5, borderBottomColor: '#E8E4DC' },
-  backBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
-  backTxt: { color: '#532ea6', fontSize: 22, fontWeight: '600' },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#1A1512' },
-  fundRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFFDF9', borderRadius: 16, padding: 14, borderWidth: 0.5, borderColor: '#E8E4DC' },
-  fundRowIcon: { fontSize: 24 },
-  fundRowName: { flex: 1, fontSize: 15, fontWeight: '600', color: '#1A1512', lineHeight: 22 },
-  card: { backgroundColor: '#FFFDF9', borderRadius: 20, padding: 20, borderWidth: 0.5, borderColor: '#E8E4DC', gap: 14 },
-  cardLbl: { fontSize: 10, fontWeight: '700', color: '#A89F95', letterSpacing: 1 },
-  amountRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 2, borderBottomColor: '#ff6500', paddingBottom: 8 },
-  rupee: { fontSize: 28, fontWeight: '700', color: '#1A1512', marginRight: 6 },
-  amountInput: { flex: 1, fontSize: 36, fontWeight: '800', color: '#1A1512' },
-  minNote: { fontSize: 12, color: '#ef4444' },
-  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  quickChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#F5F3EF', borderWidth: 1, borderColor: '#E8E4DC' },
-  quickChipActive: { backgroundColor: '#ff6500', borderColor: '#ff6500' },
-  quickTxt: { fontSize: 12, color: '#4A4540', fontWeight: '600' },
-  quickTxtActive: { color: '#fff' },
-  unitsNote: { fontSize: 11, color: '#A89F95' },
-  tenureRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tenureChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F5F3EF', borderWidth: 1, borderColor: '#E8E4DC' },
-  tenureChipActive: { backgroundColor: '#532ea6', borderColor: '#532ea6' },
-  tenureTxt: { fontSize: 13, color: '#4A4540', fontWeight: '500' },
-  tenureTxtActive: { color: '#fff' },
-  projCard: { backgroundColor: '#1A1512', borderRadius: 20, padding: 20, gap: 14 },
-  projRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  projBox: { alignItems: 'center', gap: 4 },
-  projLbl: { fontSize: 11, color: 'rgba(255,255,255,0.5)' },
-  projVal: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  projArrow: { fontSize: 20, color: 'rgba(255,255,255,0.3)' },
-  gainRow: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)', paddingTop: 12 },
-  gainLbl: { fontSize: 12, color: 'rgba(255,255,255,0.5)' },
-  gainVal: { fontSize: 14, fontWeight: '700', color: '#10b981' },
-  disclaimer: { fontSize: 10, color: 'rgba(255,255,255,0.3)', textAlign: 'center' },
-  infoCard: { backgroundColor: '#FFFDF9', borderRadius: 16, padding: 16, borderWidth: 0.5, borderColor: '#E8E4DC', gap: 6 },
-  infoTitle: { fontSize: 13, fontWeight: '700', color: '#1A1512', marginBottom: 4 },
-  infoLine: { fontSize: 12, color: '#7C766E', lineHeight: 20 },
-  ctaBar: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', padding: 16, paddingBottom: 34, backgroundColor: '#FFFDF9', borderTopWidth: 0.5, borderTopColor: '#E8E4DC', gap: 14 },
-  ctaSummary: { gap: 2 },
-  ctaAmtLbl: { fontSize: 10, color: '#A89F95', fontWeight: '600' },
-  ctaAmt: { fontSize: 20, fontWeight: '800', color: '#1A1512' },
-  ctaBtn: { flex: 1, backgroundColor: '#ff6500', borderRadius: 14, padding: 16, alignItems: 'center' },
-  ctaBtnDisabled: { backgroundColor: '#E8E4DC' },
-  ctaBtnTxt: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  container: { flex: 1, backgroundColor: '#F4F2EA' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 54, paddingHorizontal: 18, paddingBottom: 14, backgroundColor: '#FFFDF8', borderBottomWidth: 1, borderBottomColor: '#E4E6DE' },
+  back: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  backText: { color: '#17352B', fontSize: 34, lineHeight: 30 },
+  headerTitle: { color: '#17352B', fontSize: 17, fontWeight: '800' },
+  headerSpacer: { width: 36 },
+  content: { padding: 18, paddingBottom: 120, gap: 13 },
+  schemeCard: { backgroundColor: '#17352B', borderRadius: 17, padding: 18 },
+  kicker: { color: '#91D2B5', fontSize: 10, fontWeight: '800', letterSpacing: 1.5, marginBottom: 8 },
+  schemeName: { color: '#FFFDF8', fontSize: 18, fontWeight: '800', lineHeight: 24 },
+  schemeCode: { color: '#AFC8BC', fontSize: 11, marginTop: 8 },
+  card: { backgroundColor: '#FFFDF8', borderRadius: 17, padding: 18, borderWidth: 1, borderColor: '#E2E5DD' },
+  label: { color: '#8C9890', fontSize: 10, fontWeight: '800', letterSpacing: 1.2, marginBottom: 14 },
+  amountRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 2, borderBottomColor: '#07805E', paddingBottom: 8 },
+  rupee: { color: '#17352B', fontSize: 28, fontWeight: '800', marginRight: 7 },
+  amountInput: { flex: 1, color: '#17352B', fontSize: 34, fontWeight: '800', padding: 0 },
+  helper: { color: '#8C9890', fontSize: 12, marginTop: 10 },
+  error: { color: '#C04B48' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { borderWidth: 1, borderColor: '#DDE2DB', borderRadius: 20, paddingHorizontal: 13, paddingVertical: 9 },
+  chipActive: { backgroundColor: '#07805E', borderColor: '#07805E' },
+  chipText: { color: '#66736B', fontSize: 12, fontWeight: '700' },
+  chipTextActive: { color: '#FFFDF8' },
+  infoBox: { backgroundColor: '#E5F2E9', borderRadius: 15, padding: 16 },
+  infoTitle: { color: '#176B50', fontSize: 13, fontWeight: '800', marginBottom: 5 },
+  infoText: { color: '#4F7565', fontSize: 12, lineHeight: 18 },
+  footer: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#FFFDF8', borderTopWidth: 1, borderTopColor: '#E4E6DE', padding: 16, paddingBottom: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  footerLabel: { color: '#8C9890', fontSize: 10, fontWeight: '700' },
+  footerAmount: { color: '#17352B', fontSize: 20, fontWeight: '800', marginTop: 2 },
+  primary: { backgroundColor: '#07805E', borderRadius: 13, paddingHorizontal: 18, paddingVertical: 15, minWidth: 190, alignItems: 'center' },
+  primaryDisabled: { backgroundColor: '#A0AAA4' },
+  primaryText: { color: '#FFFDF8', fontSize: 14, fontWeight: '800' },
 });
-
-export default SIPAmountScreen;

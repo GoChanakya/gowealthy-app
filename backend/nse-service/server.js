@@ -11,6 +11,34 @@ const { verifyBankAccount } = require("./clients/razorpayClient");
 const app = express();
 app.use(express.json());
 app.use(morgan("dev"));
+
+function logActivity(route, event, details = {}) {
+    console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        route,
+        event,
+        ...details,
+    }));
+}
+
+// Request-level activity log. Record body keys rather than values so sensitive
+// PAN, bank-account, and credential values are not written to the console.
+app.use((req, res, next) => {
+    if (!req.path.startsWith("/api/nse")) return next();
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    req.activityId = requestId;
+    logActivity(req.path, "request", {
+        requestId,
+        method: req.method,
+        bodyKeys: Object.keys(req.body || {}),
+    });
+    res.on("finish", () => logActivity(req.path, "response", {
+        requestId,
+        method: req.method,
+        statusCode: res.statusCode,
+    }));
+    next();
+});
 // ─── CORS ────────────────────────────────────────────────────────────────────
 app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -58,6 +86,10 @@ function buildNseHeaders() {
 
 // Shared NSE error handler — logs + returns clean JSON to the frontend
 function handleNseError(err, res, routeName) {
+    logActivity(routeName, "nse_error", {
+        httpStatus: err.response?.status || 500,
+        error: err.response?.data || err.message,
+    });
     console.error(`❌ [${routeName}]`, err.response?.data || err.message);
     const status = err.response?.status || 500;
     res.status(status).json({
@@ -432,6 +464,164 @@ app.post("/api/nse/get-link", async (req, res) => {
     }
 });
 
+// ORDER ENTRY (PURCHASE / REDEMPTION)
+// NSE endpoint: /nsemfdesk/api/v2/transaction/NORMAL
+app.post("/api/nse/order-entry", async (req, res) => {
+    const { transaction_details } = req.body || {};
+    if (!Array.isArray(transaction_details) || transaction_details.length === 0) {
+        return res.status(400).json({ success: false, error: "transaction_details array is required" });
+    }
+    if (transaction_details.length > 50) {
+        return res.status(400).json({ success: false, error: "A maximum of 50 transactions is allowed" });
+    }
+
+    const requiredCommon = [
+        "scheme_code", "trxn_type", "client_code", "demat_physical", "kyc_flag",
+        "euin_declaration", "min_redemption_flag", "dpc_flag", "all_units",
+    ];
+    const errors = [];
+    transaction_details.forEach((record, index) => {
+        const missing = requiredCommon.filter((field) => !record?.[field] && record?.[field] !== "0");
+        if (!["P", "R"].includes(record?.trxn_type)) missing.push("trxn_type (P or R)");
+        if (record?.trxn_type === "P") {
+            if (!record.buy_sell_type) missing.push("buy_sell_type");
+            if (!record.order_amount) missing.push("order_amount");
+        }
+        if (record?.trxn_type === "R" && !record.order_amount && !record.redemption_units && record.all_units !== "Y") {
+            missing.push("order_amount or redemption_units");
+        }
+        if (missing.length) errors.push(`transaction_details[${index}]: ${missing.join(", ")}`);
+    });
+    if (errors.length) return res.status(400).json({ success: false, error: errors.join("; ") });
+
+    try {
+        logActivity("order-entry", "nse_request_start", {
+            requestId: req.activityId,
+            orderCount: transaction_details.length,
+            transactionType: transaction_details[0]?.trxn_type,
+            clientCodes: [...new Set(transaction_details.map((record) => record.client_code))],
+            schemeCodes: [...new Set(transaction_details.map((record) => record.scheme_code))],
+            amount: transaction_details.reduce((sum, record) => sum + Number(record.order_amount || 0), 0),
+        });
+        const response = await nseClient.post(
+            "/nsemfdesk/api/v2/transaction/NORMAL",
+            { transaction_details },
+            { headers: buildNseHeaders() }
+        );
+        const result = response.data?.transaction_details?.[0];
+        logActivity("order-entry", "nse_response", {
+            requestId: req.activityId,
+            httpStatus: response.status,
+            transactionStatus: result?.trxn_status,
+            transactionOrderId: result?.trxn_order_id,
+            remark: result?.trxn_remark,
+        });
+        res.json(response.data);
+    } catch (err) {
+        handleNseError(err, res, "order-entry");
+    }
+});
+
+// PURCHASE ORDER PAYMENT
+// NSE endpoint: /nsemfdesk/api/v2/payments/purchase_payment
+// This pays existing NSE purchase/X-SIP order IDs; it does not create orders.
+app.post("/api/nse/purchase-payment", async (req, res) => {
+    const {
+        payment_mode,
+        client_code,
+        order_ids,
+        mandate_id,
+        bank_account_no,
+        ifsc,
+        cheque_no,
+        cheque_date,
+        vpa,
+        neft_rtgs_utr_no,
+        callback_url,
+    } = req.body || {};
+
+    const mode = String(payment_mode || "").trim().toUpperCase();
+    const orderList = String(order_ids || "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean);
+    const allowedModes = ["MANDATE", "CHEQUE", "UPI", "NETBANKING", "NEFT", "RTGS", "RTGS/NEFT"];
+
+    if (!allowedModes.includes(mode)) {
+        return res.status(400).json({
+            success: false,
+            error: `Invalid payment_mode. Must be one of: ${allowedModes.join(", ")}`,
+        });
+    }
+    if (!client_code || orderList.length === 0) {
+        return res.status(400).json({ success: false, error: "client_code and order_ids are required" });
+    }
+    if (orderList.length > 50) {
+        return res.status(400).json({ success: false, error: "A maximum of 50 order_ids is allowed" });
+    }
+    if (mode === "MANDATE" && !mandate_id) {
+        return res.status(400).json({ success: false, error: "mandate_id is required for MANDATE payment" });
+    }
+    if (["CHEQUE", "UPI", "NETBANKING"].includes(mode) && (!bank_account_no || !ifsc)) {
+        return res.status(400).json({ success: false, error: `bank_account_no and ifsc are required for ${mode} payment` });
+    }
+    if (mode === "UPI" && !vpa) {
+        return res.status(400).json({ success: false, error: "vpa is required for UPI payment" });
+    }
+    if (mode === "CHEQUE" && (!cheque_no || !cheque_date)) {
+        return res.status(400).json({ success: false, error: "cheque_no and cheque_date are required for CHEQUE payment" });
+    }
+    if (["NEFT", "RTGS", "RTGS/NEFT"].includes(mode) && !neft_rtgs_utr_no) {
+        return res.status(400).json({ success: false, error: "neft_rtgs_utr_no is required for NEFT/RTGS payment" });
+    }
+    if (["UPI", "NETBANKING"].includes(mode) && !callback_url) {
+        return res.status(400).json({ success: false, error: `callback_url is required for ${mode} payment` });
+    }
+
+    const paymentPayload = {
+        payment_mode: mode,
+        client_code,
+        order_ids: orderList.join(","),
+        ...(mandate_id ? { mandate_id } : {}),
+        ...(bank_account_no ? { bank_account_no } : {}),
+        ...(ifsc ? { ifsc } : {}),
+        ...(cheque_no ? { cheque_no } : {}),
+        ...(cheque_date ? { cheque_date } : {}),
+        ...(vpa ? { vpa } : {}),
+        ...(neft_rtgs_utr_no ? { neft_rtgs_utr_no } : {}),
+        ...(callback_url ? { callback_url } : {}),
+    };
+
+    try {
+        logActivity("purchase-payment", "nse_request_start", {
+            requestId: req.activityId,
+            clientCode: client_code,
+            paymentMode: mode,
+            orderCount: orderList.length,
+            accountLast4: bank_account_no ? String(bank_account_no).slice(-4) : undefined,
+            hasMandate: Boolean(mandate_id),
+            hasCallback: Boolean(callback_url),
+        });
+        const response = await nseClient.post(
+            "/nsemfdesk/api/v2/payments/purchase_payment",
+            paymentPayload,
+            { headers: buildNseHeaders() }
+        );
+        logActivity("purchase-payment", "nse_response", {
+            requestId: req.activityId,
+            httpStatus: response.status,
+            paymentStatus: response.data?.status,
+            orderAmount: response.data?.order_amount,
+            basketId: response.data?.basket_id,
+            hasShortUrl: Boolean(response.data?.short_url),
+            remark: response.data?.remark,
+        });
+        res.json(response.data);
+    } catch (err) {
+        handleNseError(err, res, "purchase-payment");
+    }
+});
+
 
 function parseMasterDownload(rawText) {
     // Split into lines, drop empty ones (NSE files often end with trailing \n or a stray blank line)
@@ -612,6 +802,14 @@ app.post("/api/nse/mandate-register", async (req, res) => {
     }
 
     try {
+        logActivity("mandate-register", "nse_request_start", {
+            requestId: req.activityId,
+            clientCode: rec.client_code,
+            amount: rec.amount,
+            mandateType: rec.mandate_type,
+            accountLast4: String(rec.account_no).slice(-4),
+            ifsc: rec.ifsc_code,
+        });
         console.log(`💳 [mandate-register] UCC: ${rec.client_code}, Amount: ${rec.amount}`);
         const response = await nseClient.post(
             "/nsemfdesk/api/v2/registration/product/MANDATE",
@@ -619,6 +817,13 @@ app.post("/api/nse/mandate-register", async (req, res) => {
             { headers: buildNseHeaders() }
         );
         const result = response.data?.reg_data?.[0];
+        logActivity("mandate-register", "nse_response", {
+            requestId: req.activityId,
+            httpStatus: response.status,
+            regStatus: result?.reg_status,
+            regId: result?.reg_id,
+            remark: result?.reg_remark,
+        });
         console.log(`✅ [mandate-register] status: ${result?.reg_status}, id: ${result?.reg_id}`);
         res.json(response.data);
     } catch (err) {
@@ -664,6 +869,14 @@ app.post("/api/nse/client-auth-status", async (req, res) => {
             },
             { headers: buildNseHeaders() }
         );
+        const authRow = response.data?.report_data?.[0];
+        logActivity("client-auth-status", "nse_response", {
+            requestId: req.activityId,
+            httpStatus: response.status,
+            clientCode: client_code,
+            authStatus: authRow?.auth_status,
+            firstHolderAuthStatus: authRow?.first_holder_auth_status,
+        });
         console.log(`✅ [client-auth-status]:`, JSON.stringify(response.data));
         res.json(response.data);
     } catch (err) {
@@ -701,7 +914,12 @@ app.post("/api/nse/sip-register", async (req, res) => {
     if (!reg_data || !Array.isArray(reg_data) || reg_data.length === 0) {
         return res.status(400).json({ success: false, error: "reg_data array is required" });
     }
-    const rec = reg_data[0];
+    // Keep the NSE member code server-side. The mobile app should not need to
+    // know or transmit this credential-level integration value.
+    const rec = {
+        ...reg_data[0],
+        member_code: reg_data[0].member_code || process.env.NSE_MEMBER_CODE,
+    };
     const required = [
         "amc_code", "sch_code", "client_code", "trans_mode", "dp_txn_mode",
         "start_date", "frequency_type", "frequency_allowed",
@@ -716,7 +934,7 @@ app.post("/api/nse/sip-register", async (req, res) => {
         console.log(`📋 [sip-register] UCC: ${rec.client_code}, Scheme: ${rec.sch_code}, Amount: ${rec.installment_amount}`);
         const response = await nseClient.post(
             "/nsemfdesk/api/v2/registration/product/SIP",
-            { reg_data },
+            { reg_data: [rec] },
             { headers: buildNseHeaders() }
         );
         const result = response.data?.reg_data?.[0];
@@ -815,6 +1033,8 @@ app.listen(port, () => {
     console.log(`  POST /api/nse/fatca-upload        → FATCA (Screen 5)`);
     console.log(`  POST /api/nse/bank-add            → CLIENTBANKDTL (Screen 6)`);
     console.log(`  POST /api/nse/get-link            → GET_LINK (Screen 5 post-UCC)`);
+    console.log(`  POST /api/nse/order-entry         → NORMAL purchase/redemption`);
+    console.log(`  POST /api/nse/purchase-payment   → purchase_payment (existing orders)`);
     console.log(`  POST /api/nse/resend-comm         → RESEND_COMM`);
     console.log(`  POST /api/nse/mandate-register    → MANDATE (trading prep)`);
     console.log(`  POST /api/nse/client-auth-status  → client_authorization (polling)`);

@@ -22,7 +22,10 @@ export const UCC_STATUS = {
 };
 
 // NSE reports these (upper-cased) once the first holder has authorized.
-const AUTHORIZED_VALUES = ['SUCCESS', 'AUTHORIZED', 'APPROVED', 'AUTH_SUCCESS'];
+const AUTHORIZED_VALUES = [
+  'SUCCESS', 'AUTHORIZED', 'APPROVED', 'AUTH_SUCCESS',
+  'ACTIVE', 'COMPLETED', 'COMPLETE', 'YES', 'Y',
+];
 
 /**
  * Query NSE for a UCC's authorization status.
@@ -31,6 +34,7 @@ const AUTHORIZED_VALUES = ['SUCCESS', 'AUTHORIZED', 'APPROVED', 'AUTH_SUCCESS'];
  */
 export async function checkUccStatus(uccCode) {
   if (!uccCode) return { status: UCC_STATUS.NOT_FOUND, authorized: false };
+  console.log('[MF][UCC] status check started', { clientCode: uccCode });
   try {
     const res = await fetch(`${NSE_SERVICE_URL}/api/nse/client-auth-status`, {
       method: 'POST',
@@ -39,23 +43,44 @@ export async function checkUccStatus(uccCode) {
     });
     const data = await res.json().catch(() => ({}));
     const row = data?.report_data?.[0];
-    if (!row) return { status: UCC_STATUS.NOT_FOUND, authorized: false, raw: data };
+    if (!row) {
+      console.log('[MF][UCC] status check returned no report row', { httpStatus: res.status, clientCode: uccCode });
+      return { status: UCC_STATUS.NOT_FOUND, authorized: false, raw: data };
+    }
 
-    const authStatusRaw = String(row.auth_status || row.first_holder_auth_status || '')
-      .toUpperCase().trim();
-    const authorized = AUTHORIZED_VALUES.includes(authStatusRaw);
+    const authStatusValues = [
+      row.auth_status,
+      row.first_holder_auth_status,
+      row.first_holder_authentication_status,
+      row.client_status,
+      row.status,
+    ]
+      .map((value) => String(value ?? '').toUpperCase().trim())
+      .filter(Boolean);
+    const authStatusRaw = authStatusValues.join(' | ');
+    const authDatetime = String(row.first_holder_auth_datetime || '').trim();
+    const authorized = authStatusValues.some((value) => AUTHORIZED_VALUES.includes(value)) || Boolean(authDatetime);
 
-    return {
+    const result = {
       status: authorized ? UCC_STATUS.ACTIVE : UCC_STATUS.PENDING,
       authorized,
       authStatusRaw,
       name: (row.primary_holder_name || '').trim(),
       email: (row.first_holder_email || '').trim(),
-      authDatetime: (row.first_holder_auth_datetime || '').trim(),
+      authDatetime,
       emailSent: row.auth_email_sent === 'Y',
       row,
     };
+    console.log('[MF][UCC] status check completed', {
+      httpStatus: res.status,
+      clientCode: uccCode,
+      status: result.status,
+      authStatusRaw,
+      authorized,
+    });
+    return result;
   } catch (e) {
+    console.log('[MF][UCC] status check failed', { clientCode: uccCode, error: e.message });
     return { status: UCC_STATUS.ERROR, authorized: false, error: e.message };
   }
 }
@@ -66,6 +91,7 @@ export async function checkUccStatus(uccCode) {
  * @returns {Promise<{ucc, ...status}>}
  */
 export async function refreshUccActivation(phone) {
+  console.log('[MF][UCC] loading Firestore onboarding record', { phone: String(phone).slice(-4) });
   const ref = doc(db, 'mf_onboarding', phone);
   const snap = await getDoc(ref);
   const ucc = snap.data()?.ucc_code || null;
@@ -79,5 +105,6 @@ export async function refreshUccActivation(phone) {
       onboarding_complete: true,
     });
   }
+  console.log('[MF][UCC] activation refresh completed', { clientCode: ucc, status: result.status, authorized: result.authorized });
   return { ucc, ...result };
 }

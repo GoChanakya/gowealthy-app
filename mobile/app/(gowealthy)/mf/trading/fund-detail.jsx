@@ -1,12 +1,13 @@
 import React from 'react';
 import {
-  View, Text, TouchableOpacity, ScrollView,
+  Alert, View, Text, TouchableOpacity, ScrollView,
   StyleSheet,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { SAMPLE_SCHEMES } from '../../../../src/data/sampleSchemes';
 
 // ── Hardcoded Parag Parikh data ───────────────────────────────────────────────
-const FUND = {
+const BASE_FUND = {
   schemeCode: 'INF879O01019',
   name: 'Parag Parikh Flexi Cap Fund',
   amc: 'PPFAS Mutual Fund',
@@ -70,6 +71,21 @@ const StarRow = ({ count }) => (
 
 const FundDetailScreen = () => {
   const router = useRouter();
+  const { schemeCode } = useLocalSearchParams();
+  const selectedScheme = SAMPLE_SCHEMES.find((scheme) => scheme.schemeCode === schemeCode) || SAMPLE_SCHEMES[1];
+  const FUND = {
+    ...BASE_FUND,
+    schemeCode: selectedScheme.schemeCode,
+    name: selectedScheme.name,
+    amc: selectedScheme.amc,
+    category: selectedScheme.category,
+    minSIP: selectedScheme.sipAllowed ? selectedScheme.minPurchase : 0,
+    minLumpsum: selectedScheme.minPurchase,
+    persona: {
+      ...BASE_FUND.persona,
+      subtitle: `${selectedScheme.plan} · ${selectedScheme.option}`,
+    },
+  };
 
   return (
     <View style={styles.container}>
@@ -253,11 +269,15 @@ const FundDetailScreen = () => {
       {/* CTA */}
       <View style={styles.ctaBar}>
         <TouchableOpacity
-          style={styles.ctaPrimary}
-          onPress={() => router.push(`/(gowealthy)/mf/trading/sip-amount?schemeCode=${FUND.schemeCode}&fundName=${encodeURIComponent(FUND.name)}&nav=${FUND.nav}&minSIP=${FUND.minSIP}`)}>
-          <Text style={styles.ctaPrimaryTxt}>Start SIP</Text>
+          disabled={!selectedScheme.sipAllowed}
+          style={[styles.ctaPrimary, !selectedScheme.sipAllowed && styles.ctaDisabled]}
+          onPress={() => router.push(`/(gowealthy)/mf/trading/sip-amount?schemeCode=${FUND.schemeCode}&amcCode=${selectedScheme.amcCode}&fundName=${encodeURIComponent(FUND.name)}&nav=${FUND.nav}&minSIP=${FUND.minSIP}`)}>
+          <Text style={styles.ctaPrimaryTxt}>{selectedScheme.sipAllowed ? 'Start SIP' : 'SIP unavailable'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.ctaSecondary}>
+        <TouchableOpacity
+          style={styles.ctaSecondary}
+          onPress={() => Alert.alert('Lumpsum purchase not wired yet', 'server.js currently has no purchase registration route. SIP is connected to the available NSE mandate and SIP routes.')}
+        >
           <Text style={styles.ctaSecondaryTxt}>Lumpsum</Text>
         </TouchableOpacity>
       </View>
@@ -332,6 +352,7 @@ const styles = S.create({
   detailVal: { fontSize: 13, fontWeight: '600', color: '#1A1512' },
   ctaBar: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', gap: 10, padding: 16, paddingBottom: 34, backgroundColor: '#FFFDF9', borderTopWidth: 0.5, borderTopColor: '#E8E4DC' },
   ctaPrimary: { flex: 1, backgroundColor: '#ff6500', borderRadius: 14, padding: 16, alignItems: 'center' },
+  ctaDisabled: { backgroundColor: '#A89F95' },
   ctaPrimaryTxt: { color: '#fff', fontSize: 15, fontWeight: '700' },
   ctaSecondary: { backgroundColor: '#532ea615', borderRadius: 14, padding: 16, paddingHorizontal: 20 },
   ctaSecondaryTxt: { color: '#532ea6', fontSize: 14, fontWeight: '700' },

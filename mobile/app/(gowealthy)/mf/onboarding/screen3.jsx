@@ -396,7 +396,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../../../src/config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';const AMC_CODE = 'B'; // ← replace with real AMC code when sir provides
+import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';const AMC_CODE = 'INDIABULLSMUTUALFUND_MF'; // ← replace with real AMC code when sir provides
 
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
 const C = {

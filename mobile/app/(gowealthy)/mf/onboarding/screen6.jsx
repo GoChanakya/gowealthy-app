@@ -1290,6 +1290,14 @@ const Screen6FATCAAndUCC = () => {
       // If auth link already generated in previous session
       if (data?.ucc_auth_link) setAuthLink(data.ucc_auth_link);
 
+      // Screen 6 can be resumed after UCC registration. Re-check CL_ACT here
+      // so returning users do not have to repeat the earlier onboarding steps.
+      if (data?.ucc_registered && !data?.ucc_authorized) {
+        const currentAuth = await refreshUccActivation(phone);
+        setAuthState(currentAuth);
+        if (!currentAuth.authorized) setShowAuthModal(true);
+      }
+
     } catch (e) {
       console.log('Screen 6 load error:', e.message);
     } finally {
@@ -1728,6 +1736,15 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
     }
   };
 
+  const openSampleSchemes = () => {
+    if (!authState?.authorized) {
+      Alert.alert('Authorization required', 'Complete NSE CL_ACT authorization before entering the trading platform.');
+      return;
+    }
+    setShowAuthModal(false);
+    router.replace('/(gowealthy)/mf/trading/funds');
+  };
+
   // ── Reusable Dropdown ─────────────────────────────────────────────────────
   const Dropdown = ({ label, options, value, onChange }) => (
     <View style={styles.inputGroup}>
@@ -1864,6 +1881,14 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
       </Text>
     )}
   </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={openSampleSchemes}
+            style={styles.sampleSchemesBtn}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.sampleSchemesBtnText}>View sample schemes</Text>
+          </TouchableOpacity>
 
           {/* Dismiss */}
           <TouchableOpacity
@@ -2222,6 +2247,12 @@ const styles = StyleSheet.create({
     alignItems: 'center', marginBottom: 10,
   },
   modalDoneBtnText: { color: '#062018', fontSize: 14.5, fontWeight: '700' },
+  sampleSchemesBtn: {
+    width: '100%', borderWidth: 1, borderColor: 'rgba(79,211,154,0.38)',
+    backgroundColor: 'rgba(79,211,154,0.08)', paddingVertical: 13, borderRadius: 14,
+    alignItems: 'center', marginBottom: 10,
+  },
+  sampleSchemesBtnText: { color: C.good, fontSize: 14, fontWeight: '700' },
   authStatusBanner: { width: '100%', borderRadius: 14, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 12, marginBottom: 14 },
   authStatusActive: { backgroundColor: 'rgba(79,211,154,0.12)', borderColor: 'rgba(79,211,154,0.4)' },
   authStatusPending: { backgroundColor: 'rgba(247,200,90,0.1)', borderColor: 'rgba(247,200,90,0.35)' },
