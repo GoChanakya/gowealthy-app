@@ -4,7 +4,6 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { SAMPLE_SCHEMES } from '../../../../src/data/sampleSchemes';
 
 // ── Hardcoded Parag Parikh data ───────────────────────────────────────────────
 const BASE_FUND = {
@@ -71,21 +70,41 @@ const StarRow = ({ count }) => (
 
 const FundDetailScreen = () => {
   const router = useRouter();
-  const { schemeCode } = useLocalSearchParams();
-  const selectedScheme = SAMPLE_SCHEMES.find((scheme) => scheme.schemeCode === schemeCode) || SAMPLE_SCHEMES[1];
+  // Every value arrives from the live NSE catalogue via the funds list. There is
+  // deliberately no local lookup and no fallback scheme: silently substituting a
+  // different fund is how a stale AMC code reached NSE and failed every SIP.
+  const params = useLocalSearchParams();
+  const one = (v, fallback = '') => (Array.isArray(v) ? v[0] : (v ?? fallback));
+
+  const schemeCode = one(params.schemeCode);
+  const amcCode = one(params.amcCode);
+  const minPurchase = Number(one(params.minPurchase, 0)) || 0;
+  const sipAllowed = one(params.sipAllowed, '0') === '1';
+
   const FUND = {
     ...BASE_FUND,
-    schemeCode: selectedScheme.schemeCode,
-    name: selectedScheme.name,
-    amc: selectedScheme.amc,
-    category: selectedScheme.category,
-    minSIP: selectedScheme.sipAllowed ? selectedScheme.minPurchase : 0,
-    minLumpsum: selectedScheme.minPurchase,
+    schemeCode,
+    name: one(params.fundName, 'Scheme'),
+    amc: amcCode.split('_')[0],
+    category: one(params.schemeType, ''),
+    minSIP: sipAllowed ? minPurchase : 0,
+    minLumpsum: minPurchase,
     persona: {
       ...BASE_FUND.persona,
-      subtitle: `${selectedScheme.plan} · ${selectedScheme.option}`,
+      subtitle: `${one(params.schemeType, '')} · Cut-off ${one(params.cutoff, '').slice(0, 5)}`,
     },
   };
+
+  if (!schemeCode || !amcCode) {
+    return (
+      <View style={[styles.container, { alignItems: 'center', justifyContent: 'center', padding: 24 }]}>
+        <Text style={styles.fundName}>Scheme details missing</Text>
+        <TouchableOpacity onPress={() => router.replace('/(gowealthy)/mf/trading/funds')} style={styles.ctaPrimary}>
+          <Text style={styles.ctaPrimaryTxt}>Back to funds</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -269,10 +288,15 @@ const FundDetailScreen = () => {
       {/* CTA */}
       <View style={styles.ctaBar}>
         <TouchableOpacity
-          disabled={!selectedScheme.sipAllowed}
-          style={[styles.ctaPrimary, !selectedScheme.sipAllowed && styles.ctaDisabled]}
-          onPress={() => router.push(`/(gowealthy)/mf/trading/sip-amount?schemeCode=${FUND.schemeCode}&amcCode=${selectedScheme.amcCode}&fundName=${encodeURIComponent(FUND.name)}&nav=${FUND.nav}&minSIP=${FUND.minSIP}`)}>
-          <Text style={styles.ctaPrimaryTxt}>{selectedScheme.sipAllowed ? 'Start SIP' : 'SIP unavailable'}</Text>
+          disabled={!sipAllowed}
+          style={[styles.ctaPrimary, !sipAllowed && styles.ctaDisabled]}
+          onPress={() => router.push(
+            `/(gowealthy)/mf/trading/sip-amount?schemeCode=${encodeURIComponent(schemeCode)}`
+            + `&amcCode=${encodeURIComponent(amcCode)}`
+            + `&fundName=${encodeURIComponent(FUND.name)}`
+            + `&nav=${FUND.nav}&minSIP=${FUND.minSIP}`
+          )}>
+          <Text style={styles.ctaPrimaryTxt}>{sipAllowed ? 'Start SIP' : 'SIP unavailable'}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.ctaSecondary}

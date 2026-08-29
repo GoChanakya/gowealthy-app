@@ -14,7 +14,7 @@
 // import AsyncStorage from '@react-native-async-storage/async-storage';
 // import { db } from '../../../../src/config/firebase';
 // import { doc, getDoc, updateDoc } from 'firebase/firestore';
-// import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';const AMC_CODE = 'B'; // ← replace with real AMC code when sir provides
+// import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';const AMC_CODE = 'B'; // UAT sandbox test AMC code — NOT a production AMC, but the one NSE's UAT accepts for EKYCREG
 
 // const Screen3FreshKYC = () => {
 //   const router = useRouter();
@@ -396,7 +396,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../../../src/config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';const AMC_CODE = 'INDIABULLSMUTUALFUND_MF'; // ← replace with real AMC code when sir provides
+import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL, EKYC_AMC_CODE } from '../../../../src/config/services';
+
+// RTA AMC code for EKYCREG — configured in src/config/services.js, not here,
+// because the valid value differs between UAT and production.
+const AMC_CODE = EKYC_AMC_CODE;
 
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
 const C = {
@@ -503,6 +507,12 @@ const Screen3FreshKYC = () => {
   const [ekycLink, setEkycLink] = useState(null); // NSE link returned after API call
   const [isLoadingData, setIsLoadingData] = useState(true);
 
+  // eKYC completion state. 'idle' → link sent but never checked, 'checking' →
+  // KYC_CHECK in flight, 'verified' → NSE returned kyc_status "S", 'pending' →
+  // NSE still returns "F", so the investor has not finished on NSE's page yet.
+  const [kycState, setKycState] = useState('idle');
+  const [kycRemark, setKycRemark] = useState('');
+
   // ── On mount: load PAN from Firestore + mobile from AsyncStorage
   useEffect(() => {
     loadExistingData();
@@ -532,6 +542,10 @@ const Screen3FreshKYC = () => {
         // If ekyc link was already generated, restore it too
         const savedLink = docSnap.data()?.ekyc_link || '';
         if (savedLink) setEkycLink(savedLink);
+
+        // If NSE already confirmed KYC on a previous visit, don't make the
+        // investor re-verify — they can go straight on.
+        if (docSnap.data()?.ekyc_verified === true) setKycState('verified');
       }
     } catch (e) {
       console.log('Error loading data for Screen 3:', e.message);
@@ -554,6 +568,7 @@ const Screen3FreshKYC = () => {
 
       console.log('📝 Calling EKYC Register...');
       console.log('  PAN:', panNumber, 'Mobile:', mobileNumber, 'Email:', email);
+      console.log('  invEmail (raw):', JSON.stringify(email), 'length:', email.length);
       console.log( 'AMC Code:', AMC_CODE);
       const response = await fetch(`${NSE_SERVICE_URL}/api/nse/ekyc-register`, {
         method: 'POST',
@@ -612,8 +627,85 @@ const Screen3FreshKYC = () => {
     }
   };
 
+  // Ask NSE whether the eKYC the investor just did on their page has actually
+  // landed. KYC_CHECK is the same call Screen 2 makes — re-running it after the
+  // link is completed is how we learn the outcome (spec v1.9.6 p.191).
+  //
+  // kyc_status "S" covers UNDER_PROCESS / KYC REGISTERED / KYC Validated; every
+  // other state comes back "F" with the reason in kyc_status_remark (p.192).
+  const verifyEkycCompletion = async () => {
+    if (!panNumber) {
+      Alert.alert('Missing PAN', 'We could not find your PAN. Please go back and re-scan it.');
+      return false;
+    }
+
+    setKycState('checking');
+    setKycRemark('');
+
+    try {
+      const response = await fetch(`${NSE_SERVICE_URL}/api/nse/kyc-check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pan_no: panNumber }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || data.error) {
+        throw new Error(data.error || 'Could not reach NSE to check your KYC status.');
+      }
+
+      const remark = data.kyc_status_remark || '';
+      setKycRemark(remark);
+
+      if (data.kyc_status === 'S') {
+        setKycState('verified');
+        const phone = await AsyncStorage.getItem('user_phone');
+        await updateDoc(doc(db, 'mf_onboarding', phone), {
+          ekyc_verified: true,
+          ekyc_verified_at: new Date().toISOString(),
+          ekyc_status_remark: remark,
+          ekyc_kra_name: data.kra_name || null,
+        });
+        return true;
+      }
+
+      setKycState('pending');
+      return false;
+    } catch (error) {
+      console.error('❌ KYC status check error:', error);
+      setKycState('idle');
+      Alert.alert('Check Failed', error.message || 'Could not check your KYC status. Please try again.');
+      return false;
+    }
+  };
+
+  const handleCheckStatus = async () => {
+    const done = await verifyEkycCompletion();
+    if (!done && kycRemark) {
+      Alert.alert(
+        'KYC Not Complete Yet',
+        `NSE reports: ${kycRemark}\n\nFinish the verification on NSE's page, then check again.`
+      );
+    }
+  };
+
   const handleContinue = async () => {
-    // Save onboarding step and go to Screen 4
+    // Gate on NSE confirming the eKYC. Without this the investor can walk
+    // straight into UCC registration with a KYC that was never completed, and
+    // CLIENTCOMMON183 will reject them (or worse, register an unbacked record).
+    if (kycState !== 'verified') {
+      const done = await verifyEkycCompletion();
+      if (!done) {
+        Alert.alert(
+          'KYC Not Complete',
+          kycRemark
+            ? `NSE reports: ${kycRemark}\n\nPlease finish the verification on NSE's page first.`
+            : "NSE hasn't confirmed your KYC yet. Open the verification link, complete it, then try again."
+        );
+        return;
+      }
+    }
+
     try {
       const phone = await AsyncStorage.getItem('user_phone');
       const docRef = doc(db, 'mf_onboarding', phone);
@@ -765,6 +857,17 @@ const Screen3FreshKYC = () => {
                 </TouchableOpacity>
 
                 <TouchableOpacity
+                  onPress={handleCheckStatus}
+                  disabled={kycState === 'checking'}
+                  style={styles.resendButton}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.resendButtonText}>
+                    {kycState === 'checking' ? 'Checking with NSE…' : '⟳ Check KYC Status'}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
                   onPress={handleSendKYCLink}
                   disabled={isLoading}
                   style={styles.resendButton}
@@ -774,6 +877,17 @@ const Screen3FreshKYC = () => {
                     {isLoading ? 'Resending...' : '↺ Resend Link'}
                   </Text>
                 </TouchableOpacity>
+
+                {kycState === 'verified' && (
+                  <Text style={styles.kycStatusOk}>
+                    ✅ NSE has confirmed your KYC{kycRemark ? ` — ${kycRemark}` : ''}
+                  </Text>
+                )}
+                {kycState === 'pending' && (
+                  <Text style={styles.kycStatusPending}>
+                    ⏳ Not confirmed yet{kycRemark ? ` — ${kycRemark}` : ''}
+                  </Text>
+                )}
               </View>
             )}
 
@@ -794,10 +908,11 @@ const Screen3FreshKYC = () => {
         </View>
 
         <View style={styles.buttonSection}>
-          {/* Continue — enabled only after link is generated */}
+          {/* Continue — needs a link sent, and NSE confirming the KYC landed.
+              Tapping it re-checks with NSE rather than trusting the investor. */}
           <TouchableOpacity
             onPress={handleContinue}
-            disabled={!ekycLink}
+            disabled={!ekycLink || kycState === 'checking'}
             activeOpacity={0.9}
             style={styles.continueButtonWrap}
           >
@@ -808,19 +923,17 @@ const Screen3FreshKYC = () => {
               style={[styles.continueButton, !ekycLink && styles.buttonDisabled]}
             >
               <Text style={[styles.continueButtonText, !ekycLink && styles.continueButtonTextDisabled]}>
-                {ekycLink ? "✓ I've completed KYC → Continue" : 'Send KYC link first'}
+                {!ekycLink
+                  ? 'Send KYC link first'
+                  : kycState === 'checking'
+                    ? 'Checking with NSE…'
+                    : kycState === 'verified'
+                      ? 'Continue →'
+                      : "I've completed KYC → Verify & Continue"}
               </Text>
             </LinearGradient>
           </TouchableOpacity>
 
-          {/* Dev skip */}
-          <TouchableOpacity
-            onPress={() => router.push('/(gowealthy)/mf/onboarding/screen4')}
-            style={styles.devButton}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.devButtonText}>Skip (Dev) →</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -910,6 +1023,8 @@ const styles = StyleSheet.create({
   openLinkButtonText: { color: '#062018', fontSize: 14.5, fontWeight: '700' },
   resendButton: { paddingVertical: 10, alignItems: 'center' },
   resendButtonText: { color: C.o2, fontSize: 13.5, fontWeight: '600' },
+  kycStatusOk: { color: '#4ade80', fontSize: 13, fontWeight: '600', marginTop: 10, textAlign: 'center' },
+  kycStatusPending: { color: C.o2, fontSize: 13, fontWeight: '600', marginTop: 10, textAlign: 'center' },
 
   infoCard: {
     backgroundColor: 'rgba(255,106,26,0.07)', borderWidth: 1, borderColor: 'rgba(255,106,26,0.22)',

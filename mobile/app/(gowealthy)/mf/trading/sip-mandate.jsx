@@ -19,7 +19,7 @@ export default function SIPMandateScreen() {
   const params = useLocalSearchParams();
   const fundName = valueOf(params.fundName, 'Selected scheme');
   const schemeCode = valueOf(params.schemeCode);
-  const amcCode = valueOf(params.amcCode, 'IIFLMUTUALFUND_MF');
+  const amcCode = valueOf(params.amcCode, '360_ONE_MUTUALFUND_MF');
   const amount = Number(valueOf(params.amount, 0));
   const tenureMonths = Number(valueOf(params.tenureMonths, 36));
   const tenureLabel = valueOf(params.tenureLabel, '3 years');

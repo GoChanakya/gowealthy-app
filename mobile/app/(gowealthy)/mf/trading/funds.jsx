@@ -12,36 +12,27 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SAMPLE_SCHEMES } from '../../../../src/data/sampleSchemes';
 import { refreshUccActivation } from '../../../../src/lib/ucc';
-
-const FILTERS = ['All schemes', 'Growth', 'IDCW', 'SIP enabled'];
+import { fetchSchemes, fetchFeaturedSchemes, prettySchemeName, amcInitials, FEATURED_AMCS } from '../../../../src/lib/schemes';
 
 const formatAmount = (amount) => `₹${Number(amount).toLocaleString('en-IN')}`;
-
-const matchesFilter = (scheme, filter) => {
-  if (filter === 'Growth') return scheme.option === 'Growth';
-  if (filter === 'IDCW') return scheme.option.toLowerCase().startsWith('idcw');
-  if (filter === 'SIP enabled') return scheme.sipAllowed;
-  return true;
-};
 
 const SchemeCard = ({ scheme, onPress }) => (
   <Pressable
     onPress={onPress}
     style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     accessibilityRole="button"
-    accessibilityLabel={`View ${scheme.name}, ${scheme.option}`}
+    accessibilityLabel={`View ${scheme.scheme_name}`}
   >
     <View style={styles.cardTop}>
       <View style={styles.amcMark}>
-        <Text style={styles.amcMarkText}>360</Text>
+        <Text style={styles.amcMarkText}>{amcInitials(scheme.amc_code)}</Text>
       </View>
       <View style={styles.cardTitleWrap}>
-        <Text style={styles.schemeName} numberOfLines={2}>{scheme.name}</Text>
-        <Text style={styles.schemeMeta}>{scheme.plan} · {scheme.option}</Text>
+        <Text style={styles.schemeName} numberOfLines={2}>{prettySchemeName(scheme.scheme_name)}</Text>
+        <Text style={styles.schemeMeta}>{scheme.scheme_type} · {scheme.plan_type}</Text>
       </View>
-      <Ionicons name="arrow-up-right" size={20} color="#68756D" />
+      <Ionicons name="chevron-forward" size={20} color="#68756D" />
     </View>
 
     <View style={styles.rule} />
@@ -49,22 +40,22 @@ const SchemeCard = ({ scheme, onPress }) => (
     <View style={styles.metricsRow}>
       <View style={styles.metric}>
         <Text style={styles.metricLabel}>Minimum</Text>
-        <Text style={styles.metricValue}>{formatAmount(scheme.minPurchase)}</Text>
+        <Text style={styles.metricValue}>{formatAmount(scheme.min_purchase)}</Text>
       </View>
       <View style={styles.metric}>
         <Text style={styles.metricLabel}>SIP</Text>
-        <Text style={[styles.metricValue, scheme.sipAllowed ? styles.positive : styles.muted]}>
-          {scheme.sipAllowed ? 'Available' : 'Not available'}
+        <Text style={[styles.metricValue, scheme.sip_allowed ? styles.positive : styles.muted]}>
+          {scheme.sip_allowed ? 'Available' : 'Not available'}
         </Text>
       </View>
       <View style={styles.metric}>
-        <Text style={styles.metricLabel}>Settlement</Text>
-        <Text style={styles.metricValue}>{scheme.settlement}</Text>
+        <Text style={styles.metricLabel}>Cut-off</Text>
+        <Text style={styles.metricValue}>{(scheme.purchase_cutoff_time || '').slice(0, 5)}</Text>
       </View>
     </View>
 
     <View style={styles.cardFooter}>
-      <Text style={styles.schemeCode}>{scheme.schemeCode}</Text>
+      <Text style={styles.schemeCode}>{scheme.scheme_code}</Text>
       <Text style={styles.viewText}>View scheme <Ionicons name="chevron-forward" size={13} color="#07805E" /></Text>
     </View>
   </Pressable>
@@ -73,8 +64,11 @@ const SchemeCard = ({ scheme, onPress }) => (
 const FundsListScreen = () => {
   const router = useRouter();
   const [search, setSearch] = useState('');
-  const [activeFilter, setActiveFilter] = useState('All schemes');
   const [authorizationChecked, setAuthorizationChecked] = useState(false);
+  const [schemes, setSchemes] = useState([]);
+  const [loadingSchemes, setLoadingSchemes] = useState(true);
+  const [schemeError, setSchemeError] = useState('');
+  const [totalTradeable, setTotalTradeable] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -102,14 +96,37 @@ const FundsListScreen = () => {
     return () => { active = false; };
   }, [router]);
 
-  const filteredSchemes = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    return SAMPLE_SCHEMES.filter((scheme) => {
-      const matchesSearch = !query || [scheme.name, scheme.amc, scheme.option, scheme.schemeCode]
-        .some((value) => value.toLowerCase().includes(query));
-      return matchesSearch && matchesFilter(scheme, activeFilter);
-    });
-  }, [activeFilter, search]);
+  // Search runs against NSE's full master (~500 tradeable schemes), so it's
+  // debounced rather than filtering a local array.
+  useEffect(() => {
+    if (!authorizationChecked) return undefined;
+    let active = true;
+    const query = search.trim();
+
+    const timer = setTimeout(async () => {
+      setLoadingSchemes(true);
+      setSchemeError('');
+      try {
+        if (!query) {
+          const featured = await fetchFeaturedSchemes();
+          if (!active) return;
+          setSchemes(featured);
+          setTotalTradeable(featured.length);
+        } else {
+          const { schemes: found, total_tradeable } = await fetchSchemes({ search: query, limit: 40 });
+          if (!active) return;
+          setSchemes(found);
+          setTotalTradeable(total_tradeable);
+        }
+      } catch (error) {
+        if (active) setSchemeError(error.message || 'Could not load schemes.');
+      } finally {
+        if (active) setLoadingSchemes(false);
+      }
+    }, query ? 350 : 0);
+
+    return () => { active = false; clearTimeout(timer); };
+  }, [search, authorizationChecked]);
 
   if (!authorizationChecked) {
     return (
@@ -120,8 +137,21 @@ const FundsListScreen = () => {
     );
   }
 
+  // The scheme's own values travel with it. Nothing downstream re-derives the
+  // AMC code or minimum from a local table — that mismatch is what produced
+  // "AMC DOES NOT EXISTS" on every SIP registration.
   const openScheme = (scheme) => {
-    router.push(`/(gowealthy)/mf/trading/fund-detail?schemeCode=${encodeURIComponent(scheme.schemeCode)}`);
+    const params = new URLSearchParams({
+      schemeCode: scheme.scheme_code,
+      amcCode: scheme.amc_code,
+      fundName: prettySchemeName(scheme.scheme_name),
+      minPurchase: String(scheme.min_purchase),
+      sipAllowed: scheme.sip_allowed ? '1' : '0',
+      schemeType: scheme.scheme_type || '',
+      cutoff: scheme.purchase_cutoff_time || '',
+      isin: scheme.isin || '',
+    });
+    router.push(`/(gowealthy)/mf/trading/fund-detail?${params.toString()}`);
   };
 
   return (
@@ -140,14 +170,16 @@ const FundsListScreen = () => {
                 <Text style={styles.headerTitle}>Mutual funds</Text>
               </View>
               <View style={styles.headerCount}>
-                <Text style={styles.headerCountNumber}>{SAMPLE_SCHEMES.length}</Text>
-                <Text style={styles.headerCountLabel}>samples</Text>
+                <Text style={styles.headerCountNumber}>{totalTradeable || '—'}</Text>
+                <Text style={styles.headerCountLabel}>live</Text>
               </View>
             </View>
 
             <View style={styles.introRow}>
               <View style={styles.introAccent} />
-              <Text style={styles.introText}>Browse the sample schemes available for your first investment.</Text>
+              <Text style={styles.introText}>
+                Live NSE schemes you can invest in today. Search any fund house to see more.
+              </Text>
             </View>
 
             <View style={styles.searchBox}>
@@ -168,32 +200,46 @@ const FundsListScreen = () => {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.filterContent}
             >
-              {FILTERS.map((filter) => (
+              {FEATURED_AMCS.map((amc) => (
                 <TouchableOpacity
-                  key={filter}
-                  onPress={() => setActiveFilter(filter)}
-                  style={[styles.filter, filter === activeFilter && styles.filterActive]}
+                  key={amc}
+                  onPress={() => setSearch(search === amc ? '' : amc)}
+                  style={[styles.filter, search === amc && styles.filterActive]}
                   accessibilityRole="button"
-                  accessibilityState={{ selected: filter === activeFilter }}
+                  accessibilityState={{ selected: search === amc }}
                 >
-                  <Text style={[styles.filterText, filter === activeFilter && styles.filterTextActive]}>{filter}</Text>
+                  <Text style={[styles.filterText, search === amc && styles.filterTextActive]}>{amc}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
             <View style={styles.resultsRow}>
-              <Text style={styles.resultsText}>{filteredSchemes.length} {filteredSchemes.length === 1 ? 'scheme' : 'schemes'}</Text>
-              <Text style={styles.resultsNote}>Sample catalogue</Text>
+              <Text style={styles.resultsText}>
+                {schemes.length} {schemes.length === 1 ? 'scheme' : 'schemes'}
+              </Text>
+              <Text style={styles.resultsNote}>{search ? `Matching "${search}"` : 'Featured fund houses'}</Text>
             </View>
-            {filteredSchemes.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="search-outline" size={28} color="#07805E" />
-            <Text style={styles.emptyTitle}>No schemes found</Text>
-            <Text style={styles.emptyText}>Try another fund name, option, or scheme code.</Text>
-          </View>
+
+            {loadingSchemes ? (
+              <View style={styles.emptyState}>
+                <ActivityIndicator size="small" color="#07805E" />
+                <Text style={styles.emptyText}>Loading live schemes from NSE...</Text>
+              </View>
+            ) : schemeError ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="alert-circle-outline" size={28} color="#B3261E" />
+                <Text style={styles.emptyTitle}>Couldn&apos;t load schemes</Text>
+                <Text style={styles.emptyText}>{schemeError}</Text>
+              </View>
+            ) : schemes.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="search-outline" size={28} color="#07805E" />
+                <Text style={styles.emptyTitle}>No schemes found</Text>
+                <Text style={styles.emptyText}>Try another fund house or scheme code.</Text>
+              </View>
             ) : (
-              filteredSchemes.map((scheme) => (
-                <SchemeCard key={scheme.schemeCode} scheme={scheme} onPress={() => openScheme(scheme)} />
+              schemes.map((scheme) => (
+                <SchemeCard key={scheme.scheme_code} scheme={scheme} onPress={() => openScheme(scheme)} />
               ))
             )}
       </ScrollView>

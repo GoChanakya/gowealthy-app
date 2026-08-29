@@ -1079,7 +1079,7 @@ const styles = StyleSheet.create({
   brandName: {
   color: C.ink,
   fontWeight: "700",
-  fontSize: 18,
+fontSize: 18,
   fontFamily: "Syne",
 },
   brandTag: { color: C.muted, fontSize: 7, letterSpacing: 1.5, marginTop: 2 },

@@ -6,7 +6,6 @@ const { aesEncrypt } = require("./utils/encryption");
 const { buildAuthHeader } = require("./utils/auth");
 const morgan = require("morgan");
 const nseClient = require("./clients/nseClient");
-const { verifyBankAccount } = require("./clients/razorpayClient");
 
 const app = express();
 app.use(express.json());
@@ -64,8 +63,18 @@ function buildNseAuthHeader() {
 }
 
 function nseReferer() {
-    const base = process.env.NSE_BASE_URL || "https://nseinvestuat.nseindia.com";
+    const base = getRequiredEnv("NSE_BASE_URL");
     return process.env.NSE_REFERER || `${new URL(base).origin}/`;
+}
+
+// Which NSE environment this process is talking to. Derived from the host so it
+// cannot drift out of sync with the URL that requests actually go to.
+// Hosts per NSE MFSS spec v1.9.6, page 6.
+function nseEnvironment() {
+    const host = new URL(getRequiredEnv("NSE_BASE_URL")).hostname;
+    if (host === "nseinvestuat.nseindia.com") return "UAT";
+    if (host === "www.nseinvest.com" || host === "nseinvest.com") return "PRODUCTION";
+    return `UNKNOWN (${host})`;
 }
 
 function buildNseHeaders() {
@@ -103,7 +112,13 @@ function handleNseError(err, res, routeName) {
 app.get("/", (req, res) => res.send("NSE Node working"));
 
 app.get("/api/nse/health", (req, res) =>
-    res.json({ ok: true, service: "nse-service", time: new Date().toISOString() })
+    res.json({
+        ok: true,
+        service: "nse-service",
+        environment: nseEnvironment(),
+        nseBaseUrl: process.env.NSE_BASE_URL,
+        time: new Date().toISOString(),
+    })
 );
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -159,6 +174,7 @@ app.post("/api/nse/ekyc-register", async (req, res) => {
 
     try {
         console.log(`📝 [ekyc-register] PAN: ${panNo}, Mobile: ${mobileNo}`);
+        console.log(`   invEmail (raw): ${JSON.stringify(invEmail)}, length: ${invEmail.length}`);
         const response = await nseClient.post(
             "/nsemfdesk/api/v1/EKYC/EKYCREG",
             { amcCode, panNo, mobileNo, invEmail },
@@ -376,8 +392,10 @@ app.post("/api/nse/fatca-upload", async (req, res) => {
 //
 // Response: { bank_dtl: [{ ...fields, status: "SUCCESS"|"FAIL", error_remark }] }
 //
-// NOTE: For UAT, skip real penny drop — just use a known valid test account.
-//       For PROD, do penny drop via Razorpay/Cashfree BEFORE calling this API.
+// NOTE: NSE verifies the account itself. After ADD the bank sits at status
+//       PENDING; back it with /api/nse/cancel-cheque-upload + /api/nse/bank-elog
+//       and poll /api/nse/bank-status until it reads ACTIVE. No third-party
+//       penny drop is involved.
 // ═══════════════════════════════════════════════════════════════════════════════
 app.post("/api/nse/bank-add", async (req, res) => {
     const { bank_dtl } = req.body;
@@ -702,6 +720,87 @@ function parseMasterDownload(rawText) {
 }
 
 
+// The scheme master is ~13.6k rows and takes about a second to fetch and parse.
+// It changes once a day, so hold it in memory rather than re-pulling per request.
+let schemeCache = { schemes: null, fetchedAt: 0 };
+const SCHEME_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
+async function getSchemeMaster({ force = false } = {}) {
+    const fresh = schemeCache.schemes && (Date.now() - schemeCache.fetchedAt) < SCHEME_CACHE_TTL_MS;
+    if (fresh && !force) return schemeCache.schemes;
+
+    const response = await nseClient.post(
+        "/nsemfdesk/api/v2/reports/MASTER_DOWNLOAD",
+        { file_type: "SCH" },
+        { headers: buildNseHeaders() }
+    );
+    const rawText = typeof response.data === "string" ? response.data : JSON.stringify(response.data);
+    schemeCache = { schemes: parseMasterDownload(rawText), fetchedAt: Date.now() };
+    console.log(`📚 [schemes] cached ${schemeCache.schemes.length} schemes from live master`);
+    return schemeCache.schemes;
+}
+
+// SCHEME CATALOGUE — the live, tradeable fund list for the app.
+//
+// Only returns schemes this member can actually transact in: AMC active,
+// purchase allowed, and (by default) SIP allowed. Everything the UI needs to
+// show a fund and validate an amount comes from here, so no scheme data has to
+// be hardcoded anywhere.
+app.post("/api/nse/schemes", async (req, res) => {
+    const {
+        search, amc_code, sip_only = true, limit = 50, refresh = false,
+        retail_only = true,
+    } = req.body || {};
+
+    try {
+        const all = await getSchemeMaster({ force: Boolean(refresh) });
+        const term = String(search || "").trim().toUpperCase();
+
+        const tradeable = all.filter((s) => {
+            if (s.amc_active_flag !== "Y") return false;
+            if (s.purchase_allowed !== "Y") return false;
+            if (sip_only && s.sip_allowed !== "Y") return false;
+            // "L1" settlement classes are the institutional same-day variants:
+            // ~2 lakh minimums, and they can't be redeemed or switched. Showing
+            // them to a retail investor is just a rejected order waiting to
+            // happen, and they duplicate every fund in the list.
+            if (retail_only && s.settlement_type === "L1") return false;
+            if (retail_only && s.redemption_allowed !== "Y") return false;
+            if (amc_code && s.amc_code !== amc_code) return false;
+            if (term && !(`${s.scheme_name} ${s.scheme_code}`.toUpperCase().includes(term))) return false;
+            return true;
+        });
+
+        const schemes = tradeable.slice(0, Math.min(Number(limit) || 50, 500)).map((s) => ({
+            scheme_code: s.scheme_code,
+            scheme_name: s.scheme_name,
+            amc_code: s.amc_code,
+            isin: s.isin,
+            scheme_type: s.scheme_type,
+            plan_type: s.plan_type,
+            min_purchase: Number(s.new_purchase_min_amount) || 0,
+            purchase_multiplier: Number(s.purchase_amount_multiplier) || 1,
+            sip_allowed: s.sip_allowed === "Y",
+            switch_allowed: s.switch_allowed === "Y",
+            redemption_allowed: s.redemption_allowed === "Y",
+            settlement_type: s.settlement_type,
+            purchase_cutoff_time: s.purchase_cutoff_time,
+            exit_load: s.exit_load,
+            lock_in_period: s.lock_in_period,
+        }));
+
+        res.json({
+            success: true,
+            total_tradeable: tradeable.length,
+            returned: schemes.length,
+            cached_at: new Date(schemeCache.fetchedAt).toISOString(),
+            schemes,
+        });
+    } catch (err) {
+        handleNseError(err, res, "schemes");
+    }
+});
+
 app.post("/api/nse/master-download", async (req, res) => {
     console.log("hit");
     try {
@@ -720,6 +819,37 @@ app.post("/api/nse/master-download", async (req, res) => {
         const schemes = parseMasterDownload(rawText);
 
         // await uploadToGCS(schemes);
+
+        // The scheme master is the only authoritative list of AMCs actually
+        // mapped to this member, so surface enough of it to pick codes from.
+        // Note there are two AMC code systems in the NSE spec and they are NOT
+        // interchangeable:
+        //   - the long form here (e.g. AXISMUTUALFUND_MF) → SIP/XSIP amc_code
+        //   - a short RTA form (e.g. AXF, MOF, ABSL)      → EKYCREG amcCode
+        // `headers` is returned raw so you can see every column the live file
+        // actually ships, including any short RTA code column.
+        if (req.body?.inspect) {
+            const lines = rawText.split(/\r?\n/).filter((l) => l.trim().length > 0);
+            const headers = (lines[0] || "").split("|").map((h) => h.trim()).filter(Boolean);
+
+            const byAmc = new Map();
+            for (const s of schemes) {
+                const code = (s.amc_code || "").trim();
+                if (!code) continue;
+                if (!byAmc.has(code)) {
+                    byAmc.set(code, { amc_code: code, scheme_count: 0, sample_scheme: s.scheme_name });
+                }
+                byAmc.get(code).scheme_count += 1;
+            }
+
+            return res.json({
+                success: true,
+                count: schemes.length,
+                headers,
+                sample_row: lines[1] || null,
+                amc_codes: [...byAmc.values()].sort((a, b) => b.scheme_count - a.scheme_count),
+            });
+        }
 
         res.json({
             success: true,
@@ -938,13 +1068,175 @@ app.post("/api/nse/sip-register", async (req, res) => {
             { headers: buildNseHeaders() }
         );
         const result = response.data?.reg_data?.[0];
-        console.log(`✅ [sip-register] status: ${result?.reg_status}, id: ${result?.reg_id}`);
+        // NSE returns HTTP 200 even when the registration is rejected, and the
+        // only explanation lives in reg_remark. Without logging it a REG_FAILED
+        // is invisible and undiagnosable.
+        logActivity("sip-register", "nse_response", {
+            requestId: req.activityId,
+            httpStatus: response.status,
+            regStatus: result?.reg_status,
+            regId: result?.reg_id,
+            remark: result?.reg_remark,
+            schemeCode: rec.sch_code,
+            startDate: rec.start_date,
+            installmentNo: rec.installment_no,
+            mandateId: rec.sip_mandate_id,
+        });
+        if (result?.reg_status === "REG_FAILED") {
+            console.error(`❌ [sip-register] REG_FAILED — ${result?.reg_remark || "(no remark returned)"}`);
+        } else {
+            console.log(`✅ [sip-register] status: ${result?.reg_status}, id: ${result?.reg_id}`);
+        }
         res.json(response.data);
     } catch (err) {
         handleNseError(err, res, "sip-register");
     }
 });
 
+
+// SIP CANCELLATION — stops all future installments on a registered SIP.
+// Doc: /nsemfdesk/api/v2/cancellation/SIP_CAN (spec p.62)
+//
+// remarks is mandatory and must be a two-digit reason code, or "13:(free text)".
+//   01 No funds        02 Scheme not performing   03 Service issue
+//   04 Load revised    05 Investing elsewhere     06 Fund manager change
+//   07 Goal achieved   08 Market volatility       09 Restarting later
+//   10 Bank/mandate change   11 Investing elsewhere   12 Wrong time
+//   13 Others (specify)
+//
+// NOTE: there is no mandate cancellation API in the spec — a mandate can only be
+// left unused. Cancelling the SIP is what actually stops money moving.
+app.post("/api/nse/sip-cancel", async (req, res) => {
+    const { client_code, sip_reg_no, remarks } = req.body || {};
+    if (!client_code || !sip_reg_no) {
+        return res.status(400).json({ success: false, error: "client_code and sip_reg_no are required" });
+    }
+
+    // Default to "13:(...)" — a bare free-text remark is rejected by NSE.
+    const reason = remarks && /^(\d{2})(:|$)/.test(String(remarks).trim())
+        ? String(remarks).trim()
+        : `13:(${remarks || "Cancelled by investor"})`;
+
+    try {
+        logActivity("sip-cancel", "nse_request_start", {
+            requestId: req.activityId,
+            clientCode: client_code,
+            sipRegNo: sip_reg_no,
+            reason,
+        });
+        const response = await nseClient.post(
+            "/nsemfdesk/api/v2/cancellation/SIP_CAN",
+            { can_data: [{ client_code, sip_reg_no: String(sip_reg_no), remarks: reason }] },
+            { headers: buildNseHeaders() }
+        );
+
+        // Spec's sample response nests this under reg_data, not can_data.
+        const result = response.data?.reg_data?.[0] || response.data?.can_data?.[0];
+        logActivity("sip-cancel", "nse_response", {
+            requestId: req.activityId,
+            httpStatus: response.status,
+            canStatus: result?.can_status,
+            remark: result?.can_remark,
+        });
+        if (result?.can_status === "CAN_FAILED") {
+            console.error(`❌ [sip-cancel] CAN_FAILED — ${result?.can_remark || "(no remark)"}`);
+        } else {
+            console.log(`✅ [sip-cancel] ${result?.can_status} for SIP ${sip_reg_no}`);
+        }
+        res.json(response.data);
+    } catch (err) {
+        handleNseError(err, res, "sip-cancel");
+    }
+});
+
+// MANDATE STATUS — has the investor approved the eNACH yet, and what's its UMRN?
+// Doc: /nsemfdesk/api/v2/reports/MANDATE_STATUS (spec p.84)
+// Approval is what turns a registered mandate into one SIP installments can debit.
+app.post("/api/nse/mandate-status", async (req, res) => {
+    const { mandate_id, client_code } = req.body || {};
+    if (!mandate_id && !client_code) {
+        return res.status(400).json({ success: false, error: "mandate_id or client_code is required" });
+    }
+
+    try {
+        // Per spec, from/to dates are only needed when neither id is supplied.
+        const response = await nseClient.post(
+            "/nsemfdesk/api/v2/reports/MANDATE_STATUS",
+            {
+                ...(mandate_id ? { mandate_id: String(mandate_id) } : {}),
+                ...(client_code ? { client_code } : {}),
+            },
+            { headers: buildNseHeaders() }
+        );
+
+        const rows = response.data?.report_data || [];
+        const mandates = rows.map((r) => ({
+            mandate_id: r.mandateId,
+            client_code: r.clientCode,
+            status: r.status,                 // APPROVED / PENDING / REJECTED
+            umrn: r.umrnNo,                   // needed to attach the mandate to a SIP
+            amount: r.amount,
+            bank_name: r.bankName,
+            account_no: r.bankAccountNumber,
+            registration_date: r.registrationDate,
+            approved_date: r.approvedDate,
+            start_date: r.startDate,
+            end_date: r.endDate,
+            remarks: r.remarks,
+        }));
+
+        logActivity("mandate-status", "nse_response", {
+            requestId: req.activityId,
+            httpStatus: response.status,
+            count: mandates.length,
+            statuses: mandates.map((m) => m.status),
+        });
+
+        res.json({
+            success: response.data?.response_status === "S",
+            mandates,
+            error_remark: response.data?.error_remark,
+        });
+    } catch (err) {
+        handleNseError(err, res, "mandate-status");
+    }
+});
+
+// SIP ↔ MANDATE MAPPING — attach an approved mandate to an already-registered SIP.
+// Doc: /nsemfdesk/api/v2/registration/SIPUMRN (spec p.77)
+//
+// This is what makes "register the SIP now, sort the mandate out later" work:
+// the SIP is created with no mandate, the investor pays installment 1 by UPI,
+// and once the eNACH is APPROVED its UMRN is mapped here so installment 2
+// onwards can auto-debit.
+app.post("/api/nse/sip-umrn", async (req, res) => {
+    const { sip_reg_id, umrn, remark } = req.body || {};
+    if (!sip_reg_id || !umrn) {
+        return res.status(400).json({ success: false, error: "sip_reg_id and umrn are required" });
+    }
+
+    try {
+        logActivity("sip-umrn", "nse_request_start", {
+            requestId: req.activityId,
+            sipRegId: sip_reg_id,
+        });
+        const response = await nseClient.post(
+            "/nsemfdesk/api/v2/registration/SIPUMRN",
+            { sip_reg_id: Number(sip_reg_id), umrn, remark: remark || "" },
+            { headers: buildNseHeaders() }
+        );
+        // status 100 = success, 101 = failure
+        logActivity("sip-umrn", "nse_response", {
+            requestId: req.activityId,
+            httpStatus: response.status,
+            status: response.data?.status,
+            message: response.data?.message,
+        });
+        res.json(response.data);
+    } catch (err) {
+        handleNseError(err, res, "sip-umrn");
+    }
+});
 
 app.post("/api/nse/ucc-modify", async (req, res) => {
     const { reg_details } = req.body;
@@ -970,61 +1262,158 @@ app.post("/api/nse/ucc-modify", async (req, res) => {
     }
 });
 // ═══════════════════════════════════════════════════════════════════════════════
-// PENNY DROP — Bank account verification via RazorpayX Fund Account Validation
-// Doc: https://razorpay.com/docs/razorpayx/api/fund-account-validation/
+// BANK VERIFICATION — done by NSE, not a third-party penny drop.
 //
-// Request : { account_number, ifsc, name?, reference_id? }
-// Response: { success, account_status: "active"|"invalid", registered_name,
-//             name_match?, validation_id }
+// For a Physical (non-demat) client the bank added via CLIENTBANKDTL starts at
+// status PENDING. NSE/the RTA verify it, and the outcome shows up as
+// bank<N>_status / bank<N>_status_remarks in the Client Master report.
 //
-// Called from Screen 5 (bank details) BEFORE saving bank_data / NSE bank-add.
-// account_status "active" → real, operable account → allow.
+// Two supporting uploads back that verification (spec v1.9.6 pp. 117-118):
+//   CANCELCHEQUE — cancelled-cheque image for the account
+//   ELOGBANK     — electronic consent log for the account
 // ═══════════════════════════════════════════════════════════════════════════════
-function normalizeName(s = "") {
-    return s.toUpperCase().replace(/[^A-Z ]/g, "").replace(/\s+/g, " ").trim();
-}
-function nameMatches(a, b) {
-    const x = normalizeName(a), y = normalizeName(b);
-    if (!x || !y) return null;
-    if (x === y) return true;
-    const xs = new Set(x.split(" ")), ys = y.split(" ");
-    const common = ys.filter((t) => xs.has(t)).length;
-    return common >= Math.min(xs.size, ys.length) ? true : common >= 2;
-}
 
-app.post("/api/razorpay/verify-bank", async (req, res) => {
-    const { account_number, ifsc, name, reference_id } = req.body || {};
-    if (!account_number || !ifsc) {
-        return res.status(400).json({ success: false, error: "account_number and ifsc are required" });
+// Cancelled cheque image for a client bank account.
+// Doc: /nsemfdesk/api/v2/fileupload/CANCELCHEQUE  (spec p.117)
+app.post("/api/nse/cancel-cheque-upload", async (req, res) => {
+    const { file_name, client_code, account_no, ifsc, account_type, file_data } = req.body || {};
+    const missing = ["file_name", "client_code", "account_no", "ifsc", "account_type", "file_data"]
+        .filter((f) => !req.body?.[f]);
+    if (missing.length) {
+        return res.status(400).json({ success: false, error: `Missing fields: ${missing.join(", ")}` });
     }
+    if (!["SB", "CB", "NE", "NO"].includes(account_type)) {
+        return res.status(400).json({ success: false, error: "account_type must be SB, CB, NE or NO" });
+    }
+
     try {
-        console.log(`💧 [verify-bank] Acc: ${account_number}, IFSC: ${ifsc}`);
-        const result = await verifyBankAccount({
-            name,
+        logActivity("cancel-cheque-upload", "nse_request_start", {
+            requestId: req.activityId,
+            clientCode: client_code,
+            accountLast4: String(account_no).slice(-4),
             ifsc,
-            accountNumber: account_number,
-            referenceId: reference_id,
+            fileName: file_name,
         });
-        const verified = result.account_status === "active";
-        console.log(`✅ [verify-bank] status: ${result.account_status}, name: ${result.registered_name}`);
+        const response = await nseClient.post(
+            "/nsemfdesk/api/v2/fileupload/CANCELCHEQUE",
+            { file_name, client_code, account_no, ifsc, account_type, file_data },
+            { headers: buildNseHeaders() }
+        );
+        // status 100 = success, 101 = failure
+        logActivity("cancel-cheque-upload", "nse_response", {
+            requestId: req.activityId,
+            status: response.data?.status,
+            message: response.data?.message,
+        });
+        res.json(response.data);
+    } catch (err) {
+        handleNseError(err, res, "cancel-cheque-upload");
+    }
+});
+
+// Bank eLog — electronic consent record for the client's bank account.
+// Doc: /nsemfdesk/api/v2/registration/ELOGBANK  (spec p.118)
+// request_date format per spec: DD-MM-YYYY HH:MM
+app.post("/api/nse/bank-elog", async (req, res) => {
+    const { client_code, account_no, ifsc, request_date, beneficiary_name } = req.body || {};
+    const missing = ["client_code", "account_no", "ifsc", "beneficiary_name"]
+        .filter((f) => !req.body?.[f]);
+    if (missing.length) {
+        return res.status(400).json({ success: false, error: `Missing fields: ${missing.join(", ")}` });
+    }
+
+    // Default to now if the caller didn't stamp it — the consent happened just now.
+    const pad = (n) => String(n).padStart(2, "0");
+    const now = new Date();
+    const stamp = request_date ||
+        `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()} ` +
+        `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    try {
+        logActivity("bank-elog", "nse_request_start", {
+            requestId: req.activityId,
+            clientCode: client_code,
+            accountLast4: String(account_no).slice(-4),
+            ifsc,
+        });
+        const response = await nseClient.post(
+            "/nsemfdesk/api/v2/registration/ELOGBANK",
+            { client_code, account_no, ifsc, request_date: stamp, beneficiary_name },
+            { headers: buildNseHeaders() }
+        );
+        logActivity("bank-elog", "nse_response", {
+            requestId: req.activityId,
+            status: response.data?.status,
+            message: response.data?.message,
+        });
+        res.json(response.data);
+    } catch (err) {
+        handleNseError(err, res, "bank-elog");
+    }
+});
+
+// Bank verification status readback. This is what replaces the penny drop:
+// NSE tells us whether the account it holds for this UCC is ACTIVE or still
+// PENDING/rejected. Doc: /nsemfdesk/api/v2/reports/client_master_report (p.202)
+app.post("/api/nse/bank-status", async (req, res) => {
+    const { client_code } = req.body || {};
+    if (!client_code) {
+        return res.status(400).json({ success: false, error: "client_code is required" });
+    }
+
+    try {
+        const response = await nseClient.post(
+            "/nsemfdesk/api/v2/reports/client_master_report",
+            { client_code },
+            { headers: buildNseHeaders() }
+        );
+
+        // Flatten the bank1..bank5 column groups into something the app can render.
+        const row = response.data?.report_data?.[0] || {};
+        const banks = [1, 2, 3, 4, 5]
+            .map((n) => ({
+                slot: n,
+                account_type: (row[`account_type_${n}`] || "").trim(),
+                account_no: (row[`account_no_${n}`] || "").trim(),
+                ifsc: (row[`ifsc_code_${n}`] || "").trim(),
+                bank_name: (row[`bank_name_${n}`] || "").trim(),
+                branch: (row[`bank_branch_${n}`] || "").trim(),
+                is_default: (row[`default_bank_flag_${n}`] || "").trim().toUpperCase() === "YES",
+                status: (row[`bank${n}_status`] || "").trim(),
+                status_remarks: (row[`bank${n}_status_remarks`] || "").trim(),
+            }))
+            .filter((b) => b.account_no);
+
+        logActivity("bank-status", "nse_response", {
+            requestId: req.activityId,
+            clientCode: client_code,
+            bankCount: banks.length,
+            statuses: banks.map((b) => b.status),
+        });
+
         res.json({
-            success: verified,
-            account_status: result.account_status,
-            registered_name: result.registered_name,
-            name_match: name ? nameMatches(name, result.registered_name) : null,
-            validation_id: result.validation_id,
+            success: response.data?.response_status === "S",
+            client_code,
+            ucc_status: row.ucc_status,
+            banks,
+            error_remark: response.data?.error_remark,
         });
     } catch (err) {
-        const detail = err.response?.data?.error?.description || err.response?.data || err.message;
-        console.error("❌ [verify-bank]", detail);
-        res.status(err.response?.status || 500).json({ success: false, error: detail });
+        handleNseError(err, res, "bank-status");
     }
 });
 
 // ─── START ───────────────────────────────────────────────────────────────────
 const port = Number(process.env.PORT || 3000);
 app.listen(port, () => {
+    const env = nseEnvironment();
+    const banner = env === "PRODUCTION" ? "🔴 LIVE — REAL MONEY, REAL INVESTORS" : "🟢 sandbox";
     console.log(`\n🚀 nse-service running on http://localhost:${port}`);
+    console.log(`\n${"═".repeat(70)}`);
+    console.log(`  NSE ENVIRONMENT : ${env}  ${banner}`);
+    console.log(`  BASE URL        : ${process.env.NSE_BASE_URL}`);
+    console.log(`  MEMBER CODE     : ${process.env.NSE_MEMBER_CODE || "(unset)"}`);
+    console.log(`${"═".repeat(70)}`);
     console.log(`\nRoutes registered:`);
     console.log(`  GET  /api/nse/health`);
     console.log(`  POST /api/nse/kyc-check          → KYC_CHECK (Screen 2)`);
@@ -1039,5 +1428,11 @@ app.listen(port, () => {
     console.log(`  POST /api/nse/mandate-register    → MANDATE (trading prep)`);
     console.log(`  POST /api/nse/client-auth-status  → client_authorization (polling)`);
     console.log(`  POST /api/nse/sip-register        → SIP registration (trading)`);
-    console.log(`  POST /api/razorpay/verify-bank    → Penny drop (Screen 5)\n`);
+    console.log(`  POST /api/nse/schemes             → live tradeable scheme catalogue`);
+    console.log(`  POST /api/nse/sip-cancel          → SIP_CAN (stop installments)`);
+    console.log(`  POST /api/nse/mandate-status      → MANDATE_STATUS (approved? UMRN?)`);
+    console.log(`  POST /api/nse/sip-umrn            → SIPUMRN (attach mandate to SIP)`);
+    console.log(`  POST /api/nse/cancel-cheque-upload → CANCELCHEQUE (bank verification)`);
+    console.log(`  POST /api/nse/bank-elog           → ELOGBANK (bank verification)`);
+    console.log(`  POST /api/nse/bank-status         → client_master_report (bank status)\n`);
 });

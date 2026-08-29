@@ -528,10 +528,6 @@ const Ember = ({ left, size, duration, delay, drift }) => {
 const Screen5Bank = () => {
   const router = useRouter();
 
-  // Penny-drop bank verification. OFF until a RazorpayX account + keys are set up.
-  // Flip to true (and configure RAZORPAY_* in nse-service/.env) to re-enable.
-  const ENABLE_PENNY_DROP = false;
-
   const [accountNumber, setAccountNumber] = useState('');
   const [confirmAccountNumber, setConfirmAccountNumber] = useState('');
   const [ifscCode, setIfscCode] = useState('');
@@ -611,61 +607,11 @@ const Screen5Bank = () => {
 
       const docRef = doc(db, 'mf_onboarding', phone);
 
-      let verified = false;
-      let registeredName = null;
-      let verificationId = null;
-
-      // ── Penny drop: verify the account is real & operable before saving ──
-      if (ENABLE_PENNY_DROP) {
-        // Pull the investor name (from PAN OCR) for name matching
-        let expectedName = '';
-        try {
-          const snap = await getDoc(docRef);
-          expectedName = snap.data()?.pan_data?.name || '';
-        } catch { /* name match is best-effort */ }
-
-        setVerifyStep('Verifying bank account…');
-        const vRes = await fetch(`${NSE_SERVICE_URL}/api/razorpay/verify-bank`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            account_number: accountNumber,
-            ifsc: ifscCode,
-            name: expectedName,
-            reference_id: phone,
-          }),
-        });
-        const vData = await vRes.json().catch(() => ({}));
-
-        if (!vRes.ok || !vData.success || vData.account_status !== 'active') {
-          Alert.alert(
-            'Verification Failed',
-            vData.error || 'We could not verify this bank account. Please double-check the account number and IFSC.'
-          );
-          return;
-        }
-
-        // Soft warning if the account holder name doesn't match the PAN name
-        if (vData.name_match === false && vData.registered_name) {
-          const proceed = await new Promise((resolve) => {
-            Alert.alert(
-              'Name Mismatch',
-              `This account is registered to "${vData.registered_name}", which doesn't match your PAN name. Continue only if this is your own account.`,
-              [
-                { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-                { text: "It's my account", onPress: () => resolve(true) },
-              ]
-            );
-          });
-          if (!proceed) return;
-        }
-
-        verified = true;
-        registeredName = vData.registered_name || null;
-        verificationId = vData.validation_id || null;
-      }
-
-      // Save bank data — Screen 6 uses this for UCC registration
+      // NSE verifies the bank account itself, and it can only do that once the
+      // UCC exists and the account has been added via CLIENTBANKDTL. So nothing
+      // is verified here — we just capture the details. Verification status is
+      // read back later from /api/nse/bank-status, which reports NSE's own
+      // PENDING / ACTIVE / rejected verdict for the account.
       setVerifyStep('Saving…');
       await updateDoc(docRef, {
         bank_data: {
@@ -673,16 +619,13 @@ const Screen5Bank = () => {
           ifsc_code:        ifscCode,
           account_type:     accountType,  // "SB", "CB", "NE", "NO"
           default_bank:     'Y',
-          verified:         verified,
-          registered_name:  registeredName,
-          verification_id:  verificationId,
-          verified_at:      verified ? new Date().toISOString() : null,
+          nse_bank_status:  'NOT_SUBMITTED', // → PENDING after bank-add, then ACTIVE
           saved_at:         new Date().toISOString(),
         },
         onboarding_step: 5,
       });
 
-      console.log('✅ Bank verified & saved to Firestore');
+      console.log('✅ Bank details saved to Firestore (NSE verification pending)');
       router.push('/(gowealthy)/mf/onboarding/screen6');
 
     } catch (error) {

@@ -20,7 +20,7 @@ export default function SIPAmountScreen() {
   const params = useLocalSearchParams();
   const fundName = valueOf(params.fundName, 'Selected scheme');
   const schemeCode = valueOf(params.schemeCode);
-  const amcCode = valueOf(params.amcCode, 'IIFLMUTUALFUND_MF');
+  const amcCode = valueOf(params.amcCode, '360_ONE_MUTUALFUND_MF');
   const minSIP = Number(valueOf(params.minSIP, 1000)) || 1000;
   const [amount, setAmount] = useState(String(minSIP));
   const [duration, setDuration] = useState(DURATIONS[1]);

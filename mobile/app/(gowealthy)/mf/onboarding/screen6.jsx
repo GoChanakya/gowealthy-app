@@ -1141,18 +1141,22 @@ const Ember = ({ left, size, duration, delay, drift }) => {
 };
 
 // ─── NSE lookup tables ────────────────────────────────────────────────────────
-// occ_code '44' + occ_type 'O' is the only confirmed working combination in NSE UAT
-// (directly from NSE sample doc page 96). ucc_code is the text value for CLIENTCOMMON183.
-// When NSE provides the full occupation master sheet, update fatca_code per entry.
+// Occupation codes per the NSE occupation master:
+//   01 Pvt Sector  02 Pub Sector  03 Business  04 Professional
+//   05 Agriculture 06 Retired     07 Housewife 08 Student      99 Others
+// occ_type: S=Service, B=Business, O=Others.
+//
+// The same code feeds FATCA (occ_code) and UCC (occupation_code) — they describe
+// the same person and must not disagree.
 const OCCUPATIONS = [
-  { label: 'Business',      value: 'BUSINESS',      fatca_code: '44', occ_type: 'O', ucc_code: 'BUSINESS' },
-  { label: 'Service',       value: 'SERVICE',       fatca_code: '44', occ_type: 'O', ucc_code: 'SERVICE' },
-  { label: 'Professional',  value: 'PROFESSIONAL',  fatca_code: '44', occ_type: 'O', ucc_code: 'PROFESSIONAL' },
-  { label: 'Agriculture',   value: 'AGRICULTURIST', fatca_code: '44', occ_type: 'O', ucc_code: 'AGRICULTURIST' },
-  { label: 'Retired',       value: 'RETIRED',       fatca_code: '44', occ_type: 'O', ucc_code: 'RETIRED' },
-  { label: 'Housewife',     value: 'HOUSEWIFE',     fatca_code: '44', occ_type: 'O', ucc_code: 'HOUSEWIFE' },
-  { label: 'Student',       value: 'STUDENT',       fatca_code: '44', occ_type: 'O', ucc_code: 'STUDENT' },
-  { label: 'Others',        value: 'OTHERS',        fatca_code: '44', occ_type: 'O', ucc_code: 'OTHERS' },
+  { label: 'Business',      value: 'BUSINESS',      code: '03', occ_type: 'B' },
+  { label: 'Service',       value: 'SERVICE',       code: '01', occ_type: 'S' },
+  { label: 'Professional',  value: 'PROFESSIONAL',  code: '04', occ_type: 'O' },
+  { label: 'Agriculture',   value: 'AGRICULTURIST', code: '05', occ_type: 'O' },
+  { label: 'Retired',       value: 'RETIRED',       code: '06', occ_type: 'O' },
+  { label: 'Housewife',     value: 'HOUSEWIFE',     code: '07', occ_type: 'O' },
+  { label: 'Student',       value: 'STUDENT',       code: '08', occ_type: 'O' },
+  { label: 'Others',        value: 'OTHERS',        code: '99', occ_type: 'O' },
 ];
 
 const INCOME_SLABS = [
@@ -1305,66 +1309,6 @@ const Screen6FATCAAndUCC = () => {
     }
   };
 
-  // ── UAT auto-fill ─────────────────────────────────────────────────────────
-  // Keeps: real email (from Screen 4), real name/DOB from OCR
-  // Overrides: PAN (UAT only accepts test PANs) + bank (dummy for demo)
-  const fillUATValues = async () => {
-    try {
-      const phone = await AsyncStorage.getItem('user_phone');
-      if (!phone) { Alert.alert('Error', 'No phone found'); return; }
-
-      // Read current Firestore to preserve real email and name
-      const docSnap = await getDoc(doc(db, 'mf_onboarding', phone));
-      const existing = docSnap.exists() ? docSnap.data() : {};
-      const realEmail   = existing?.email_data?.email   || 'test@test.com';
-      const realName    = existing?.pan_data?.name      || 'PRIYANKA TOPIWALA';
-      const realDob     = existing?.pan_data?.dob       || '04/11/1994';
-      const realFather  = existing?.pan_data?.father_name || '';
-
-      // Update UI state
-      setGender('M');
-      setOccupation('BUSINESS');
-      setIncomeSlab('31');
-      setWealthSource('08');
-      setBirthCity('Kanbhai');
-      setCity('MUMBAI');
-      setState('AP');
-      setPincode('401201');
-
-      // Write to Firestore — only override PAN + bank, keep real email + name
-      await updateDoc(doc(db, 'mf_onboarding', phone), {
-        pan_data: {
-          pan_number:    'BVYPD3824K',    // NSE UAT only accepts test PANs
-          name:          realName,         // keep real name from OCR
-          father_name:   realFather,
-          dob:           realDob,          // keep real DOB from OCR
-          pan_image_url: existing?.pan_data?.pan_image_url || '',
-        },
-        ucc_code: 'HAGO' + String(phone).slice(-4),
-        // Keep real aadhaar data — only override address to UAT-safe value
-        
-        // Keep real email from Screen 4 — NSE auth link goes to this inbox
-        // email_data is NOT overridden
-        // Bank — dummy values for UAT demo
-        bank_data: {
-          account_no:   '12311115',
-          ifsc_code:    'SBIN0000019',
-          account_type: 'SB',
-          default_bank: 'Y',
-        },
-      });
-
-      Alert.alert(
-        '✅ UAT Ready',
-        `PAN set to test value.\nBank set to dummy values.\nYour real email (${realEmail}) preserved for NSE auth link.`
-      );
-      console.log('✅ UAT values written — email preserved:', realEmail);
-    } catch (e) {
-      console.error('❌ UAT fill error:', e.message);
-      Alert.alert('Error', 'Failed to set UAT values: ' + e.message);
-    }
-  };
-
   const isFormValid =
     gender && occupation && incomeSlab &&
     wealthSource && birthCity.trim() &&
@@ -1461,8 +1405,8 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
           net_worth:   '',
           nw_date:     '',
           pep_flag:    'N',
-          occ_code:    '01',           // confirmed working in UAT (occ_code:01 + B)
-          occ_type:    'B',            // confirmed working in UAT
+          occ_code:    occupObj?.code     || '99',
+          occ_type:    occupObj?.occ_type || 'O',
           exemp_code:  '',
           ffi_drnfe:   '',
           giin_no:     '',
@@ -1516,7 +1460,7 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
           tax_status:                     '01',            // confirmed working — NOT 'INDIVIDUAL'
           gender:                         gender,           // M/F — confirmed working as single char
           primary_holder_dob_incorporation: dob,
-          occupation_code:                '02',             // confirmed working in UAT
+          occupation_code:                occupObj?.code || '99', // same code as FATCA occ_code
           holding_nature:                 'SI',             // confirmed working — NOT 'SINGLE'
           second_holder_first_name: '', second_holder_middle_name: '', second_holder_last_name: '',
           third_holder_first_name:  '', third_holder_middle_name:  '', third_holder_last_name:  '',
@@ -1542,8 +1486,10 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
           account_type_3: '', account_no_3: '', micr_no_3: '', ifsc_code_3: '', default_bank_flag_3: '',
           account_type_4: '', account_no_4: '', micr_no_4: '', ifsc_code_4: '', default_bank_flag_4: '',
           account_type_5: '', account_no_5: '', micr_no_5: '', ifsc_code_5: '', default_bank_flag_5: '',
-          cheque_name:                    firstName,
-          div_pay_mode:                   '01',             // confirmed working in UAT
+          cheque_name:                    fullName.slice(0, 35),
+          // 01=Cheque 02=Direct Credit 03=ECS 04=NEFT 05=RTGS (spec p.46).
+          // Direct credit to the registered bank, not a posted cheque.
+          div_pay_mode:                   '02',
           // Address — from Aadhaar + user confirmed fields
           address_1:                      addr1,           // NSE UAT accepts max 120 chars in address_1, 40 in address_2/3
           address_2:                      addr2,
@@ -1561,8 +1507,14 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
           foreign_address_resi_phone: '', foreign_address_fax: '',
           foreign_address_off_phone: '', foreign_address_off_fax: '',
           indian_mobile_no:               mobile10,
-          primary_holder_kyc_type:        'C',              // C=CKYC — confirmed working in UAT
-          primary_holder_ckyc_number:     '1234567891',     // required when kyc_type=C
+          // Spec p.47 field 94: K=KRA compliant, C=CKYC, B=Biometric, E=Aadhaar eKYC.
+          // Which one is true depends on how this investor got KYC'd:
+          //   Screen 2 found existing KYC (kyc_status "S")  → K
+          //   Screen 3 ran fresh eKYC via EKYCREG           → E
+          // ckyc_number is only mandatory when the type is C (field 95), and we
+          // never have a real CKYC number, so it stays blank.
+          primary_holder_kyc_type:        kycType,
+          primary_holder_ckyc_number:     '',
           second_holder_kyc_type: '', second_holder_ckyc_number: '',
           third_holder_kyc_type:  '', third_holder_ckyc_number:  '',
           guardian_kyc_type:      '', guardian_ckyc_number:      '',
@@ -1943,11 +1895,6 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
           </Text>
         </View>
 
-        {/* UAT Auto-fill button — updates both UI + Firestore */}
-        <TouchableOpacity onPress={fillUATValues} style={styles.uatFillBtn} activeOpacity={0.85}>
-          <Text style={styles.uatFillBtnText}>🧪 Auto-fill UAT Values (Updates DB)</Text>
-          <Text style={styles.uatFillSubText}>Tap → confirm alert → then submit</Text>
-        </TouchableOpacity>
 
         <View style={styles.formContainer}>
 
@@ -2044,17 +1991,6 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
               <Text style={styles.inputError}>Pincode must be 6 digits</Text>
             )}
           </View>
-
-          {/* UAT test hint */}
-          {/* <View style={styles.testCard}>
-            <Text style={styles.testCardTitle}>🧪 UAT Values (confirmed REG_SUCCESS)</Text>
-            <Text style={styles.testCardText}>PAN: BVYPD3824K  |  Name: MoinTest</Text>
-            <Text style={styles.testCardText}>FATCA: occ_code=01, occ_type=B ✅</Text>
-            <Text style={styles.testCardText}>UCC: occ=02, holding=SI, kyc=C ✅</Text>
-            <Text style={styles.testCardText}>Income: 31 (Below 1L)  |  Wealth: 08</Text>
-            <Text style={styles.testCardText}>Birth City: Kanbhai  |  City: MUMBAI</Text>
-            <Text style={styles.testCardText}>State: AP  |  Pin: 401201</Text>
-          </View> */}
 
           {error ? (
             <View style={styles.errorCard}>

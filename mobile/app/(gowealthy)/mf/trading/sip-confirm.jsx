@@ -14,7 +14,7 @@ export default function SIPConfirmScreen() {
   const params = useLocalSearchParams();
   const fundName = valueOf(params.fundName, 'Selected scheme');
   const schemeCode = valueOf(params.schemeCode);
-  const amcCode = valueOf(params.amcCode, 'IIFLMUTUALFUND_MF');
+  const amcCode = valueOf(params.amcCode, '360_ONE_MUTUALFUND_MF');
   const amount = Number(valueOf(params.amount, 0));
   const tenureMonths = Number(valueOf(params.tenureMonths, 36));
   const tenureLabel = valueOf(params.tenureLabel, '3 years');
@@ -42,9 +42,16 @@ export default function SIPConfirmScreen() {
       const purchaseOrder = purchaseOrderId || data.first_purchase_order_id;
       if (!purchaseOrder) throw new Error('Purchase order ID is missing. Start the SIP flow again.');
 
-      const startDate = new Date();
-      startDate.setMonth(startDate.getMonth() + 1, 1);
-      const endDate = tenureMonths > 0 ? new Date(startDate.getFullYear(), startDate.getMonth() + tenureMonths, 1) : null;
+      // NSE enforces a minimum gap between registering a SIP and its first
+      // installment ("START DATE IS BEFORE MINIMUM DAYS FROM REGISTRATION").
+      // Registering late in a month puts the 1st of next month inside that
+      // window, so skip to the 1st of the month after when it's too close.
+      const MIN_START_GAP_DAYS = 7;
+      const today = new Date();
+      const startDate = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+      if ((startDate - today) / 86400000 < MIN_START_GAP_DAYS) {
+        startDate.setMonth(startDate.getMonth() + 1);
+      }
       const payload = {
         amc_code: amcCode,
         sch_code: schemeCode,
@@ -61,14 +68,20 @@ export default function SIPConfirmScreen() {
         folio_no: '',
         sip_remarks: `SIP for ${fundName}`,
         installment_no: String(tenureMonths > 0 ? tenureMonths : 999),
-        sip_mandate_id: mandate,
+        // Spec p.26: sip_mandate_id is Optional, but "Must be approved mandate".
+        // The mandate was registered seconds ago and is still PENDING approval,
+        // so sending it here is what NSE rejects. Register the SIP without it and
+        // attach the mandate once approved via the SIPUMRN API (spec p.77).
+        sip_mandate_id: '',
         euin_number: '',
         euin_declaration: 'N',
         dpc_flag: 'Y',
         first_order_today: 'N',
         sub_broker_code: '',
         sub_broker_arn: '',
-        end_date: endDate ? dateText(endDate) : '',
+        // Spec p.27: end_date is "Mandatory in case of DAILY frequency. Must be
+        // blank in case of frequency other than DAILY." This is MONTHLY.
+        end_date: '',
         primary_holder_mobile: phone,
         primary_holder_email: data.email_data?.email || '',
       };

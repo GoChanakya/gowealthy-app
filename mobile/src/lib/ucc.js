@@ -32,8 +32,22 @@ const AUTHORIZED_VALUES = [
  * @param {string} uccCode
  * @returns {Promise<{status, authorized, authStatusRaw?, name?, email?, authDatetime?, emailSent?, row?, raw?, error?}>}
  */
+// NSE's client_authorization report can take 25-55s to answer. Screens poll on
+// intervals, so without this guard a slow response lets the next tick fire before
+// the last one returns and the requests stack up indefinitely. Callers asking for
+// the same UCC while a check is in flight share that one request.
+const inFlight = new Map();
+
 export async function checkUccStatus(uccCode) {
   if (!uccCode) return { status: UCC_STATUS.NOT_FOUND, authorized: false };
+  if (inFlight.has(uccCode)) return inFlight.get(uccCode);
+
+  const request = performUccStatusCheck(uccCode).finally(() => inFlight.delete(uccCode));
+  inFlight.set(uccCode, request);
+  return request;
+}
+
+async function performUccStatusCheck(uccCode) {
   console.log('[MF][UCC] status check started', { clientCode: uccCode });
   try {
     const res = await fetch(`${NSE_SERVICE_URL}/api/nse/client-auth-status`, {
