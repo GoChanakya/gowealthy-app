@@ -400,7 +400,7 @@ import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL, EKYC_AMC_CODE } from '
 
 // RTA AMC code for EKYCREG — configured in src/config/services.js, not here,
 // because the valid value differs between UAT and production.
-const AMC_CODE = EKYC_AMC_CODE;
+const AMC_CODE = 'B';
 
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
 const C = {
