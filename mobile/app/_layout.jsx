@@ -3,7 +3,18 @@ import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
 import { useFonts, Syne_700Bold, Syne_600SemiBold } from '@expo-google-fonts/syne';
-import { SpaceGrotesk_400Regular, SpaceGrotesk_500Medium } from '@expo-google-fonts/space-grotesk';
+import {
+  SpaceGrotesk_400Regular,
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from '@expo-google-fonts/space-grotesk';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
 import { useEffect } from 'react';
 import { View, ActivityIndicator, Text, ScrollView, Alert } from 'react-native';
 
@@ -40,6 +51,14 @@ export default function RootLayout() {
     Syne_600SemiBold,
     SpaceGrotesk_400Regular,
     SpaceGrotesk_500Medium,
+    // Ember-forge typography — loaded once here so every flow (questionnaire-v2,
+    // dashboard, gowiser) can use FONT.* from src/lib/ui-kit without its own gate.
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
   });
 
   useEffect(() => {
@@ -57,19 +76,19 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError && !fontTimeout) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0B0C10' }}>
-        <ActivityIndicator color="#FF8500" />
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#08060a' }}>
+        <ActivityIndicator color="#ff6a1a" />
       </View>
     );
   }
 
   return (
     <ErrorBoundary>
-      <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#0B0C10' }}>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: '#08060a' }}>
         <Stack
           screenOptions={{
             headerShown: false,
-            contentStyle: { backgroundColor: '#0B0C10' }
+            contentStyle: { backgroundColor: '#08060a' }
           }}
         >
           <Stack.Screen name="index" />

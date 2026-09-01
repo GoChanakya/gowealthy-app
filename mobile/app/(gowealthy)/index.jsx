@@ -18,7 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../src/config/firebase';
 import { colors, globalStyles, shadows, isMobile } from '../../src/theme/globalStyles';
-import GowiserBlogList from './gowiser/index';
+import { ArticleListScreen as GowiserBlogList } from '../../src/features/gowiser';
 import ProfileScreen from './profile';
 import GoSharesShell from './goshares/index';
 
