@@ -22,7 +22,7 @@ export default function ListHeader({ showNav, onBack }) {
         </View>
       )}
 
-      <View style={[styles.head, !showNav && { paddingTop: 22 }]}>
+      <View style={[styles.head, !showNav && { paddingTop: 70}]}>
         <FadeInUp>
           <Eyebrow>Financial IQ</Eyebrow>
           <Text style={styles.title}>Read. Learn. Earn.</Text>

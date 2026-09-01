@@ -443,6 +443,7 @@ import { db } from "../../../../src/config/firebase";
 // ^ adjust to your actual firebase init path/export name
 
 import { useQuestionnaireV2 } from "../../../../src/context/QuestionnaireV2Context";
+import { markQuestionnaireCompleted } from "../../../../src/features/onboarding/completion";
 import {
   simulateJourney, timelineStatus, fmtINR, fmtLac, fmtAgeSmart, PRI_ICON, PERSONALITIES,
 } from "../../../../src/lib/goPersonaEngine";
@@ -504,6 +505,9 @@ export default function Section5() {
       );
       console.log("✅ Questionnaire submission saved to Firebase for phone:", phone);
       markCompleted();
+      // Mirror completion locally so the boot gate can route straight to the
+      // dashboard without a Firestore round-trip on every cold start.
+      await markQuestionnaireCompleted();
     } catch (e) {
       console.error("Failed to save questionnaire submission:", e);
       // Deliberately non-blocking — the user already sees their finished blueprint.
@@ -537,7 +541,7 @@ export default function Section5() {
         await setDoc(doc(db, "gowealthy-questionaire", phone), { name: trimmed }, { merge: true });
       }
       setNameModalOpen(false);
-      router.replace("/(gowealthy)/dashboard/home");
+      router.replace("/(gowealthy)/dashboard");
     } catch (e) {
       console.error("Failed to save name:", e);
       setNameError("Couldn't save that — check your connection and try again.");

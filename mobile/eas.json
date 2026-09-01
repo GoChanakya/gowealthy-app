@@ -22,14 +22,25 @@
       },
       "env": {
         "EXPO_NO_MINIFY": "1",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_APP_VARIANT": "lite"
       },
       "ios": {
         "autoIncrement": true
       }
     },
+    "production-apk": {
+      "extends": "production",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_APP_VARIANT": "lite"
+      }
     }
   },
   "submit": {

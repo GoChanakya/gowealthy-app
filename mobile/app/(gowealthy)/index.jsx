@@ -19,6 +19,8 @@ import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firesto
 import { db } from '../../src/config/firebase';
 import { colors, globalStyles, shadows, isMobile } from '../../src/theme/globalStyles';
 import { ArticleListScreen as GowiserBlogList } from '../../src/features/gowiser';
+import { FEATURES } from '../../src/config/features';
+import FeatureGate from '../../src/features/shell/FeatureGate';
 import ProfileScreen from './profile';
 import GoSharesShell from './goshares/index';
 
@@ -611,4 +613,12 @@ const hs = StyleSheet.create({
   devBtnText: { fontSize: 12, color: 'rgba(255,255,255,0.42)', fontWeight: '600' },
 });
 
-export default GoWealthyHome;
+/** The product tile hub is a full-build-only surface — the shipped app boots
+ *  straight into the dashboard shell instead. */
+export default function ProductHubRoute() {
+  return (
+    <FeatureGate enabled={FEATURES.productHub}>
+      <GoWealthyHome />
+    </FeatureGate>
+  );
+}

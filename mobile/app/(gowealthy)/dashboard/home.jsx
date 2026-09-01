@@ -31,6 +31,8 @@ import {
   timelineStatus,
 } from "../../../src/lib/goPersonaEngine";
 import { C as UI_C, FONT as UI_FONT, RADIUS as UI_RADIUS, Embers, Eyebrow } from "../../../src/lib/ui-kit";
+import { FEATURES } from "../../../src/config/features";
+import ComingSoonSheet from "../../../src/features/shell/ComingSoonSheet";
 
 /* ============================================================
    PALETTE — ui-kit token if present, else the exact hex from
@@ -204,6 +206,7 @@ export default function Home() {
   const navigation = useNavigation();
   const { status, raw, name } = useDashboardData();
   const [investStarted, setInvestStarted] = useState(false);
+  const [comingSoon, setComingSoon] = useState(false);
   const scrollRef = useRef(null);
   const sectionY = useRef({});
   const [activeSec, setActiveSec] = useState("secHome");
@@ -250,7 +253,11 @@ export default function Home() {
   const goEditGoals = () => router.push("/(gowealthy)/questionnaire-v2/section3");
   const goRestart = () => router.replace("/(gowealthy)/questionnaire-v2/section1");
   const goAchievements = () => router.push("/(gowealthy)/questionnaire-v2/section5");
-  const goInvest = () => router.push("/(gowealthy)/mf/onboarding/screen1");
+  // Mutual funds isn't in the shipped build yet — fall back to the coming-soon sheet.
+  const goInvest = () =>
+    FEATURES.mutualFunds
+      ? router.push("/(gowealthy)/mf/onboarding/screen1")
+      : setComingSoon(true);
 
   const jumpTo = (key) => {
     setActiveSec(key);
@@ -565,6 +572,8 @@ export default function Home() {
         </View>
         {/* <Text style={styles.footText}>GoWealthy</Text> */}
       </ScrollView>
+
+      <ComingSoonSheet visible={comingSoon} onClose={() => setComingSoon(false)} />
     </View>
   );
 }
@@ -1126,7 +1135,8 @@ avatarImage: {
   navChipTextActive: { color: "#1a1006" },
 
   /* main */
-  dmain: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 40 },
+  // paddingBottom clears the app shell's floating tab bar.
+  dmain: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 120 },
   dtop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.gd },

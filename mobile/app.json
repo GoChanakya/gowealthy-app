@@ -1,9 +1,17 @@
 {
   "expo": {
-    "name": "mobile",
+    "name": "GoWealthy",
     "slug": "mobile",
     "scheme": "gowealthy",
     "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#08060a"
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -12,6 +20,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.gochanakya.mobile",
+      "supportsTablet": false,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
@@ -20,7 +29,14 @@
       }
     },
     "android": {
-      "package": "com.gochanakya.mobile"
+      "package": "com.gochanakya.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png",
+        "backgroundColor": "#08060a"
+      },
+      "edgeToEdgeEnabled": true
     },
     "extra": {
       "eas": {
