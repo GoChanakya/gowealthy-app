@@ -1,0 +1,14 @@
+{
+  "name": "@gowealthy/nse-core",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Shared NSE MFSS (NNF API v1.9.6) client: authentication, request headers and master-file parsing",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.13.6"
+  }
+}

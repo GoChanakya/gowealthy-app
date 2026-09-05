@@ -1,10 +1,20 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Linking, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../../src/config/firebase';
 import { NSE_SERVICE_URL } from '../../../../src/config/services';
+import { awardBadge, classifyFund } from '../../../../src/lib/xpBadges';
+import { celebratePayment } from '../../../../src/components/XPCelebration';
+import { getPurchasePaymentLink, cancelPurchaseOrder } from '../../../../src/lib/payment';
+
+const readPhone = async () => {
+  const raw = await AsyncStorage.getItem('user_phone')
+    || await AsyncStorage.getItem('userPhone')
+    || await AsyncStorage.getItem('phone');
+  return raw ? String(raw).replace(/\D/g, '').slice(-10) : '';
+};
 
 const DURATIONS = [
   { label: '1 year', months: 12 },
@@ -26,8 +36,33 @@ export default function SIPAmountScreen() {
   const [duration, setDuration] = useState(DURATIONS[1]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  // Set once the order exists, which switches the screen into its "pay" stage.
+  const [order, setOrder] = useState({ id: '', paymentLink: '' });
+  const [paymentOpened, setPaymentOpened] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const numericAmount = Number(amount) || 0;
   const isValid = numericAmount >= minSIP;
+
+  // An unpaid order from a previous visit is still live at NSE. Reuse it rather
+  // than creating a second one, otherwise abandoning the payment page and
+  // coming back leaves the investor owing two installments for one SIP.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const phone = await readPhone();
+      if (!phone || !active) return;
+      const snapshot = await getDoc(doc(db, 'mf_onboarding', phone));
+      const data = snapshot.data() || {};
+      const pending = data.first_purchase_payment_status === 'PENDING'
+        && data.first_purchase_order_scheme === schemeCode
+        && data.first_purchase_order_id;
+      if (!active || !pending) return;
+      setOrder({ id: data.first_purchase_order_id, paymentLink: data.first_purchase_payment_link || '' });
+      if (data.first_purchase_order_amount) setAmount(String(data.first_purchase_order_amount));
+      console.log('[MF][Purchase] reusing unpaid order', { orderId: data.first_purchase_order_id });
+    })();
+    return () => { active = false; };
+  }, [schemeCode]);
 
   const createPurchaseOrder = async () => {
     if (!isValid || loading) return;
@@ -103,21 +138,88 @@ export default function SIPAmountScreen() {
 
       const purchaseOrderId = result.trxn_order_id;
       if (!purchaseOrderId) throw new Error('NSE did not return a purchase order ID.');
+
+      // An order that is never funded is dropped by NSE at settlement cut-off,
+      // so fetch the payment link before treating this as a success.
+      const paymentLink = await getPurchasePaymentLink(purchaseOrderId);
+
       await updateDoc(snapshot.ref, {
         first_purchase_order_id: purchaseOrderId,
         first_purchase_order_status: result.trxn_status,
         first_purchase_order_amount: numericAmount,
         first_purchase_order_scheme: schemeCode,
         first_purchase_order_created_at: new Date().toISOString(),
+        first_purchase_payment_link: paymentLink,
+        first_purchase_payment_status: 'PENDING',
       });
 
-      router.push(`/(gowealthy)/mf/trading/sip-mandate?schemeCode=${encodeURIComponent(schemeCode)}&amcCode=${encodeURIComponent(amcCode)}&fundName=${encodeURIComponent(fundName)}&amount=${numericAmount}&tenureMonths=${duration.months}&tenureLabel=${encodeURIComponent(duration.label)}&purchaseOrderId=${encodeURIComponent(purchaseOrderId)}`);
+      setOrder({ id: purchaseOrderId, paymentLink });
     } catch (err) {
       console.log('[MF][Purchase][ORDER_FAILED]', { error: err.message });
       setError(err.message || 'Could not create purchase order.');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Opens NSE's hosted payment page. The investor chooses UPI or netbanking
+  // there, so no bank credentials pass through this app.
+  const openPayment = async () => {
+    try {
+      setError('');
+      await Linking.openURL(order.paymentLink);
+      setPaymentOpened(true);
+    } catch {
+      setError('Could not open the payment page. Copy the link and try in a browser.');
+    }
+  };
+
+  // Cancels the unpaid order at NSE so the investor is not left owing it.
+  const cancelOrder = async () => {
+    if (cancelling) return;
+    try {
+      setCancelling(true);
+      setError('');
+      const phone = await readPhone();
+      if (!phone) throw new Error('Session expired. Please log in again.');
+      const snapshot = await getDoc(doc(db, 'mf_onboarding', phone));
+      const data = snapshot.data() || {};
+      const clientCode = data.ucc_code;
+      if (!clientCode) throw new Error('NSE client code is missing.');
+
+      await cancelPurchaseOrder({ clientCode, orderNo: order.id });
+
+      await updateDoc(snapshot.ref, {
+        first_purchase_order_id: '',
+        first_purchase_payment_link: '',
+        first_purchase_payment_status: 'CANCELLED',
+        first_purchase_order_cancelled_at: new Date().toISOString(),
+      });
+      setOrder({ id: '', paymentLink: '' });
+      setPaymentOpened(false);
+    } catch (err) {
+      console.log('[MF][Purchase][CANCEL_FAILED]', { error: err.message });
+      setError(err.message || 'Could not cancel the order.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  // NSE confirms payment asynchronously, so the app marks the installment as
+  // initiated and moves on to the mandate. Reconciliation happens later from
+  // the order status report.
+  const continueToMandate = async () => {
+    const phone = await readPhone();
+
+    if (phone) {
+      celebratePayment({ amount: numericAmount, fundName });
+      awardBadge(phone, 'first_investment', order.id).catch(() => {});
+      const { isGold, isInternational } = classifyFund(fundName);
+      if (isGold) awardBadge(phone, 'first_gold_investment', order.id).catch(() => {});
+      if (isInternational) awardBadge(phone, 'first_international_investment', order.id).catch(() => {});
+    }
+
+    router.push(`/(gowealthy)/mf/trading/sip-mandate?schemeCode=${encodeURIComponent(schemeCode)}&amcCode=${encodeURIComponent(amcCode)}&fundName=${encodeURIComponent(fundName)}&amount=${numericAmount}&tenureMonths=${duration.months}&tenureLabel=${encodeURIComponent(duration.label)}&purchaseOrderId=${encodeURIComponent(order.id)}`);
   };
 
   return (
@@ -161,17 +263,37 @@ export default function SIPAmountScreen() {
           </View>
         </View>
 
-        <View style={styles.infoBox}>
-          <Text style={styles.infoTitle}>First purchase, then SIP setup</Text>
-          <Text style={styles.infoText}>Continue will first create the NSE purchase order. We will then register the bank mandate and continue with SIP registration.</Text>
-        </View>
+        {order.id ? (
+          <View style={styles.payBox}>
+            <Text style={styles.payTitle}>Pay your first installment</Text>
+            <Text style={styles.payText}>Order {order.id} is created but not yet funded. NSE cancels unpaid orders at the settlement cut-off, so complete the payment now.</Text>
+            <TouchableOpacity onPress={openPayment} style={styles.payButton}>
+              <Text style={styles.payButtonText}>Pay ₹{numericAmount.toLocaleString('en-IN')} on NSE</Text>
+            </TouchableOpacity>
+            {paymentOpened ? <Text style={styles.payHint}>Finished paying on the NSE page? Continue to set up the mandate for future installments.</Text> : null}
+            <TouchableOpacity disabled={cancelling} onPress={cancelOrder} style={styles.cancelButton}>
+              <Text style={styles.cancelText}>{cancelling ? 'Cancelling...' : "Cancel this order — I don't want it"}</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.infoBox}>
+            <Text style={styles.infoTitle}>First purchase, then SIP setup</Text>
+            <Text style={styles.infoText}>Continue will first create the NSE purchase order and open its payment page. We will then register the bank mandate and continue with SIP registration.</Text>
+          </View>
+        )}
         {error ? <Text style={styles.error}>{error}</Text> : null}
       </ScrollView>
       <View style={styles.footer}>
         <View><Text style={styles.footerLabel}>Monthly SIP</Text><Text style={styles.footerAmount}>₹{numericAmount.toLocaleString('en-IN')}</Text></View>
-        <TouchableOpacity disabled={!isValid || loading} onPress={createPurchaseOrder} style={[styles.primary, (!isValid || loading) && styles.primaryDisabled]}>
-          {loading ? <ActivityIndicator color="#FFFDF8" /> : <Text style={styles.primaryText}>Create purchase order & continue</Text>}
-        </TouchableOpacity>
+        {order.id ? (
+          <TouchableOpacity disabled={!paymentOpened} onPress={continueToMandate} style={[styles.primary, !paymentOpened && styles.primaryDisabled]}>
+            <Text style={styles.primaryText}>Continue to mandate</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity disabled={!isValid || loading} onPress={createPurchaseOrder} style={[styles.primary, (!isValid || loading) && styles.primaryDisabled]}>
+            {loading ? <ActivityIndicator color="#FFFDF8" /> : <Text style={styles.primaryText}>Create purchase order</Text>}
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
@@ -204,6 +326,14 @@ const styles = StyleSheet.create({
   infoBox: { backgroundColor: '#E5F2E9', borderRadius: 15, padding: 16 },
   infoTitle: { color: '#176B50', fontSize: 13, fontWeight: '800', marginBottom: 5 },
   infoText: { color: '#4F7565', fontSize: 12, lineHeight: 18 },
+  payBox: { backgroundColor: '#FFF4D6', borderRadius: 15, padding: 16, borderWidth: 1, borderColor: '#F1D58A' },
+  payTitle: { color: '#795E17', fontSize: 14, fontWeight: '800', marginBottom: 6 },
+  payText: { color: '#8A7027', fontSize: 12, lineHeight: 18 },
+  payButton: { backgroundColor: '#07805E', borderRadius: 13, padding: 14, alignItems: 'center', marginTop: 13 },
+  payButtonText: { color: '#FFFDF8', fontSize: 14, fontWeight: '800' },
+  payHint: { color: '#8A7027', fontSize: 12, lineHeight: 18, marginTop: 11 },
+  cancelButton: { marginTop: 12, alignItems: 'center' },
+  cancelText: { color: '#C04B48', fontSize: 12, fontWeight: '700' },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: '#FFFDF8', borderTopWidth: 1, borderTopColor: '#E4E6DE', padding: 16, paddingBottom: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   footerLabel: { color: '#8C9890', fontSize: 10, fontWeight: '700' },
   footerAmount: { color: '#17352B', fontSize: 20, fontWeight: '800', marginTop: 2 },

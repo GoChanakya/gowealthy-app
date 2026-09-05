@@ -1,0 +1,18 @@
+{
+  "name": "@gowealthy/upload-service",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Issues signed Google Cloud Storage POST policies so the app can upload KYC documents directly to the bucket",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.19.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.4",
+    "express": "^5.2.1"
+  }
+}

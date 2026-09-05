@@ -1,0 +1,19 @@
+{
+  "name": "@gowealthy/email-service",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Email OTP issue/verify service backed by Mailgun",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "form-data": "^4.0.5",
+    "mailgun.js": "^12.5.0"
+  }
+}

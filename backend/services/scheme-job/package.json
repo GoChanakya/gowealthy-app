@@ -1,0 +1,19 @@
+{
+  "name": "@gowealthy/scheme-job",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Downloads the NSE MF scheme master and publishes it as JSON to a public Google Cloud Storage bucket",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "@google-cloud/storage": "^7.16.0",
+    "@gowealthy/nse-core": "*",
+    "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1"
+  }
+}

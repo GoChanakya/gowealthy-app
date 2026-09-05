@@ -6,6 +6,11 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../../src/config/firebase';
 import { NSE_SERVICE_URL } from '../../../../src/config/services';
 import { refreshUccActivation } from '../../../../src/lib/ucc';
+import { refreshMandateStatus, MANDATE_STATUS } from '../../../../src/lib/mandate';
+
+// The investor approves the eNACH on an NSE page outside the app, so approval
+// only becomes visible by polling the mandate report.
+const MANDATE_POLL_MS = 15000;
 
 const valueOf = (value, fallback = '') => Array.isArray(value) ? value[0] : (value ?? fallback);
 const getPhone = async () => {
@@ -27,6 +32,8 @@ export default function SIPMandateScreen() {
   const [loading, setLoading] = useState(false);
   const [mandateId, setMandateId] = useState('');
   const [mandateLink, setMandateLink] = useState('');
+  const [mandateStatus, setMandateStatus] = useState('');
+  const [mandateUmrn, setMandateUmrn] = useState('');
   const [clientCode, setClientCode] = useState('');
   const [authStatus, setAuthStatus] = useState('');
   const [authStatusRaw, setAuthStatusRaw] = useState('');
@@ -99,6 +106,45 @@ export default function SIPMandateScreen() {
     const timer = setTimeout(() => { loadAuthorization(); }, 0);
     return () => clearTimeout(timer);
   }, [loadAuthorization]);
+
+  // Restore an already-registered mandate so leaving and returning to this
+  // screen does not offer to register a second one.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const phone = await getPhone();
+      if (!phone || !active) return;
+      const snapshot = await getDoc(doc(db, 'mf_onboarding', phone));
+      const data = snapshot.data() || {};
+      if (!active || !data.mandate_id) return;
+      setMandateId(data.mandate_id);
+      setMandateLink(data.mandate_link || '');
+      setMandateStatus(data.mandate_status || '');
+      setMandateUmrn(data.mandate_umrn || '');
+    })();
+    return () => { active = false; };
+  }, []);
+
+  // Poll for approval while the mandate is registered but not yet approved.
+  // Stops as soon as NSE issues the UMRN, which is what the SIP needs.
+  useEffect(() => {
+    if (!mandateId || mandateStatus === MANDATE_STATUS.APPROVED) return undefined;
+
+    let active = true;
+    const tick = async () => {
+      const phone = await getPhone();
+      if (!phone || !active) return;
+      const result = await refreshMandateStatus(phone);
+      if (!active) return;
+      setMandateStatus(result.status);
+      if (result.umrn) setMandateUmrn(result.umrn);
+      logActivity('MANDATE_STATUS_POLL', { mandateId, status: result.status, hasUmrn: Boolean(result.umrn) });
+    };
+
+    tick();
+    const interval = setInterval(tick, MANDATE_POLL_MS);
+    return () => { active = false; clearInterval(interval); };
+  }, [mandateId, mandateStatus, logActivity]);
 
   const createMandate = async () => {
     try {
@@ -225,7 +271,17 @@ export default function SIPMandateScreen() {
           <View style={styles.rows}><Text style={styles.row}>• eNACH mandate through NSE</Text><Text style={styles.row}>• Maximum debit: ₹99,999 per installment</Text><Text style={styles.row}>• Your SIP starts after authorization</Text></View>
         </View>
         {mandateId ? (
-          <View style={styles.success}><Text style={styles.successTitle}>Mandate registered</Text><Text style={styles.successText}>Mandate ID: {mandateId}</Text></View>
+          <View style={styles.success}>
+            <Text style={styles.successTitle}>
+              {mandateStatus === MANDATE_STATUS.APPROVED ? 'Mandate approved' : 'Mandate registered'}
+            </Text>
+            <Text style={styles.successText}>Mandate ID: {mandateId}</Text>
+            {mandateStatus ? <Text style={styles.successText}>Status: {mandateStatus}</Text> : null}
+            {mandateUmrn ? <Text style={styles.successText}>UMRN: {mandateUmrn}</Text> : null}
+            {mandateStatus === MANDATE_STATUS.APPROVED
+              ? <Text style={styles.successText}>Future installments will be auto-debited.</Text>
+              : <Text style={styles.successText}>Waiting for your approval on the NSE page. This checks itself every 15 seconds.</Text>}
+          </View>
         ) : null}
         <View style={styles.authBox}>
           <Text style={styles.authTitle}>NSE investor authorization{authStatus ? `: ${authStatus}` : ''}</Text>
@@ -248,7 +304,13 @@ export default function SIPMandateScreen() {
         <TouchableOpacity disabled={loading} onPress={mandateId ? continueToSIP : createMandate} style={styles.primary}>
           {loading ? <ActivityIndicator color="#FFFDF8" /> : <Text style={styles.primaryText}>{mandateId ? 'Continue to SIP registration' : 'Register mandate with NSE'}</Text>}
         </TouchableOpacity>
-        {mandateId ? <Text style={styles.note}>Authorize the mandate first, then continue to register the SIP.</Text> : null}
+        {mandateId ? (
+          <Text style={styles.note}>
+            {mandateStatus === MANDATE_STATUS.APPROVED
+              ? 'Mandate approved. Continue to register the SIP.'
+              : 'You can register the SIP now; the mandate is linked automatically once approved.'}
+          </Text>
+        ) : null}
       </ScrollView>
     </View>
   );

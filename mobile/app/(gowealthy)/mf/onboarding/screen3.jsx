@@ -397,6 +397,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../../../src/config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL, EKYC_AMC_CODE } from '../../../../src/config/services';
+import { awardBadge } from '../../../../src/lib/xpBadges';
 
 // RTA AMC code for EKYCREG — configured in src/config/services.js, not here,
 // because the valid value differs between UAT and production.
@@ -666,6 +667,7 @@ const Screen3FreshKYC = () => {
           ekyc_status_remark: remark,
           ekyc_kra_name: data.kra_name || null,
         });
+        awardBadge(phone, 'kyc_complete').catch(() => {});
         return true;
       }
 

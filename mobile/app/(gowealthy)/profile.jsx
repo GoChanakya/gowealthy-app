@@ -1022,10 +1022,12 @@ import {
   Platform,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, getDocs, collection } from 'firebase/firestore';
 import { arrayUnion } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../src/config/firebase';
+import { BADGES, previewXpCelebration } from '../../src/lib/xpBadges';
+import { celebratePayment } from '../../src/components/XPCelebration';
 
 const { width } = Dimensions.get('window');
 const ORANGE = '#FF6300';
@@ -1106,6 +1108,7 @@ const ProfileScreen = () => {
   const [profileData, setProfileData] = useState(null);
   const [phone, setPhone] = useState('');
   const [xpBalance, setXpBalance] = useState(0);
+  const [earnedBadgeIds, setEarnedBadgeIds] = useState([]);
   const [familyMembers, setFamilyMembers] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
@@ -1133,6 +1136,9 @@ const ProfileScreen = () => {
           phone: userPhone,
           kycDocuments: firestoreData.kyc_documents || {},
         });
+
+        const badgesSnap = await getDocs(collection(db, 'questionnaire_submissions', userPhone, 'badges'));
+        setEarnedBadgeIds(badgesSnap.docs.map(d => d.id));
       }
     } catch (e) {
       console.error('Error loading profile:', e);
@@ -1240,6 +1246,63 @@ const ProfileScreen = () => {
               </View>
             </View>
           </View>
+        </View>
+
+        {/* Badges */}
+        <SectionHeader label="Badges" />
+        {__DEV__ && (
+          <TouchableOpacity
+            activeOpacity={0.7}
+            onPress={() => celebratePayment({ amount: 5000, fundName: 'Test Fund — Regular Growth' })}
+          >
+            <Text style={s.devHint}>🧪 DEV — tap a badge to preview its popup, or tap here to preview the payment-success celebration</Text>
+          </TouchableOpacity>
+        )}
+        <View style={s.badgesContainer}>
+          {Object.values(BADGES).map((badge, idx) => {
+            const earned = earnedBadgeIds.includes(badge.id);
+            const isOrange = idx % 2 === 0;
+            return (
+              <TouchableOpacity
+                key={badge.id}
+                activeOpacity={__DEV__ ? 0.7 : 1}
+                disabled={!__DEV__}
+                onPress={() => previewXpCelebration(badge.id)}
+                style={[
+                  s.badgeCard,
+                  { borderColor: isOrange ? 'rgba(255,133,0,0.20)' : 'rgba(108,80,196,0.22)' },
+                  !earned && s.badgeCardLocked,
+                ]}>
+                <LinearGradient
+                  colors={isOrange
+                    ? ['rgba(255,133,0,0.10)', 'rgba(255,133,0,0.02)', 'transparent']
+                    : ['rgba(108,80,196,0.12)', 'rgba(108,80,196,0.02)', 'transparent']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFill} pointerEvents="none"
+                />
+                <View style={[s.badgeIconWrap,
+                  isOrange
+                    ? { borderColor: 'rgba(255,133,0,0.30)', backgroundColor: 'rgba(0,0,0,0.1)' }
+                    : { borderColor: 'rgba(108,80,196,0.32)', backgroundColor: 'rgba(0,0,0,0.12)' }
+                ]}>
+                  <Text style={s.badgeEmoji}>{earned ? badge.emoji : '🔒'}</Text>
+                </View>
+                <View style={s.docMeta}>
+                  <Text style={s.docLabel}>{badge.name}</Text>
+                  <Text style={s.docSubtitle}>{badge.description}</Text>
+                </View>
+                <View style={[s.docStatusBadge,
+                  earned
+                    ? { backgroundColor: 'rgba(108,80,196,0.18)', borderColor: 'rgba(108,80,196,0.35)' }
+                    : { backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'rgba(255,255,255,0.12)' }
+                ]}>
+                  <Text style={[s.docStatusText, { color: earned ? PURPLE2 : 'rgba(255,255,255,0.35)' }]}>
+                    {earned ? '✓ Earned' : `+${badge.xp} XP`}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* Linked Accounts */}
@@ -1526,6 +1589,18 @@ familyMemberName: {
   addButtonGradient: { paddingVertical: 16, alignItems: 'center', borderRadius: 14 },
   addButtonText: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
 
+  devHint: { color: 'rgba(255,255,255,0.35)', fontSize: 11, fontWeight: '600', marginBottom: 10 },
+  badgesContainer: { gap: 10, marginBottom: 26 },
+  badgeCard: {
+    backgroundColor: '#0d1117', borderRadius: 16, borderWidth: 1, padding: 16,
+    flexDirection: 'row', alignItems: 'center', gap: 14, overflow: 'hidden', position: 'relative',
+  },
+  badgeCardLocked: { opacity: 0.55 },
+  badgeIconWrap: {
+    width: 50, height: 50, borderRadius: 14, borderWidth: 1,
+    justifyContent: 'center', alignItems: 'center', flexShrink: 0,
+  },
+  badgeEmoji: { fontSize: 22 },
   vaultContainer: { gap: 10, marginBottom: 8 },
   docCard: {
     backgroundColor: '#0d1117', borderRadius: 16, borderWidth: 1, padding: 16,

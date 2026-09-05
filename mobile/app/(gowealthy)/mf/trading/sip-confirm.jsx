@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../../src/config/firebase';
 import { NSE_SERVICE_URL } from '../../../../src/config/services';
+import { reconcileSipMandates } from '../../../../src/lib/mandate';
 
 const valueOf = (value, fallback = '') => Array.isArray(value) ? value[0] : (value ?? fallback);
 const dateText = (date) => `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
@@ -24,6 +25,7 @@ export default function SIPConfirmScreen() {
   const [sipId, setSipId] = useState('');
   const [sipLink, setSipLink] = useState('');
   const [error, setError] = useState('');
+  const [mandateLinked, setMandateLinked] = useState(false);
 
   const registerSIP = async () => {
     try {
@@ -100,9 +102,20 @@ export default function SIPConfirmScreen() {
       });
       const linkData = await linkResponse.json();
       const link = linkData?.firstHolderLink || '';
-      await updateDoc(snapshot.ref, { [`sip_mandates.${id}`]: { sip_reg_id: id, purchase_order_id: purchaseOrder, scheme_code: schemeCode, fund_name: fundName, amount, tenure: tenureLabel, mandate_id: mandate, sip_link: link, status: 'PENDING_AUTH', created_at: new Date().toISOString() } });
+      await updateDoc(snapshot.ref, { [`sip_mandates.${id}`]: { sip_reg_id: id, purchase_order_id: purchaseOrder, scheme_code: schemeCode, fund_name: fundName, amount, tenure: tenureLabel, mandate_id: mandate, sip_link: link, status: 'PENDING_AUTH', created_at: new Date().toISOString(), umrn_linked: false } });
       setSipId(id);
       setSipLink(link);
+
+      // The SIP was registered with sip_mandate_id blank because the mandate is
+      // not approved yet. If it has since been approved, link the UMRN now;
+      // otherwise the catch-up on the funds screen picks it up later.
+      const reconcile = await reconcileSipMandates(phone);
+      setMandateLinked(reconcile.linked?.includes(id) || false);
+      console.log('[MF][SIP] mandate reconcile after registration', {
+        sipRegId: id,
+        mandateStatus: reconcile.status,
+        linked: reconcile.linked,
+      });
     } catch (err) {
       setError(err.message || 'Could not register SIP.');
     } finally {
@@ -120,7 +133,17 @@ export default function SIPConfirmScreen() {
           {[['Scheme code', schemeCode], ['Monthly amount', `₹${amount.toLocaleString('en-IN')}`], ['Duration', tenureLabel], ['Frequency', 'Monthly'], ['Mandate', mandateId || 'Registered mandate']].map(([label, value]) => <View style={styles.row} key={label}><Text style={styles.rowLabel}>{label}</Text><Text style={styles.rowValue}>{value}</Text></View>)}
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        {sipId ? <View style={styles.success}><Text style={styles.successTitle}>SIP registered with NSE</Text><Text style={styles.successText}>Registration ID: {sipId}</Text></View> : null}
+        {sipId ? (
+          <View style={styles.success}>
+            <Text style={styles.successTitle}>SIP registered with NSE</Text>
+            <Text style={styles.successText}>Registration ID: {sipId}</Text>
+            <Text style={styles.successText}>
+              {mandateLinked
+                ? 'Mandate linked. Future installments will be auto-debited.'
+                : 'Mandate not approved yet. We will link it automatically once it is, so installments can be debited.'}
+            </Text>
+          </View>
+        ) : null}
         {sipLink ? <TouchableOpacity onPress={() => Linking.openURL(sipLink)} style={styles.linkButton}><Text style={styles.linkText}>Open SIP authorization link</Text></TouchableOpacity> : null}
         <TouchableOpacity disabled={loading} onPress={sipId ? () => router.replace('/(gowealthy)/mf/trading/funds') : registerSIP} style={styles.primary}>
           {loading ? <ActivityIndicator color="#FFFDF8" /> : <Text style={styles.primaryText}>{sipId ? 'Done' : 'Register SIP with NSE'}</Text>}

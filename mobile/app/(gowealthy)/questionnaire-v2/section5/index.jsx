@@ -440,6 +440,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../../src/config/firebase";
+import { awardBadge } from "../../../../src/lib/xpBadges";
 // ^ adjust to your actual firebase init path/export name
 
 import { useQuestionnaireV2 } from "../../../../src/context/QuestionnaireV2Context";
@@ -504,6 +505,7 @@ export default function Section5() {
         { merge: true }
       );
       console.log("✅ Questionnaire submission saved to Firebase for phone:", phone);
+      awardBadge(phone, 'persona_done').catch(() => {});
       markCompleted();
       // Mirror completion locally so the boot gate can route straight to the
       // dashboard without a Firestore round-trip on every cold start.

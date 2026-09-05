@@ -1,0 +1,50 @@
+# Local stack mirroring the ports the mobile app expects
+# (mobile/src/config/services.js): nse 3000, upload 3001, email 5000, scheme-job 8080.
+#
+#   docker compose up --build
+services:
+  nse-service:
+    build:
+      context: .
+      dockerfile: services/nse-service/Dockerfile
+    env_file: services/nse-service/.env
+    environment:
+      PORT: 3000
+    ports:
+      - "3000:3000"
+
+  upload-service:
+    build:
+      context: .
+      dockerfile: services/upload-service/Dockerfile
+    env_file: services/upload-service/.env
+    environment:
+      PORT: 3001
+      GCS_KEY_FILE: /secrets/service-account-key.json
+    volumes:
+      - ./services/upload-service/service-account-key.json:/secrets/service-account-key.json:ro
+    ports:
+      - "3001:3001"
+
+  email-service:
+    build:
+      context: .
+      dockerfile: services/email-service/Dockerfile
+    env_file: services/email-service/.env
+    environment:
+      PORT: 5000
+    ports:
+      - "5000:5000"
+
+  scheme-job:
+    build:
+      context: .
+      dockerfile: services/scheme-job/Dockerfile
+    env_file: services/scheme-job/.env
+    environment:
+      PORT: 8080
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/service-account-key.json
+    volumes:
+      - ./services/scheme-job/service-account-key.json:/secrets/service-account-key.json:ro
+    ports:
+      - "8080:8080"

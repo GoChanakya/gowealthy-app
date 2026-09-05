@@ -1,0 +1,17 @@
+# Secrets / credentials
+.env
+.env.*
+!.env.example
+service-account-key.json
+service-account-key copy.json
+*.key.json
+*.credentials.json
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Logs / generated
+logs/
+funds.json
+raw_master.txt

@@ -17,6 +17,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { useEffect } from 'react';
 import { View, ActivityIndicator, Text, ScrollView, Alert } from 'react-native';
+import XPCelebrationHost from '../src/components/XPCelebration';
 
 class ErrorBoundary extends React.Component {
   state = { error: null };
@@ -96,6 +97,7 @@ export default function RootLayout() {
           <Stack.Screen name="(gowealthy)" />
         </Stack>
         <Toast />
+        <XPCelebrationHost />
       </GestureHandlerRootView>
     </ErrorBoundary>
   );

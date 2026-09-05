@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { refreshUccActivation } from '../../../../src/lib/ucc';
+import { reconcileSipMandates } from '../../../../src/lib/mandate';
 import { fetchSchemes, fetchFeaturedSchemes, prettySchemeName, amcInitials, FEATURED_AMCS } from '../../../../src/lib/schemes';
 
 const formatAmount = (amount) => `₹${Number(amount).toLocaleString('en-IN')}`;
@@ -87,6 +88,15 @@ const FundsListScreen = () => {
           return;
         }
         setAuthorizationChecked(true);
+
+        // A mandate approved after the SIP was registered leaves that SIP with
+        // nothing to debit until its UMRN is mapped. This is the catch-up:
+        // idempotent, so it is a no-op once everything is linked.
+        reconcileSipMandates(phone)
+          .then((r) => {
+            if (r.linked?.length) console.log('[MF][Trading] linked mandate to SIPs', { sips: r.linked });
+          })
+          .catch(() => {});
       } catch (error) {
         console.log('[MF][Trading][AUTH_GATE_FAILED]', { error: error.message });
         if (active) router.replace('/(gowealthy)/mf/onboarding/screen1');

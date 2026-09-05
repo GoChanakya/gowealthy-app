@@ -1,0 +1,26 @@
+{
+  "name": "gowealthy-backend",
+  "version": "2.0.0",
+  "private": true,
+  "description": "GoWealthy backend monorepo: NSE MFSS gateway, email OTP, document upload and scheme-master job services",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev:nse": "node --watch services/nse-service/src/index.js",
+    "dev:email": "node --watch services/email-service/src/index.js",
+    "dev:upload": "node --watch services/upload-service/src/index.js",
+    "dev:scheme-job": "node --watch services/scheme-job/src/index.js",
+    "start:nse": "node services/nse-service/src/index.js",
+    "start:email": "node services/email-service/src/index.js",
+    "start:upload": "node services/upload-service/src/index.js",
+    "start:scheme-job": "node services/scheme-job/src/index.js",
+    "lan-ip": "node scripts/lan-ip.js",
+    "check": "node scripts/check.js"
+  }
+}
