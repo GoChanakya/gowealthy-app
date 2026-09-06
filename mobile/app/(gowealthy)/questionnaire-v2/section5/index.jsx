@@ -437,6 +437,7 @@ import {
 } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Toast from "react-native-toast-message";
 import { useRouter } from "expo-router";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../../../src/config/firebase";
@@ -457,6 +458,7 @@ export default function Section5() {
   const { state, setProjection, markCompleted } = useQuestionnaireV2();
   const [step, setStep] = useState("alloc"); // alloc | ach | finish
   const [saving, setSaving] = useState(false);
+  const [xpVerification, setXpVerification] = useState({ status: "idle" });
 
   // -- name-capture modal, shown right before we actually navigate to the dashboard --
   const [nameModalOpen, setNameModalOpen] = useState(false);
@@ -505,13 +507,44 @@ export default function Section5() {
         { merge: true }
       );
       console.log("✅ Questionnaire submission saved to Firebase for phone:", phone);
-      awardBadge(phone, 'persona_done').catch(() => {});
+      setXpVerification({ status: "verifying" });
+      const xpResult = await awardBadge(phone, 'persona_done');
+      setXpVerification(xpResult);
+      console.log("[onboarding-xp] verification result", {
+        status: xpResult.status,
+        verified: xpResult.verified,
+        awarded: xpResult.awarded,
+        balanceAfter: xpResult.balanceAfter,
+      });
+      if (xpResult.status === "awarded" && xpResult.verified) {
+        Toast.show({
+          type: "success",
+          text1: "+50 XP credited",
+          text2: `Verified balance: ${xpResult.balanceAfter}`,
+          visibilityTime: 5000,
+        });
+      } else if (xpResult.status === "already_awarded" && xpResult.verified) {
+        Toast.show({
+          type: "info",
+          text1: "Onboarding XP already credited",
+          text2: `Current balance: ${xpResult.balanceAfter}`,
+          visibilityTime: 5000,
+        });
+      } else {
+        Toast.show({
+          type: "error",
+          text1: "XP verification failed",
+          text2: xpResult.error?.message || "Check the Metro console for details.",
+          visibilityTime: 6000,
+        });
+      }
       markCompleted();
       // Mirror completion locally so the boot gate can route straight to the
       // dashboard without a Firestore round-trip on every cold start.
       await markQuestionnaireCompleted();
     } catch (e) {
       console.error("Failed to save questionnaire submission:", e);
+      setXpVerification({ status: "failed", verified: false });
       // Deliberately non-blocking — the user already sees their finished blueprint.
       // Consider surfacing a retry affordance here once this is wired up for real.
     } finally {
@@ -579,7 +612,7 @@ export default function Section5() {
         />
       )}
       {step === "finish" && (
-        <FinishScreen persona={persona} saving={saving} onBackToAch={() => setStep("ach")} onDashboard={openNameModal} onRestart={restart} />
+        <FinishScreen persona={persona} saving={saving} xpVerification={xpVerification} onBackToAch={() => setStep("ach")} onDashboard={openNameModal} onRestart={restart} />
       )}
 
       <NameCaptureModal
@@ -882,7 +915,16 @@ function badgeTextStyle(cls) {
 /* ============================================================
    Finish
    ============================================================ */
-function FinishScreen({ persona, saving, onBackToAch, onDashboard, onRestart }) {
+function FinishScreen({ persona, saving, xpVerification, onBackToAch, onDashboard, onRestart }) {
+  const xpMessage = xpVerification.status === "verifying"
+    ? "Verifying your onboarding XP…"
+    : xpVerification.status === "awarded"
+      ? `+50 XP verified${Number.isFinite(xpVerification.balanceAfter) ? ` • Balance ${xpVerification.balanceAfter}` : ""}`
+      : xpVerification.status === "already_awarded"
+        ? "Onboarding XP was already credited"
+        : xpVerification.status === "failed"
+          ? "XP could not be verified — check the console log"
+          : "";
   return (
     <View style={kitStyles.stage}>
       <Text style={styles.finishIcon}>✦</Text>
@@ -894,8 +936,13 @@ function FinishScreen({ persona, saving, onBackToAch, onDashboard, onRestart }) 
         As a {persona.name}, your plan works with your instincts, not against them. Come back whenever your priorities shift — it
         rebuilds instantly.{saving ? " Saving your blueprint…" : ""}
       </Text>
+      {xpMessage ? (
+        <Text style={[styles.xpVerification, xpVerification.verified ? styles.xpVerified : styles.xpPending]}>
+          {xpMessage}
+        </Text>
+      ) : null}
       <View style={{ width: "100%", maxWidth: 420, gap: 11 }}>
-        <PrimaryButton label="Go to my dashboard →" onPress={onDashboard} />
+        <PrimaryButton label="Go to my dashboard →" onPress={onDashboard} disabled={saving || xpVerification.status === "verifying"} />
         <GhostButton label="← Back to my future story" onPress={onBackToAch} />
         <GhostButton label="Start over" onPress={onRestart} />
       </View>
@@ -905,6 +952,9 @@ function FinishScreen({ persona, saving, onBackToAch, onDashboard, onRestart }) 
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
+  xpVerification: { fontFamily: FONT.bodySemi, fontSize: 13, textAlign: "center", marginBottom: 18 },
+  xpVerified: { color: C.gd },
+  xpPending: { color: C.gold },
 
   donutWrap: { width: 230, height: 230, alignSelf: "center", marginVertical: 10, alignItems: "center", justifyContent: "center" },
   donutCenter: { position: "absolute", alignItems: "center" },

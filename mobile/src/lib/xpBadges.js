@@ -1,11 +1,9 @@
-// Shared XP + badge award logic. Mirrors the pattern already used for Gowiser
-// article reads (mobile/app/(gowealthy)/gowiser/[articleId].jsx `awardXP`):
-// a per-badge marker doc under questionnaire_submissions/{phone}/badges/{badgeId}
-// makes the award idempotent, an xpLedger entry keeps an audit trail, and
-// xp.balance/xp.totalEarned on the root user doc stay in sync via increment().
-import { doc, getDoc, setDoc, updateDoc, increment, collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../config/firebase';
+// Shared badge definitions and trigger-specific metadata. The actual balance,
+// ledger, duplicate protection, and verification live in xpLedger.js so badges
+// and GoWiser articles use the same atomic award path.
+import { serverTimestamp } from 'firebase/firestore';
 import { celebrateXP } from '../components/XPCelebration';
+import { awardXPOnce } from './xpLedger';
 
 export const BADGES = {
   persona_done: {
@@ -19,7 +17,7 @@ export const BADGES = {
     id: 'kyc_complete',
     name: 'Vault Unlocked',
     emoji: '🔐',
-    description: 'Your KYC is verified with NSE.',
+    description: 'Completed mutual fund onboarding and activated your NSE account.',
     xp: 100,
   },
   first_investment: {
@@ -49,50 +47,40 @@ export const BADGES = {
 // the triggering event happens — the marker doc makes repeat calls a no-op.
 export async function awardBadge(phone, badgeId, sourceId = null) {
   const badge = BADGES[badgeId];
-  if (!badge || !phone) return { awarded: false };
+  if (!badge || !phone) return { status: 'invalid', awarded: false, verified: false };
 
   try {
-    const markerRef = doc(db, 'questionnaire_submissions', phone, 'badges', badgeId);
-    const markerSnap = await getDoc(markerRef);
-    if (markerSnap.exists()) return { awarded: false, badge };
-
-    const userRef = doc(db, 'questionnaire_submissions', phone);
-    const userSnap = await getDoc(userRef);
-    const currentBalance = userSnap.exists() ? (userSnap.data()?.xp?.balance || 0) : 0;
-
-    const ledgerRef = collection(db, 'questionnaire_submissions', phone, 'xpLedger');
-    const ledgerDoc = await addDoc(ledgerRef, {
-      type: 'earn',
+    const result = await awardXPOnce({
+      phone,
+      awardId: `badge_${badgeId}`,
       amount: badge.xp,
-      balanceBefore: currentBalance,
-      balanceAfter: currentBalance + badge.xp,
       source: 'badge',
       sourceId: badgeId,
-      createdAt: serverTimestamp(),
+      markerCollection: 'badges',
+      markerId: badgeId,
+      markerData: {
+        badgeId,
+        name: badge.name,
+        emoji: badge.emoji,
+        sourceId: sourceId || null,
+        earnedAt: serverTimestamp(),
+      },
     });
 
-    await setDoc(markerRef, {
+    console.log('[xpBadges] verification', {
+      phone: `***${String(phone).slice(-4)}`,
       badgeId,
-      name: badge.name,
-      emoji: badge.emoji,
-      xpEarned: badge.xp,
-      sourceId: sourceId || null,
-      ledgerRef: ledgerDoc.id,
-      earnedAt: serverTimestamp(),
+      status: result.status,
+      verified: result.verified,
+      balanceAfter: result.balanceAfter,
     });
 
-    await updateDoc(userRef, {
-      'xp.balance': increment(badge.xp),
-      'xp.totalEarned': increment(badge.xp),
-      'xp.lastUpdated': serverTimestamp(),
-    });
+    if (result.awarded) celebrateXP({ emoji: badge.emoji, name: badge.name, xp: badge.xp });
 
-    celebrateXP({ emoji: badge.emoji, name: badge.name, xp: badge.xp });
-
-    return { awarded: true, badge };
+    return { ...result, badge };
   } catch (e) {
     console.error(`[xpBadges] award error for ${badgeId}:`, e);
-    return { awarded: false, badge, error: e };
+    return { status: 'failed', awarded: false, verified: false, badge, error: e };
   }
 }
 

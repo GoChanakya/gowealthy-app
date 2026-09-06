@@ -665,7 +665,6 @@ import { db } from '../../../../src/config/firebase';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';  // ← added getDoc, updateDoc
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';
 import { uploadToSignedPost } from '../../../../src/utils/upload';
-import { awardBadge } from '../../../../src/lib/xpBadges';
 const OCR_ENDPOINT = 'https://adhar-parser-763133497996.asia-south1.run.app';
 
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
@@ -1026,7 +1025,6 @@ const loadExistingData = async () => {
       if (kycStatus === 'S') {
         // KYC verified or registered — skip fresh KYC, go to email OTP
         console.log('✅ KYC found → navigating to Screen 4 (Email OTP)');
-        awardBadge(phoneNumber, 'kyc_complete').catch(() => {});
         router.push('/(gowealthy)/mf/onboarding/screen4');
       } else {
         // KYC not found / rejected — needs fresh KYC registration

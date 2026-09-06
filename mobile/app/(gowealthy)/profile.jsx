@@ -1027,7 +1027,7 @@ import { arrayUnion } from 'firebase/firestore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../src/config/firebase';
 import { BADGES, previewXpCelebration } from '../../src/lib/xpBadges';
-import { celebratePayment } from '../../src/components/XPCelebration';
+import { celebrateXP } from '../../src/components/XPCelebration';
 
 const { width } = Dimensions.get('window');
 const ORANGE = '#FF6300';
@@ -1251,12 +1251,20 @@ const ProfileScreen = () => {
         {/* Badges */}
         <SectionHeader label="Badges" />
         {__DEV__ && (
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={() => celebratePayment({ amount: 5000, fundName: 'Test Fund — Regular Growth' })}
-          >
-            <Text style={s.devHint}>🧪 DEV — tap a badge to preview its popup, or tap here to preview the payment-success celebration</Text>
-          </TouchableOpacity>
+          <View style={s.devPreviewRow}>
+            <View style={s.devPreviewCopy}>
+              <Text style={s.devPreviewLabel}>Animation preview</Text>
+              <Text style={s.devHint}>Does not add XP to this account</Text>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.78}
+              onPress={() => celebrateXP({ name: 'Preview reward', xp: 50 })}
+              style={s.devPreviewButton}
+            >
+              <View style={s.devPreviewDot} />
+              <Text style={s.devPreviewButtonText}>Test +50 XP</Text>
+            </TouchableOpacity>
+          </View>
         )}
         <View style={s.badgesContainer}>
           {Object.values(BADGES).map((badge, idx) => {
@@ -1589,7 +1597,21 @@ familyMemberName: {
   addButtonGradient: { paddingVertical: 16, alignItems: 'center', borderRadius: 14 },
   addButtonText: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
 
-  devHint: { color: 'rgba(255,255,255,0.35)', fontSize: 11, fontWeight: '600', marginBottom: 10 },
+  devPreviewRow: {
+    minHeight: 64, flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: 14, borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)', paddingHorizontal: 13, paddingVertical: 11, marginBottom: 12,
+  },
+  devPreviewCopy: { flex: 1 },
+  devPreviewLabel: { color: 'rgba(255,255,255,0.76)', fontSize: 12, fontWeight: '700', marginBottom: 3 },
+  devHint: { color: 'rgba(255,255,255,0.32)', fontSize: 10, fontWeight: '500' },
+  devPreviewButton: {
+    minHeight: 36, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13,
+    borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,133,0,0.28)',
+    backgroundColor: 'rgba(255,133,0,0.09)',
+  },
+  devPreviewDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: ORANGE2, marginRight: 7 },
+  devPreviewButtonText: { color: ORANGE2, fontSize: 11, fontWeight: '800' },
   badgesContainer: { gap: 10, marginBottom: 26 },
   badgeCard: {
     backgroundColor: '#0d1117', borderRadius: 16, borderWidth: 1, padding: 16,

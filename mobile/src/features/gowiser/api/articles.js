@@ -5,14 +5,13 @@ import {
   getDocs,
   doc,
   getDoc,
-  addDoc,
-  setDoc,
   updateDoc,
   increment,
   serverTimestamp,
 } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { db } from '../../../config/firebase';
+import { awardXPOnce } from '../../../lib/xpLedger';
 
 /**
  * Every Firestore read/write for GoWiser lives here, so screens and hooks never
@@ -20,7 +19,7 @@ import { db } from '../../../config/firebase';
  *
  *   products/gowiser/articles/{articleId}
  *   questionnaire_submissions/{phone}/blogsRead/{articleId}
- *   questionnaire_submissions/{phone}/xpLedger/{autoId}
+ *   questionnaire_submissions/{phone}/xpLedger/blog_read_{articleId}
  */
 
 const ARTICLES_PATH = ['products', 'gowiser', 'articles'];
@@ -74,40 +73,27 @@ export function incrementArticleViews(articleId) {
 }
 
 /**
- * Pay out an article's XP: append a ledger entry, mark the article read, and
- * bump the user's balance. Callers must guard against double-award — see
- * `hasCompletedArticle`. Returns false when there's no signed-in user.
+ * Awards an article's XP exactly once. The shared transaction creates the
+ * deterministic ledger record, completion marker, and balance update together.
+ * Returns true only when this call performed the award.
  */
 export async function awardArticleXP({ articleId, xp = 0 }) {
   const phone = await getCurrentPhone();
   if (!phone) return false;
 
-  const userRef = doc(db, USERS, phone);
-  const userSnap = await getDoc(userRef);
-  const balanceBefore = userSnap.exists() ? userSnap.data()?.xp?.balance || 0 : 0;
-
-  const ledgerDoc = await addDoc(collection(db, USERS, phone, 'xpLedger'), {
-    type: 'earn',
+  const result = await awardXPOnce({
+    phone,
+    awardId: `blog_read_${articleId}`,
     amount: xp,
-    balanceBefore,
-    balanceAfter: balanceBefore + xp,
     source: 'blog_read',
     sourceId: articleId,
-    createdAt: serverTimestamp(),
+    markerCollection: 'blogsRead',
+    markerId: articleId,
+    markerData: {
+      completedAt: serverTimestamp(),
+      completed: true,
+    },
   });
 
-  await setDoc(doc(db, USERS, phone, 'blogsRead', articleId), {
-    completedAt: serverTimestamp(),
-    xpEarned: xp,
-    ledgerRef: ledgerDoc.id,
-    completed: true,
-  });
-
-  await updateDoc(userRef, {
-    'xp.balance': increment(xp),
-    'xp.totalEarned': increment(xp),
-    'xp.lastUpdated': serverTimestamp(),
-  });
-
-  return true;
+  return result.awarded;
 }

@@ -8,7 +8,6 @@ import { useArticleStory } from '../hooks/useArticleStory';
 import { useStoryTaps } from '../hooks/useStoryTaps';
 import Slide from '../components/slides';
 import { StoryTopBar, SlideCounter } from '../components/StoryChrome';
-import XPCelebration from '../components/XPCelebration';
 import LoadingState from '../components/LoadingState';
 import PrimaryAction from '../components/PrimaryAction';
 
@@ -24,8 +23,6 @@ export default function ArticleStoryScreen() {
     currentSlide,
     goToSlide,
     alreadyEarned,
-    showXPAnimation,
-    xpScale,
   } = useArticleStory(articleId);
 
   const { onTouchStart, onTouchEnd, scrollHandlers, claimTap } = useStoryTaps({
@@ -68,7 +65,6 @@ export default function ArticleStoryScreen() {
 
         <SlideCounter current={currentSlide + 1} total={slides.length} />
 
-        {showXPAnimation && <XPCelebration xp={article.xp} scale={xpScale} />}
       </View>
     </>
   );

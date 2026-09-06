@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Animated } from 'react-native';
 import {
   fetchArticle,
   hasCompletedArticle,
@@ -7,13 +6,14 @@ import {
   awardArticleXP,
 } from '../api/articles';
 import { buildSlides } from '../lib/slides';
+import { celebrateXP } from '../../../components/XPCelebration';
 
 /**
  * Loads an article, builds its slide deck, and owns the XP payout.
  *
- * XP is awarded once, when the reader reaches the final slide — guarded by both
- * `alreadyEarned` (persisted) and `hasAwarded` (this session) so a back-and-
- * forward tap can't double-pay.
+ * XP is awarded when the reader reaches the final slide. `hasAwarded` prevents
+ * repeated calls in this session; the shared Firestore transaction is the
+ * authoritative cross-session and cross-device duplicate guard.
  */
 export function useArticleStory(articleId) {
   const [article, setArticle] = useState(null);
@@ -21,10 +21,8 @@ export function useArticleStory(articleId) {
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [alreadyEarned, setAlreadyEarned] = useState(false);
-  const [showXPAnimation, setShowXPAnimation] = useState(false);
 
   const hasAwarded = useRef(false);
-  const xpScale = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     let cancelled = false;
@@ -59,27 +57,24 @@ export function useArticleStory(articleId) {
     };
   }, [articleId]);
 
-  const playXPAnimation = useCallback(() => {
-    setShowXPAnimation(true);
-    Animated.sequence([
-      Animated.spring(xpScale, { toValue: 1, friction: 4, tension: 40, useNativeDriver: true }),
-      Animated.delay(2000),
-      Animated.timing(xpScale, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]).start(() => setShowXPAnimation(false));
-  }, [xpScale]);
-
   const awardXP = useCallback(async () => {
     if (hasAwarded.current || !article) return;
     hasAwarded.current = true;
 
     try {
-      await awardArticleXP({ articleId, xp: article.xp || 0 });
+      const awarded = await awardArticleXP({ articleId, xp: article.xp || 0 });
+      if (awarded) {
+        celebrateXP({
+          eyebrow: 'READING REWARD',
+          name: 'Article complete',
+          xp: article.xp || 0,
+        });
+      }
     } catch (error) {
+      hasAwarded.current = false;
       console.error('[gowiser] XP award failed:', error);
     }
-
-    playXPAnimation();
-  }, [article, articleId, playXPAnimation]);
+  }, [article, articleId]);
 
   /** Move the deck, awarding XP the first time the last slide is reached. */
   const goToSlide = useCallback(
@@ -98,7 +93,5 @@ export function useArticleStory(articleId) {
     currentSlide,
     goToSlide,
     alreadyEarned,
-    showXPAnimation,
-    xpScale,
   };
 }

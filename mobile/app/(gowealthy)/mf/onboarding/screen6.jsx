@@ -1040,10 +1040,12 @@ import {
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import Toast from 'react-native-toast-message';
 import { db } from '../../../../src/config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { refreshUccActivation, UCC_STATUS } from '../../../../src/lib/ucc';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';// const NSE_SERVICE_URL = 'http://172.20.10.2:3000'; // ← your IP
+import { awardBadge } from '../../../../src/lib/xpBadges';
 
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
 const C = {
@@ -1252,6 +1254,44 @@ const Screen6FATCAAndUCC = () => {
   const [error, setError]                 = useState('');
   const [authState, setAuthState]         = useState(null);  // { status, authorized, ... }
   const [checkingAuth, setCheckingAuth]   = useState(false); // manual "Done" in progress
+  const xpAwardPromiseRef = useRef(null);
+
+  const creditMfOnboardingXp = async (phone) => {
+    if (!xpAwardPromiseRef.current) {
+      xpAwardPromiseRef.current = awardBadge(phone, 'kyc_complete');
+    }
+
+    const result = await xpAwardPromiseRef.current;
+    console.log('[mf-onboarding-xp] verification result', {
+      phone: `***${String(phone).slice(-4)}`,
+      status: result.status,
+      verified: result.verified,
+      balanceAfter: result.balanceAfter,
+    });
+
+    if (result.status === 'awarded' && result.verified) {
+      Toast.show({
+        type: 'success',
+        text1: '+100 XP credited',
+        text2: `MF onboarding complete • Balance: ${result.balanceAfter} XP`,
+      });
+    } else if (result.status === 'already_awarded' && result.verified) {
+      Toast.show({
+        type: 'info',
+        text1: 'MF onboarding XP already credited',
+        text2: `Current balance: ${result.balanceAfter} XP`,
+      });
+    } else {
+      xpAwardPromiseRef.current = null;
+      Toast.show({
+        type: 'error',
+        text1: 'XP could not be credited',
+        text2: 'Please try again from the authorization screen.',
+      });
+    }
+
+    return result;
+  };
 
   // ── On mount: load Aadhaar address to pre-fill city/pincode
   useEffect(() => {
@@ -1673,6 +1713,7 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
       const r = await refreshUccActivation(phone);
       setAuthState(r);
       if (r.authorized) {
+        await creditMfOnboardingXp(phone);
         setShowAuthModal(false);
         router.replace('/(gowealthy)/mf/trading/funds');
       } else {
@@ -1688,11 +1729,17 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
     }
   };
 
-  const openSampleSchemes = () => {
+  const openSampleSchemes = async () => {
     if (!authState?.authorized) {
       Alert.alert('Authorization required', 'Complete NSE CL_ACT authorization before entering the trading platform.');
       return;
     }
+    const phone = await AsyncStorage.getItem('user_phone');
+    if (!phone) {
+      Alert.alert('Session expired', 'Please sign in again.');
+      return;
+    }
+    await creditMfOnboardingXp(phone);
     setShowAuthModal(false);
     router.replace('/(gowealthy)/mf/trading/funds');
   };
