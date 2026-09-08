@@ -12,6 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { db } from '../../src/config/firebase';
 import { doc, setDoc, getDoc, collection } from 'firebase/firestore';
+import { hapticError, hapticSmall, hapticSuccess } from '../../src/lib/haptics';
 
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -238,6 +239,7 @@ const OtpScreen = () => {
   setLoading(true);
   try {
     if (code === genOTP && Date.now() <= expiry) {
+      hapticSuccess();
       await AsyncStorage.setItem('user_phone', phone);
       await AsyncStorage.setItem('auth_token', 'verified');
       await AsyncStorage.setItem('auth_timestamp', Date.now().toString());
@@ -255,16 +257,19 @@ if (!finalSnap?.exists() || !finalSnap.data()?.full_name) {
   router.replace('/(gowealthy)');
 }
     } else if (Date.now() > expiry) {
+      hapticError();
       Alert.alert('OTP Expired', 'Please request a new one.');
       setDigits(Array(OTP_LEN).fill(''));
       refs.current[0]?.focus();
     } else {
+      hapticError();
       shakeBoxes();
       Alert.alert('Incorrect OTP', 'Please try again.');
       setDigits(Array(OTP_LEN).fill(''));
       refs.current[0]?.focus();
     }
   } catch {
+    hapticError();
     Alert.alert('Error', 'Verification failed. Please try again.');
   } finally {
     setLoading(false);
@@ -281,7 +286,7 @@ if (!finalSnap?.exists() || !finalSnap.data()?.full_name) {
     setTimer(COOLDOWN);
     refs.current[0]?.focus();
     try {
-      await fetch(BUBBLE_API_URL, {
+      const response = await fetch(BUBBLE_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': VITE_BUBBLE_AUTH },
         body: JSON.stringify({
@@ -289,7 +294,12 @@ if (!finalSnap?.exists() || !finalSnap.data()?.full_name) {
           message: `Your OTP is ${otp} for GoWealthy. Please do not share it with anyone. Valid for 5 minutes.`,
         }),
       });
-    } catch (e) { console.error('Resend error:', e); }
+      if (!response.ok) throw new Error('Could not resend OTP');
+      hapticSmall();
+    } catch (e) {
+      hapticError();
+      console.error('Resend error:', e);
+    }
   };
 
   // Box state color

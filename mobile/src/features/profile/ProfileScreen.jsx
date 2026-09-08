@@ -5,8 +5,8 @@ import {
   Image,
   Pressable,
   ScrollView,
-  ActivityIndicator,
   Alert,
+  Modal,
   StyleSheet,
   Platform,
 } from 'react-native';
@@ -16,6 +16,8 @@ import { C, FONT, RADIUS, Embers, Eyebrow, FadeInUp } from '../../lib/ui-kit';
 import { FEATURES } from '../../config/features';
 import { TAB_BAR_CLEARANCE } from '../shell/TabBar';
 import { fetchProfile, logout, deleteAccount } from './api';
+import { hapticError, hapticSmall, hapticWarning } from '../../lib/haptics';
+import LogoLoader from '../../components/LogoLoader';
 
 const AVATAR = require('../../../assets/images/profile/profileUser.png');
 
@@ -33,6 +35,7 @@ export default function ProfileScreen({ onBack }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [showLoaderPreview, setShowLoaderPreview] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +48,12 @@ export default function ProfileScreen({ onBack }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!showLoaderPreview) return undefined;
+    const timer = setTimeout(() => setShowLoaderPreview(false), 3500);
+    return () => clearTimeout(timer);
+  }, [showLoaderPreview]);
+
   const toAuth = () => router.replace('/(auth)/landing');
 
   const confirmRestart = () =>
@@ -55,7 +64,10 @@ export default function ProfileScreen({ onBack }) {
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Restart',
-          onPress: () => router.replace('/(gowealthy)/questionnaire-v2/section1'),
+          onPress: () => {
+            hapticWarning();
+            router.replace('/(gowealthy)/questionnaire-v2/section1');
+          },
         },
       ]
     );
@@ -67,6 +79,7 @@ export default function ProfileScreen({ onBack }) {
         text: 'Log out',
         style: 'destructive',
         onPress: async () => {
+          hapticWarning();
           setBusy(true);
           await logout();
           toAuth();
@@ -84,11 +97,13 @@ export default function ProfileScreen({ onBack }) {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
+            hapticWarning();
             setBusy(true);
             try {
               await deleteAccount();
               toAuth();
             } catch (e) {
+              hapticError();
               console.error('[profile] delete failed:', e);
               setBusy(false);
               Alert.alert('Something went wrong', 'Please try again in a moment.');
@@ -99,12 +114,7 @@ export default function ProfileScreen({ onBack }) {
     );
 
   if (loading) {
-    return (
-      <View style={styles.centered}>
-        <Embers />
-        <ActivityIndicator color={C.o} size="large" />
-      </View>
-    );
+    return <LogoLoader label="Loading your profile…" />;
   }
 
   return (
@@ -112,7 +122,7 @@ export default function ProfileScreen({ onBack }) {
       <Embers />
 
       <View style={styles.nav}>
-        <Pressable onPress={onBack} style={styles.backBtn} hitSlop={10}>
+        <Pressable onPress={() => { hapticSmall(); onBack?.(); }} style={styles.backBtn} hitSlop={10}>
           <Text style={styles.backText}>←</Text>
         </Pressable>
         <View style={styles.stepTag}>
@@ -152,6 +162,17 @@ export default function ProfileScreen({ onBack }) {
 
         <FadeInUp delay={200}>
           <View style={styles.section}>
+            <Eyebrow>App experience</Eyebrow>
+            <ActionRow
+              label="Test loading screen"
+              hint="Preview the animation for a few seconds"
+              onPress={() => setShowLoaderPreview(true)}
+            />
+          </View>
+        </FadeInUp>
+
+        <FadeInUp delay={260}>
+          <View style={styles.section}>
             <Eyebrow>Account</Eyebrow>
             <ActionRow label="Log out" onPress={confirmLogout} disabled={busy} />
             <ActionRow label="Delete account" hint="Erases your data permanently" danger onPress={confirmDelete} disabled={busy} />
@@ -176,6 +197,24 @@ export default function ProfileScreen({ onBack }) {
           </FadeInUp>
         )}
       </ScrollView>
+
+      <Modal
+        visible={showLoaderPreview}
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setShowLoaderPreview(false)}
+      >
+        <View style={styles.previewRoot}>
+          <LogoLoader label="Preparing your wealth journey…" />
+          <Pressable
+            onPress={() => { hapticSmall(); setShowLoaderPreview(false); }}
+            style={styles.previewClose}
+            hitSlop={10}
+          >
+            <Text style={styles.previewCloseText}>Close preview</Text>
+          </Pressable>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -192,7 +231,7 @@ function Stat({ label, value, accent }) {
 function ActionRow({ label, hint, danger, disabled, onPress }) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => { hapticSmall(); onPress?.(); }}
       disabled={disabled}
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed, disabled && { opacity: 0.5 }]}
     >
@@ -207,7 +246,6 @@ function ActionRow({ label, hint, danger, disabled, onPress }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: C.bg },
-  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg },
 
   nav: {
     flexDirection: 'row',
@@ -313,4 +351,17 @@ const styles = StyleSheet.create({
   rowLabel: { fontSize: 14.5, fontFamily: FONT.bodyMed, color: C.ink },
   rowHint: { fontSize: 11.5, fontFamily: FONT.body, color: C.muted, marginTop: 3 },
   rowArrow: { fontSize: 16, color: C.muted },
+  previewRoot: { flex: 1, backgroundColor: C.bg },
+  previewClose: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 54 : 34,
+    alignSelf: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: C.line2,
+    backgroundColor: C.glass,
+  },
+  previewCloseText: { color: C.muted, fontSize: 12, fontFamily: FONT.bodyMed },
 });

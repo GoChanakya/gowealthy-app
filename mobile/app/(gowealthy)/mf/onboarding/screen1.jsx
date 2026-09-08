@@ -625,6 +625,7 @@ import { db } from '../../../../src/config/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';
 import { uploadToSignedPost } from '../../../../src/utils/upload';
+import { hapticError, hapticSmall, hapticSuccess } from '../../../../src/lib/haptics';
  // CHANGE TO YOUR IP
 const PAN_OCR_ENDPOINT = 'https://pan-parser-763133497996.asia-south1.run.app';
 
@@ -795,6 +796,7 @@ useEffect(() => {
     });
 
     if (!result.canceled) {
+      hapticSmall();
       setPanImage(result.assets[0].uri);
       setIsProcessed(false);
       setPanData({ number: '', name: '', fatherName: '', dob: '' });
@@ -805,6 +807,7 @@ useEffect(() => {
 
   const handleProcessPAN = async () => {
     if (!panImage) {
+      hapticError();
       Alert.alert('Error', 'Please select an image first');
       return;
     }
@@ -816,6 +819,7 @@ useEffect(() => {
       // Get phone number from AsyncStorage
       const phoneNumber = await AsyncStorage.getItem('user_phone');
       if (!phoneNumber) {
+        hapticError();
         Alert.alert('Error', 'User not found. Please log in again.');
         return;
       }
@@ -918,6 +922,7 @@ const ocrUrl = `${PAN_OCR_ENDPOINT}?file_uri=${encodedFileUri}`;
       setUploadProgress(100);
       setIsProcessing(false);
       setIsProcessed(true);
+      hapticSuccess();
 
       console.log('✅ PAN OCR Processing Complete');
 
@@ -925,6 +930,7 @@ const ocrUrl = `${PAN_OCR_ENDPOINT}?file_uri=${encodedFileUri}`;
       await saveToFirebase(phoneNumber, mappedData, gcsFileUrl);
 
     } catch (error) {
+      hapticError();
       console.error('❌ Error in PAN processing:', error);
       Alert.alert('Error', error.message || 'Failed to process PAN card');
       setIsUploading(false);
@@ -977,6 +983,7 @@ const handleContinue = async () => {
   try {
     const phoneNumber = await AsyncStorage.getItem('user_phone');
     if (!phoneNumber) {
+      hapticError();
       Alert.alert('Error', 'Session expired. Please log in again.');
       return;
     }
@@ -988,6 +995,7 @@ const handleContinue = async () => {
  
     router.push('/(gowealthy)/mf/onboarding/screen2');
   } catch (error) {
+    hapticError();
     console.error('Error on continue:', error);
     Alert.alert('Error', 'Something went wrong. Please try again.');
   }
@@ -1018,7 +1026,7 @@ const handleContinue = async () => {
         </View>
 
         <View style={styles.topbar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => { hapticSmall(); router.back(); }} style={styles.backBtn} activeOpacity={0.8}>
             <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>
           <View style={styles.stepTag}>

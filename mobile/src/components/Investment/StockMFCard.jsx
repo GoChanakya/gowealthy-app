@@ -359,6 +359,7 @@ import {
   TrendingUp, FileText, Image as ImageIcon, X, Check,
   ChevronDown, Camera, Edit2, AlertCircle, Trash2, Loader2,
 } from 'lucide-react-native';
+import { hapticError, hapticSmall, hapticSuccess, hapticWarning } from '../../lib/haptics';
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const PURPLE = 'rgb(108,80,196)';
@@ -503,7 +504,7 @@ const ff = StyleSheet.create({
 // ─── Filter pill ──────────────────────────────────────────────────────────────
 const FilterPill = ({ label, active, onPress, small }) => (
   <TouchableOpacity
-    onPress={onPress}
+    onPress={() => { if (!active) hapticSmall(); onPress?.(); }}
     style={[fp.pill, small && fp.small, active && fp.active]}
   >
     <Text style={[fp.text, small && fp.smallText, active && fp.activeText]}>{label}</Text>
@@ -577,7 +578,11 @@ const StockMFCard = ({ data = { holdings: [] }, onAdd, onUpdate, onDelete }) => 
 
   const pickScreenshots = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') { Toast.show({ type: 'error', text1: 'Permission denied' }); return; }
+    if (status !== 'granted') {
+      hapticError();
+      Toast.show({ type: 'error', text1: 'Permission denied' });
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({ allowsMultipleSelection: true, mediaTypes: ImagePicker.MediaTypeOptions.Images });
     if (result.canceled) return;
     result.assets.forEach((asset, i) => {
@@ -587,6 +592,7 @@ const StockMFCard = ({ data = { holdings: [] }, onAdd, onUpdate, onDelete }) => 
   };
 
   const addFile = (fileObj) => {
+    hapticSmall();
     setUploadedFiles(prev => [...prev, fileObj]);
     simulateUpload(fileObj);
   };
@@ -608,7 +614,7 @@ const StockMFCard = ({ data = { holdings: [] }, onAdd, onUpdate, onDelete }) => 
 
   // ── Password submit ───────────────────────────────────────────────────────
   const handlePasswordSubmit = () => {
-    if (!casPassword) { Toast.show({ type: 'error', text1: 'Password required' }); return; }
+    if (!casPassword) { hapticError(); Toast.show({ type: 'error', text1: 'Password required' }); return; }
     setPasswordSheetOpen(false);
     startProcessing(pendingOCRFile, casPassword);
     setPendingOCRFile(null);
@@ -628,12 +634,14 @@ const StockMFCard = ({ data = { holdings: [] }, onAdd, onUpdate, onDelete }) => 
     try {
       const ocrResponse = await parseOCRResponse(file, password);
       const extracted   = extractHoldings(ocrResponse, toDateStr(new Date()));
-      if (!extracted.length) { Toast.show({ type: 'error', text1: 'No holdings detected' }); setIsProcessing(false); return; }
+      if (!extracted.length) { hapticError(); Toast.show({ type: 'error', text1: 'No holdings detected' }); setIsProcessing(false); return; }
       for (const h of extracted) await onAdd(h);
       Toast.show({ type: 'success', text1: 'Holdings imported!', text2: `${extracted.length} holdings added` });
+      hapticSuccess();
       setUploadedFiles([]);
       setIsExpanded(false);
     } catch (e) {
+      hapticError();
       Toast.show({ type: 'error', text1: 'Processing failed', text2: e.message });
     }
     setIsProcessing(false);
@@ -657,6 +665,7 @@ const StockMFCard = ({ data = { holdings: [] }, onAdd, onUpdate, onDelete }) => 
 
   const handleSaveEdit = async () => {
     if (!editFormData.name || !editFormData.quantity || !editFormData.purchaseDate) {
+      hapticError();
       Toast.show({ type: 'error', text1: 'Missing fields', text2: 'Name, Quantity and Purchase Date are required' });
       return;
     }
@@ -674,10 +683,12 @@ const StockMFCard = ({ data = { holdings: [] }, onAdd, onUpdate, onDelete }) => 
       updatedAt:     new Date().toISOString(),
     });
     if (result?.success) {
+      hapticSuccess();
       setEditSheetOpen(false);
       setEditingHolding(null);
       Toast.show({ type: 'success', text1: 'Holding updated' });
     } else {
+      hapticError();
       Toast.show({ type: 'error', text1: 'Update failed', text2: result?.error });
     }
     setIsSaving(false);
@@ -685,13 +696,16 @@ const StockMFCard = ({ data = { holdings: [] }, onAdd, onUpdate, onDelete }) => 
 
   // ── Delete ────────────────────────────────────────────────────────────────
   const confirmDelete = async () => {
+    hapticWarning();
     setIsSaving(true);
     const result = await onDelete(holdingToDelete);
     if (result?.success) {
+      hapticSuccess();
       setDeleteSheetOpen(false);
       setHoldingToDelete(null);
       Toast.show({ type: 'success', text1: 'Holding deleted' });
     } else {
+      hapticError();
       Toast.show({ type: 'error', text1: 'Delete failed', text2: result?.error });
     }
     setIsSaving(false);
@@ -707,7 +721,7 @@ const StockMFCard = ({ data = { holdings: [] }, onAdd, onUpdate, onDelete }) => 
         {/* Stats header */}
         <TouchableOpacity
           style={s.headerArea}
-          onPress={() => !isProcessing && setIsExpanded(v => !v)}
+          onPress={() => { if (!isProcessing) { hapticSmall(); setIsExpanded(v => !v); } }}
           activeOpacity={0.85}
         >
           <View style={s.titleRow}>
@@ -756,7 +770,7 @@ const StockMFCard = ({ data = { holdings: [] }, onAdd, onUpdate, onDelete }) => 
                 <TouchableOpacity
                   key={key}
                   style={[s.tabBtn, activeTab === key && s.tabBtnActive]}
-                  onPress={() => setActiveTab(key)}
+                  onPress={() => { if (activeTab !== key) hapticSmall(); setActiveTab(key); }}
                 >
                   <Icon size={14} color={activeTab === key ? '#fff' : GRAY} />
                   <Text style={[s.tabText, activeTab === key && s.tabTextActive]}>{label}</Text>
@@ -858,7 +872,7 @@ const StockMFCard = ({ data = { holdings: [] }, onAdd, onUpdate, onDelete }) => 
                         {/* Row */}
                         <TouchableOpacity
                           style={s.holdingRow}
-                          onPress={() => setExpandedHolding(isOpen ? null : holding.id)}
+                          onPress={() => { hapticSmall(); setExpandedHolding(isOpen ? null : holding.id); }}
                           activeOpacity={0.8}
                         >
                           <View style={{ flex: 1 }}>
@@ -986,7 +1000,7 @@ const StockMFCard = ({ data = { holdings: [] }, onAdd, onUpdate, onDelete }) => 
         {editingHolding?.type === 'Stock' && (
           <>
             <Label>Market Cap</Label>
-            <TouchableOpacity style={ff.input} onPress={() => setCapSheetOpen(true)}>
+            <TouchableOpacity style={ff.input} onPress={() => { hapticSmall(); setCapSheetOpen(true); }}>
               <Text style={{ color: editFormData.marketCap ? '#fff' : GRAY, fontSize: 15 }}>
                 {editFormData.marketCap || 'Select Market Cap'}
               </Text>
@@ -1025,7 +1039,7 @@ const StockMFCard = ({ data = { holdings: [] }, onAdd, onUpdate, onDelete }) => 
           <TouchableOpacity
             key={cap}
             style={[s.pickerRow, editFormData.marketCap === cap && s.pickerRowActive]}
-            onPress={() => { setEdit('marketCap', cap); setCapSheetOpen(false); }}
+            onPress={() => { hapticSmall(); setEdit('marketCap', cap); setCapSheetOpen(false); }}
           >
             <Text style={[s.pickerText, editFormData.marketCap === cap && { color: '#fff', fontWeight: '700' }]}>{cap}</Text>
             {editFormData.marketCap === cap && <Check size={16} color={PURPLE} />}

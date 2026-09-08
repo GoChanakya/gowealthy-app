@@ -10,6 +10,7 @@ import {
 import { C, FONT, RADIUS, ICON, Embers, ProgressBar, TopBar, PrimaryButton, Eyebrow, kitStyles } from "../../../../src/lib/ui-kit";
 import { Shield, Target, TrendingUp, Map, Check } from "lucide-react-native";
 import { Ico } from "../../../../src/lib/icons";
+import { hapticSmall, hapticSuccess } from "../../../../src/lib/haptics";
 
 const B2_MSG = ['Sizing your emergency fund', 'Weighting by priority', 'Running the numbers', 'Splitting your monthly amount', 'Done'];
 const B2_ICON = [Shield, Target, TrendingUp, Map, Check];
@@ -49,6 +50,7 @@ export default function Section4() {
           onDone={() => {
             const allocation = buildAllocation(state.monthlyInvestment, state.living, state.selectedGoals);
             setAllocation(allocation);
+            hapticSuccess();
             goNext();
           }}
         />
@@ -102,7 +104,7 @@ function HorizonRow({ sg, idx, setGoalYears }) {
           return (
             <Pressable
               key={p.label}
-              onPress={() => setGoalYears(sg.key, p.years)}
+              onPress={() => { if (!active) hapticSmall(); setGoalYears(sg.key, p.years); }}
               style={[styles.hchip, active && { borderColor: C.o, backgroundColor: "rgba(255,106,26,0.12)" }]}
             >
               <Text style={[styles.hchipText, active && { color: C.o2, fontFamily: FONT.bodySemi }]}>{p.label}</Text>

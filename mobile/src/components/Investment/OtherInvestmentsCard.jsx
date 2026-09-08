@@ -10,6 +10,7 @@ import {
   DollarSign, FileText, Check, Filter,
   AlertTriangle, Edit2,
 } from 'lucide-react-native';
+import { hapticError, hapticSmall, hapticSuccess, hapticWarning } from '../../lib/haptics';
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const PURPLE = 'rgb(108,80,196)';
@@ -173,6 +174,7 @@ const OtherInvestmentsCard = ({ data, onAdd, onUpdate, onDelete }) => {
   const handleSubmit = async () => {
     const { type, name, investedAmount, purchaseDate } = formData;
     if (!type || !name || !investedAmount || !purchaseDate) {
+      hapticError();
       Toast.show({ type: 'error', text1: 'Missing fields', text2: 'Type, Name, Amount and Date are required' });
       return;
     }
@@ -185,9 +187,11 @@ const OtherInvestmentsCard = ({ data, onAdd, onUpdate, onDelete }) => {
       : await onAdd({ ...base, id: `inv_${Date.now()}`, addedAt: new Date().toISOString() });
 
     if (result?.success) {
+      hapticSuccess();
       resetForm();
       Toast.show({ type: 'success', text1: isEditing ? 'Investment updated' : 'Investment added', text2: name });
     } else {
+      hapticError();
       Toast.show({ type: 'error', text1: isEditing ? 'Update failed' : 'Add failed', text2: result?.error || 'Please try again' });
     }
     setIsSaving(false);
@@ -213,14 +217,17 @@ const OtherInvestmentsCard = ({ data, onAdd, onUpdate, onDelete }) => {
   // ── Delete ────────────────────────────────────────────────────────────────
   const confirmDelete = async () => {
     if (!investmentToDelete) return;
+    hapticWarning();
     setIsSaving(true);
     const result = await onDelete(investmentToDelete);
     if (result?.success) {
+      hapticSuccess();
       setExpandedInvestment(null);
       setDeleteOpen(false);
       setInvestmentToDelete(null);
       Toast.show({ type: 'success', text1: 'Investment deleted' });
     } else {
+      hapticError();
       Toast.show({ type: 'error', text1: 'Delete failed', text2: result?.error });
     }
     setIsSaving(false);
@@ -234,7 +241,7 @@ const OtherInvestmentsCard = ({ data, onAdd, onUpdate, onDelete }) => {
         {/* Stats header */}
         <TouchableOpacity
           style={s.headerArea}
-          onPress={() => !isSaving && setIsExpanded(v => !v)}
+          onPress={() => { if (!isSaving) { hapticSmall(); setIsExpanded(v => !v); } }}
           activeOpacity={0.85}
         >
           <View style={s.titleRow}>
@@ -287,7 +294,7 @@ const OtherInvestmentsCard = ({ data, onAdd, onUpdate, onDelete }) => {
                         ? `All (${investments.length})`
                         : `${cat} (${groupedInvestments[cat]?.length || 0})`}
                       active={selectedCategory === cat}
-                      onPress={() => setSelectedCategory(cat)}
+                      onPress={() => { if (selectedCategory !== cat) hapticSmall(); setSelectedCategory(cat); }}
                     />
                   ))}
                 </ScrollView>
@@ -315,7 +322,7 @@ const OtherInvestmentsCard = ({ data, onAdd, onUpdate, onDelete }) => {
                     {/* Row */}
                     <TouchableOpacity
                       style={s.invRow}
-                      onPress={() => setExpandedInvestment(isOpen ? null : inv.id)}
+                      onPress={() => { hapticSmall(); setExpandedInvestment(isOpen ? null : inv.id); }}
                       activeOpacity={0.8}
                     >
                       <Text style={s.invIcon}>{icon}</Text>
@@ -420,7 +427,7 @@ const OtherInvestmentsCard = ({ data, onAdd, onUpdate, onDelete }) => {
       >
         {/* Type selector */}
         <Label required>Investment Type</Label>
-        <TouchableOpacity style={ff.input} onPress={() => setTypeSheetOpen(true)}>
+        <TouchableOpacity style={ff.input} onPress={() => { hapticSmall(); setTypeSheetOpen(true); }}>
           <Text style={{ color: '#fff', fontSize: 15 }}>
             {INVESTMENT_ICONS[formData.type]} {formData.type}
           </Text>
@@ -483,7 +490,7 @@ const OtherInvestmentsCard = ({ data, onAdd, onUpdate, onDelete }) => {
             <TouchableOpacity
               key={t}
               style={[s.pickerRow, active && s.pickerRowActive]}
-              onPress={() => { set('type', t); setTypeSheetOpen(false); }}
+              onPress={() => { hapticSmall(); set('type', t); setTypeSheetOpen(false); }}
             >
               <Text style={s.pickerIcon}>{INVESTMENT_ICONS[t]}</Text>
               <Text style={[s.pickerText, active && { color: '#fff', fontWeight: '700' }]}>{t}</Text>

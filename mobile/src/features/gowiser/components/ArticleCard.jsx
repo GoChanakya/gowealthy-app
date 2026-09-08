@@ -3,15 +3,20 @@ import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { C, FONT, RADIUS, gwStyles } from '../theme';
 import { FadeInUp } from '../../../lib/ui-kit';
+import { hapticSmall } from '../../../lib/haptics';
 
 /** Warm scrim over cover art so arbitrary CMS images stay inside the palette. */
 const SCRIM = ['rgba(212,71,10,0.16)', 'rgba(8,6,10,0.78)'];
 
 export default function ArticleCard({ article, onPress, delay = 0 }) {
+  const handlePress = () => {
+    hapticSmall();
+    onPress?.();
+  };
   return (
     <FadeInUp delay={delay}>
       <Pressable
-        onPress={onPress}
+        onPress={handlePress}
         style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
       >
         <View style={styles.imageWrap}>

@@ -10,9 +10,9 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { C, FONT } from '../lib/ui-kit';
+import { hapticSuccess } from '../lib/haptics';
 
 // Ember-forge tokens, so the reward moment matches the rest of the app.
 const ORANGE = C.o2;
@@ -95,7 +95,7 @@ export default function XPCelebrationHost() {
     echo.setValue(0);
     copy.setValue(0);
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    hapticSuccess();
 
     Animated.parallel([
       Animated.timing(backdrop, { toValue: 1, duration: 180, useNativeDriver: true }),

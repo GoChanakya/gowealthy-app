@@ -14,8 +14,8 @@ import {
   PanResponder,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Haptics from "expo-haptics";
-// ^ if this isn't installed yet: npx expo install expo-haptics
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { hapticSmall, hapticSuccess } from "../../../src/lib/haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useNavigation } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
@@ -204,6 +204,7 @@ function useDashboardData() {
 export default function Home() {
   const router = useRouter();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { status, raw, name } = useDashboardData();
   const [investStarted, setInvestStarted] = useState(false);
   const [comingSoon, setComingSoon] = useState(false);
@@ -301,7 +302,7 @@ export default function Home() {
       <View style={styles.centerRoot}>
         <Text style={styles.centerTitle}>No blueprint yet</Text>
         <Text style={styles.centerText}>Finish the questionnaire to build your plan.</Text>
-        <Pressable style={styles.centerBtn} onPress={() => router.replace("/(gowealthy)/questionnaire-v2/section1")}>
+        <Pressable style={styles.centerBtn} onPress={() => { hapticSmall(); router.replace("/(gowealthy)/questionnaire-v2/section1"); }}>
           <Text style={styles.centerBtnText}>Start the questionnaire →</Text>
         </Pressable>
       </View>
@@ -326,7 +327,12 @@ export default function Home() {
       <Embers />
 
       {/* STICKY IDENTITY HEADER */}
-      <View style={styles.dhead}>
+      <View
+        style={[
+          styles.dhead,
+          { paddingTop: Math.max(insets.top + 12, Platform.OS === "ios" ? 54 : 32) },
+        ]}
+      >
         <View style={styles.brandRow}>
          <View style={styles.logo}>
   <Image
@@ -365,7 +371,7 @@ export default function Home() {
           {NAV_ITEMS.map((n) => {
             const active = activeSec === n.key;
             return (
-              <Pressable key={n.key} onPress={() => jumpTo(n.key)} style={[styles.navChip, active && styles.navChipActive]}>
+              <Pressable key={n.key} onPress={() => { hapticSmall(); jumpTo(n.key); }} style={[styles.navChip, active && styles.navChipActive]}>
                 <Text style={[styles.navChipIcon, active && styles.navChipTextActive]}>{n.icon}</Text>
                 <Text style={[styles.navChipText, active && styles.navChipTextActive]}>{n.label}</Text>
               </Pressable>
@@ -563,10 +569,10 @@ export default function Home() {
 
         {/* ---- ACTIONS + FOOTER ---- */}
         <View style={styles.btnsBlock}>
-          <Pressable style={styles.ghostBtn} onPress={goEditGoals}>
+          <Pressable style={styles.ghostBtn} onPress={() => { hapticSmall(); goEditGoals(); }}>
             <Text style={styles.ghostBtnText}>✏️ Adjust my plan</Text>
           </Pressable>
-          <Pressable style={styles.ghostBtn} onPress={goRestart}>
+          <Pressable style={styles.ghostBtn} onPress={() => { hapticSmall(); goRestart(); }}>
             <Text style={styles.ghostBtnText}>↺ Start over</Text>
           </Pressable>
         </View>
@@ -804,11 +810,7 @@ function StartInvestingButton({ onComplete, done }) {
   const handlePress = () => {
     if (done) return;
 
-    try {
-      Haptics.notificationAsync(
-        Haptics.NotificationFeedbackType.Success
-      );
-    } catch (e) {}
+    hapticSuccess();
 
     onComplete?.();
   };
@@ -1062,14 +1064,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: Platform.OS === "ios" ? 54 : 24,
-    paddingBottom: 10,
-    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 54 : 32,
+    paddingBottom: 14,
+    paddingHorizontal: 24,
     backgroundColor: "rgba(8,6,10,0.97)",
     borderBottomWidth: 1,
     borderBottomColor: C.line,
   },
-  brandRow: { flexDirection: "row", alignItems: "center", gap: 9 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 9, flexShrink: 1 },
   logo: {
     width: 25,
     height: 24,
@@ -1092,9 +1094,9 @@ fontSize: 18,
   fontFamily: "Syne",
 },
   brandTag: { color: C.muted, fontSize: 7, letterSpacing: 1.5, marginTop: 2 },
-  userRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  duName: { color: C.ink, fontSize: 12, fontWeight: "600", maxWidth: 104 },
-  duRole: { color: C.o2, fontSize: 9, maxWidth: 104, marginTop: 1 },
+  userRow: { flexDirection: "row", alignItems: "center", gap: 8, marginLeft: 12, flexShrink: 1 },
+  duName: { color: C.ink, fontSize: 12, fontWeight: "600", maxWidth: 124, textAlign: "right" },
+  duRole: { color: C.o2, fontSize: 9, maxWidth: 124, marginTop: 1, textAlign: "right" },
   avatar: {
     width: 32,
     height: 32,

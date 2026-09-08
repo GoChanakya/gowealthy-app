@@ -23,6 +23,7 @@ import {
 } from "react-native";
 import { db } from "../../../../src/config/firebase"; 
 import { ALL_STOCKS, getStockBySymbol } from "../utils/_stockData";
+import { hapticError, hapticSmall, hapticSuccess, hapticWarning } from "../../../../src/lib/haptics";
 
 export default function WatchlistScreen({ navigation, refreshTrigger }) {
   const [watchlist, setWatchlist] = useState([]);
@@ -66,6 +67,7 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
 
       setWatchlist(stocks);
     } catch (error) {
+      hapticError();
       console.error("Error loading watchlist:", error);
       Alert.alert("Error", "Failed to load watchlist");
     } finally {
@@ -77,6 +79,7 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
     try {
       const userId = await AsyncStorage.getItem("userId");
       if (!userId) {
+        hapticError();
         Alert.alert("Error", "Please login again");
         return;
       }
@@ -84,6 +87,7 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
       // Check if already in watchlist
       const exists = watchlist.find((s) => s.symbol === stock.symbol);
       if (exists) {
+        hapticWarning();
         Alert.alert("Already Added", "This stock is already in your watchlist");
         return;
       }
@@ -111,8 +115,10 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
       setAddStockModalVisible(false);
       setSearchQuery("");
       setSearchResults([]);
+      hapticSuccess();
       Alert.alert("Success", "Stock added to watchlist");
     } catch (error) {
+      hapticError();
       console.error("Error adding stock:", error);
       Alert.alert("Error", "Failed to add stock");
     }
@@ -136,6 +142,7 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
 
   const handleAddTag = async () => {
     if (!tagInput.trim()) {
+      hapticError();
       Alert.alert("Error", "Please enter a tag");
       return;
     }
@@ -167,8 +174,10 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
 
       setTagModalVisible(false);
       setTagInput("");
+      hapticSuccess();
       Alert.alert("Success", "Tag added successfully");
     } catch (error) {
+      hapticError();
       console.error("Error adding tag:", error);
       Alert.alert("Error", "Failed to add tag");
     }
@@ -197,7 +206,9 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
       );
 
       Alert.alert("Success", "Tag removed");
+      hapticSmall();
     } catch (error) {
+      hapticError();
       console.error("Error removing tag:", error);
       Alert.alert("Error", "Failed to remove tag");
     }
@@ -213,6 +224,7 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
           text: "Remove",
           style: "destructive",
           onPress: async () => {
+            hapticWarning();
             try {
               const userId = await AsyncStorage.getItem("userId");
               if (!userId) return;
@@ -229,8 +241,10 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
               await deleteDoc(stockRef);
 
               setWatchlist((prev) => prev.filter((s) => s.id !== stock.id));
+              hapticSuccess();
               Alert.alert("Success", "Removed from watchlist");
             } catch (error) {
+              hapticError();
               console.error("Error removing from watchlist:", error);
               Alert.alert("Error", "Failed to remove from watchlist");
             }
@@ -241,6 +255,7 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
   };
 
   const openTagModal = (stock) => {
+    hapticSmall();
     setSelectedStock(stock);
     setTagInput(stock.tag || "");
     setTagModalVisible(true);
@@ -250,8 +265,10 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
     const stockData = getStockBySymbol(item.symbol);
 
     if (stockData) {
+      hapticSmall();
       navigation.navigate("StockDetail", { stock: stockData });
     } else {
+      hapticError();
       Alert.alert("Error", "Could not load stock details");
     }
   };

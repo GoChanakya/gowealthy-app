@@ -8,6 +8,7 @@ import {
 // import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { hapticError, hapticSmall } from '../../src/lib/haptics';
 
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -113,18 +114,23 @@ export default function SignupScreen() {
     const handleNext = async () => {
         if (step === 'name') {
             if (!isValidName(name)) {
+                hapticError();
                 Alert.alert('Invalid Name', 'Please enter your full name (letters only, min 2 characters).');
                 return;
             }
+            hapticSmall();
             setStep('email');
         } else if (step === 'email') {
             if (!isValidEmail(email)) {
+                hapticError();
                 Alert.alert('Invalid Email', 'Please enter a valid email or leave it empty.');
                 return;
             }
+            hapticSmall();
             setStep('phone');
         } else if (step === 'phone') {
             if (!isValidPhone()) {
+                hapticError();
                 Alert.alert('Invalid Number', 'Please enter a valid 10-digit Indian mobile number.');
                 return;
             }
@@ -147,14 +153,17 @@ export default function SignupScreen() {
                 }),
             });
             if (res.ok) {
+                hapticSmall();
                 router.push({
                     pathname: '/(auth)/otp',
                     params: { phone: clean, otp, expiry, name: name.trim(), email: email.trim(), isSignup: 'true' },
                 });
             } else {
+                hapticError();
                 Alert.alert('Could not send OTP', 'Please check your number and try again.');
             }
         } catch {
+            hapticError();
             Alert.alert('Network Error', 'Check your connection and try again.');
         } finally {
             setLoading(false);

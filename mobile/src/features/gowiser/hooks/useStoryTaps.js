@@ -1,5 +1,6 @@
 import { useRef, useCallback, useState } from 'react';
 import { Dimensions } from 'react-native';
+import { hapticSmall } from '../../../lib/haptics';
 
 const { width } = Dimensions.get('window');
 
@@ -15,7 +16,7 @@ const TAP_SLOP = 10;
  * Guards against two false positives — a scroll gesture that ends inside a tap
  * zone, and a tap that was really meant for an MCQ option.
  */
-export function useStoryTaps({ currentSlide, goToSlide }) {
+export function useStoryTaps({ currentSlide, totalSlides, goToSlide }) {
   const [scrolling, setScrolling] = useState(false);
   const tapStartY = useRef(0);
   const childTapped = useRef(false);
@@ -30,10 +31,15 @@ export function useStoryTaps({ currentSlide, goToSlide }) {
       if (Math.abs(event.nativeEvent.pageY - tapStartY.current) > TAP_SLOP) return;
 
       const { locationX } = event.nativeEvent;
-      if (locationX < LEFT_ZONE) goToSlide(currentSlide - 1);
-      else if (locationX > RIGHT_ZONE) goToSlide(currentSlide + 1);
+      if (locationX < LEFT_ZONE && currentSlide > 0) {
+        hapticSmall();
+        goToSlide(currentSlide - 1);
+      } else if (locationX > RIGHT_ZONE && currentSlide < totalSlides - 1) {
+        hapticSmall();
+        goToSlide(currentSlide + 1);
+      }
     },
-    [scrolling, currentSlide, goToSlide]
+    [scrolling, currentSlide, totalSlides, goToSlide]
   );
 
   /** Spread onto any ScrollView inside a slide so dragging doesn't page. */

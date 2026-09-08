@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, ScrollView, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -34,6 +34,29 @@ export default function ArticleListScreen({ hideHeader = false }) {
   const router = useRouter();
   const { loading, activeFilter, setActiveFilter, filteredArticles } = useArticleList();
 
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('[GoWiser] Article list opened', {
+        screenFile: 'src/features/gowiser/screens/ArticleListScreen.jsx',
+        renderedFrom: hideHeader
+          ? 'src/features/shell/AppShell.jsx'
+          : 'app/(gowealthy)/gowiser/index.jsx',
+      });
+    }
+  }, [hideHeader]);
+
+  const openArticle = (article) => {
+    if (__DEV__) {
+      console.log(`[GoWiser] Opening article: ${article.title}`, {
+        articleId: article.id,
+        route: `/(gowealthy)/gowiser/${article.id}`,
+        routeFile: 'app/(gowealthy)/gowiser/[articleId].jsx',
+        screenFile: 'src/features/gowiser/screens/ArticleStoryScreen.jsx',
+      });
+    }
+    router.push(`/(gowealthy)/gowiser/${article.id}`);
+  };
+
   if (loading) return <LoadingState />;
 
   const empty = EMPTY[activeFilter];
@@ -61,7 +84,7 @@ export default function ArticleListScreen({ hideHeader = false }) {
               key={article.id}
               article={article}
               delay={Math.min(i, MAX_STAGGERED) * STAGGER_MS}
-              onPress={() => router.push(`/(gowealthy)/gowiser/${article.id}`)}
+              onPress={() => openArticle(article)}
             />
           ))
         )}

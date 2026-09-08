@@ -429,6 +429,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../../../src/config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';
+import { hapticError, hapticSmall } from '../../../../src/lib/haptics';
 
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
 const C = {
@@ -593,6 +594,7 @@ const Screen5Bank = () => {
 
   const handleContinue = async () => {
     if (accountNumber !== confirmAccountNumber) {
+      hapticError();
       Alert.alert('Mismatch', 'Account numbers do not match. Please re-enter.');
       return;
     }
@@ -601,6 +603,7 @@ const Screen5Bank = () => {
       setIsLoading(true);
       const phone = await AsyncStorage.getItem('user_phone');
       if (!phone) {
+        hapticError();
         Alert.alert('Error', 'Session expired. Please log in again.');
         return;
       }
@@ -626,9 +629,11 @@ const Screen5Bank = () => {
       });
 
       console.log('✅ Bank details saved to Firestore (NSE verification pending)');
+      hapticSmall();
       router.push('/(gowealthy)/mf/onboarding/screen6');
 
     } catch (error) {
+      hapticError();
       console.error('❌ Bank verify/save error:', error);
       Alert.alert('Error', 'Something went wrong verifying your bank account. Please try again.');
     } finally {
@@ -665,7 +670,7 @@ const Screen5Bank = () => {
         </View>
 
         <View style={styles.topbar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => { hapticSmall(); router.back(); }} style={styles.backBtn} activeOpacity={0.8}>
             <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>
           <View style={styles.stepTag}>
@@ -697,7 +702,7 @@ const Screen5Bank = () => {
               {accountTypes.map((type) => (
                 <TouchableOpacity
                   key={type.value}
-                  onPress={() => setAccountType(type.value)}
+                  onPress={() => { if (accountType !== type.value) hapticSmall(); setAccountType(type.value); }}
                   style={[
                     styles.accountTypeBtn,
                     accountType === type.value && styles.accountTypeBtnActive,

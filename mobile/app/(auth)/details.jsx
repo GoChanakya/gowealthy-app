@@ -9,6 +9,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { doc, setDoc, getDoc, collection } from 'firebase/firestore';
 import { db } from '../../src/config/firebase';
+import { hapticError, hapticSmall, hapticSuccess } from '../../src/lib/haptics';
 
 const { width: W, height: H } = Dimensions.get('window');
 const ND = Platform.OS !== 'web';
@@ -108,8 +109,10 @@ export default function DetailsScreen() {
         createdAt: snap.exists() ? (snap.data().createdAt ?? ts.toISOString()) : ts.toISOString(),
         timestamp: ts.toISOString(),
       }, { merge: true });
+      hapticSuccess();
       router.replace('/(gowealthy)');
     } catch (e) {
+      hapticError();
       console.error(e);
     } finally {
       setLoading(false);
@@ -118,10 +121,11 @@ export default function DetailsScreen() {
 
   const handleNext = async () => {
     if (step === 'name') {
-      if (!isValidName(name)) return;
+      if (!isValidName(name)) { hapticError(); return; }
+      hapticSmall();
       setStep('email');
     } else {
-      if (!isValidEmail(email)) return;
+      if (!isValidEmail(email)) { hapticError(); return; }
       await saveAndContinue();
     }
   };

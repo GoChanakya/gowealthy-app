@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Modal, Pressable, StyleSheet } from 'react-native';
+import { hapticSmall } from '../../lib/haptics';
 import { C, FONT, RADIUS } from '../../lib/ui-kit';
 
 /**
@@ -13,9 +14,14 @@ export default function ComingSoonSheet({
   title = 'Mutual Funds',
   message = "We're putting the finishing touches on direct mutual fund investing. It'll land in an upcoming release.",
 }) {
+  const closeWithHaptic = () => {
+    hapticSmall();
+    onClose?.();
+  };
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={closeWithHaptic}>
+      <Pressable style={styles.backdrop} onPress={closeWithHaptic}>
         <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
           <View style={styles.grabber} />
 
@@ -27,7 +33,7 @@ export default function ComingSoonSheet({
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
 
-          <Pressable style={styles.btn} onPress={onClose}>
+          <Pressable style={styles.btn} onPress={closeWithHaptic}>
             <Text style={styles.btnText}>Got it</Text>
           </Pressable>
         </Pressable>

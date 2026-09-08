@@ -430,6 +430,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../../../src/config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';
+import { hapticError, hapticSmall, hapticSuccess } from '../../../../src/lib/haptics';
 
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
 const C = {
@@ -590,14 +591,17 @@ const Screen4EmailOTP = () => {
       const data = await response.json();
 
       if (data.success) {
+        hapticSmall();
         setOtpSent(true);
         setSuccessMessage('Verification code sent! 📧');
         setOtp('');
         console.log('✅ OTP sent to:', email);
       } else {
+        hapticError();
         setErrorMessage(data.message || 'Failed to send verification code');
       }
     } catch (error) {
+      hapticError();
       console.error('Error sending OTP:', error);
       setErrorMessage('Network error. Please check your connection.');
     } finally {
@@ -619,6 +623,7 @@ const Screen4EmailOTP = () => {
       const data = await response.json();
 
       if (data.success) {
+        hapticSuccess();
         setSuccessMessage('Email verified successfully! ✅');
         console.log('✅ OTP verified for:', email);
 
@@ -639,9 +644,11 @@ const Screen4EmailOTP = () => {
           router.push('/(gowealthy)/mf/onboarding/screen5');
         }, 1200);
       } else {
+        hapticError();
         setErrorMessage(data.message || 'Invalid verification code');
       }
     } catch (error) {
+      hapticError();
       console.error('Error verifying OTP:', error);
       setErrorMessage('Network error. Please try again.');
     } finally {
@@ -650,6 +657,7 @@ const Screen4EmailOTP = () => {
   };
 
   const handleContinueVerified = () => {
+    hapticSmall();
     router.push('/(gowealthy)/mf/onboarding/screen5');
   };
 
@@ -684,7 +692,7 @@ const Screen4EmailOTP = () => {
         </View>
 
         <View style={styles.topbar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => { hapticSmall(); router.back(); }} style={styles.backBtn} activeOpacity={0.8}>
             <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>
           <View style={styles.stepTag}>
@@ -721,6 +729,7 @@ const Screen4EmailOTP = () => {
                 </Text>
                 <TouchableOpacity
                   onPress={() => {
+                    hapticSmall();
                     setAlreadyVerified(false);
                     setEmail('');
                   }}
@@ -800,6 +809,7 @@ const Screen4EmailOTP = () => {
                   <Text style={styles.resendDivider}> | </Text>
                   <TouchableOpacity
                     onPress={() => {
+                      hapticSmall();
                       setOtpSent(false);
                       setOtp('');
                       setErrorMessage('');

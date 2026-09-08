@@ -1046,6 +1046,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { refreshUccActivation, UCC_STATUS } from '../../../../src/lib/ucc';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';// const NSE_SERVICE_URL = 'http://172.20.10.2:3000'; // ← your IP
 import { awardBadge } from '../../../../src/lib/xpBadges';
+import { hapticError, hapticSmall, hapticSuccess, hapticWarning } from '../../../../src/lib/haptics';
 
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
 const C = {
@@ -1283,6 +1284,7 @@ const Screen6FATCAAndUCC = () => {
       });
     } else {
       xpAwardPromiseRef.current = null;
+      hapticError();
       Toast.show({
         type: 'error',
         text1: 'XP could not be credited',
@@ -1665,9 +1667,11 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
       setAuthLink(authUrl);
       setSubmitStep('');
       setShowAuthModal(true); // show modal with auth link
+      hapticSuccess();
       console.log('🎉 Onboarding complete! Auth link:', authUrl);
 
     } catch (err) {
+      hapticError();
       console.error('❌ Screen 6 submit error:', err.message);
       setError(err.message);
       setSubmitStep('');
@@ -1679,8 +1683,10 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
   const handleOpenAuthLink = async () => {
     if (!authLink) return;
     try {
+      hapticSmall();
       await Linking.openURL(authLink);
     } catch {
+      hapticError();
       Alert.alert('Error', 'Could not open authorization link.');
     }
   };
@@ -1714,15 +1720,18 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
       setAuthState(r);
       if (r.authorized) {
         await creditMfOnboardingXp(phone);
+        hapticSuccess();
         setShowAuthModal(false);
         router.replace('/(gowealthy)/mf/trading/funds');
       } else {
+        hapticWarning();
         Alert.alert(
           'Not Yet Authorized',
           `Status: ${r.authStatusRaw || 'PENDING'}\n\nComplete authorization on NSE's page, then tap again. We also keep checking automatically every few seconds.`
         );
       }
     } catch (e) {
+      hapticError();
       Alert.alert('Error', e.message);
     } finally {
       setCheckingAuth(false);
@@ -1731,15 +1740,18 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
 
   const openSampleSchemes = async () => {
     if (!authState?.authorized) {
+      hapticWarning();
       Alert.alert('Authorization required', 'Complete NSE CL_ACT authorization before entering the trading platform.');
       return;
     }
     const phone = await AsyncStorage.getItem('user_phone');
     if (!phone) {
+      hapticError();
       Alert.alert('Session expired', 'Please sign in again.');
       return;
     }
     await creditMfOnboardingXp(phone);
+    hapticSuccess();
     setShowAuthModal(false);
     router.replace('/(gowealthy)/mf/trading/funds');
   };
@@ -1753,7 +1765,7 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
           {options.map((opt) => (
             <TouchableOpacity
               key={opt.value}
-              onPress={() => onChange(opt.value)}
+              onPress={() => { if (value !== opt.value) hapticSmall(); onChange(opt.value); }}
               style={[styles.chip, value === opt.value && styles.chipActive]}
               activeOpacity={0.8}
             >
@@ -1786,7 +1798,7 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
       visible={showAuthModal}
       transparent
       animationType="slide"
-      onRequestClose={() => setShowAuthModal(false)}
+      onRequestClose={() => { hapticSmall(); setShowAuthModal(false); }}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalSheet}>
@@ -1919,7 +1931,7 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
         </View>
 
         <View style={styles.topbar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => { hapticSmall(); router.back(); }} style={styles.backBtn} activeOpacity={0.8}>
             <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>
           <View style={styles.stepTag}>

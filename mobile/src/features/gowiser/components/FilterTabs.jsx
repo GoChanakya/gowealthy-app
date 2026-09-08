@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { C, FONT, RADIUS } from '../theme';
 import { FILTERS } from '../hooks/useArticleList';
+import { hapticSmall } from '../../../lib/haptics';
 
 const TABS = [
   { key: FILTERS.NEW, label: 'New Stories' },
@@ -16,7 +17,10 @@ export default function FilterTabs({ activeFilter, onChange }) {
       {TABS.map((tab) => {
         const active = activeFilter === tab.key;
         return (
-          <Pressable key={tab.key} style={styles.tab} onPress={() => onChange(tab.key)}>
+          <Pressable key={tab.key} style={styles.tab} onPress={() => {
+            if (!active) hapticSmall();
+            onChange(tab.key);
+          }}>
             {active && (
               <LinearGradient
                 colors={['rgba(255,106,26,0.20)', 'rgba(255,106,26,0.06)']}

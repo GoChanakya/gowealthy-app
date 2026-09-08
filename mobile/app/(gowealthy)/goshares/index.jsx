@@ -127,6 +127,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import HomeScreen from './screens/HomeScreen';
 import StockDetailScreen from './screens/StockDetailScreen';
 import WatchlistScreen from './screens/WatchlistScreen';
+import { hapticSmall } from '../../../src/lib/haptics';
 
 const GoSharesShell = () => {
   const [currentScreen, setCurrentScreen] = useState(null);
@@ -147,8 +148,12 @@ const GoSharesShell = () => {
   }, []);
 
   const navigation = {
-    navigate: (name, params) => setCurrentScreen({ name, params }),
+    navigate: (name, params) => {
+      hapticSmall();
+      setCurrentScreen({ name, params });
+    },
     goBack: () => {
+      hapticSmall();
       setCurrentScreen(null);
       setWatchlistRefresh(prev => prev + 1);
     },

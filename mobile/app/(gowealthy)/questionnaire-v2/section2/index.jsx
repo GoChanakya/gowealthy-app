@@ -8,6 +8,7 @@ import { PERSONALITIES, LIVING, personaDelayCost } from "../../../../src/lib/goP
 import {
   C, FONT, RADIUS, Embers, ProgressBar, TopBar, PrimaryButton, Eyebrow, ChoiceRow, kitStyles,
 } from "../../../../src/lib/ui-kit";
+import { hapticSmall, hapticTick } from "../../../../src/lib/haptics";
 
 const SUB_STEPS = ["bridge", "age", "monthly", "living"];
 const STEP_LABEL = { bridge: "Momentum", age: "Setup", monthly: "Setup", living: "Setup" };
@@ -118,7 +119,7 @@ function AgeScreen({ age, setAge, onNext }) {
           maximumValue={35}
           step={1}
           value={age}
-          onValueChange={setAge}
+          onValueChange={(value) => { if (value !== age) hapticTick(); setAge(value); }}
           minimumTrackTintColor={C.o}
           maximumTrackTintColor={C.faint}
           thumbTintColor={C.gold}
@@ -140,7 +141,11 @@ function AgeScreen({ age, setAge, onNext }) {
 function MonthlyScreen({ monthly, setMonthly, onNext }) {
   // slider fires continuous onValueChange; snap to the nearest ₹1,000 step
   // (matches the HTML's step="1000" range input).
-  const handleSlide = (v) => setMonthly(Math.round(v / 1000) * 1000);
+  const handleSlide = (v) => {
+    const next = Math.round(v / 1000) * 1000;
+    if (next !== monthly) hapticTick();
+    setMonthly(next);
+  };
 
   return (
     <View style={kitStyles.stage}>
@@ -175,7 +180,7 @@ function MonthlyScreen({ monthly, setMonthly, onNext }) {
           {MONTHLY_CHIPS.map(v => {
             const active = v === monthly;
             return (
-              <Pressable key={v} onPress={() => setMonthly(v)} style={[styles.chip, active && styles.chipActive]}>
+              <Pressable key={v} onPress={() => { if (!active) hapticSmall(); setMonthly(v); }} style={[styles.chip, active && styles.chipActive]}>
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>₹{v / 1000}K</Text>
               </Pressable>
             );
