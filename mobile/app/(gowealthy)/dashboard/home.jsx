@@ -14,6 +14,7 @@ import {
   PanResponder,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { hapticSmall, hapticSuccess } from "../../../src/lib/haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useNavigation } from "expo-router";
@@ -203,6 +204,7 @@ function useDashboardData() {
 export default function Home() {
   const router = useRouter();
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
   const { status, raw, name } = useDashboardData();
   const [investStarted, setInvestStarted] = useState(false);
   const [comingSoon, setComingSoon] = useState(false);
@@ -325,7 +327,12 @@ export default function Home() {
       <Embers />
 
       {/* STICKY IDENTITY HEADER */}
-      <View style={styles.dhead}>
+      <View
+        style={[
+          styles.dhead,
+          { paddingTop: Math.max(insets.top + 12, Platform.OS === "ios" ? 54 : 32) },
+        ]}
+      >
         <View style={styles.brandRow}>
          <View style={styles.logo}>
   <Image
@@ -1057,14 +1064,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingTop: Platform.OS === "ios" ? 54 : 24,
-    paddingBottom: 10,
-    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 54 : 32,
+    paddingBottom: 14,
+    paddingHorizontal: 24,
     backgroundColor: "rgba(8,6,10,0.97)",
     borderBottomWidth: 1,
     borderBottomColor: C.line,
   },
-  brandRow: { flexDirection: "row", alignItems: "center", gap: 9 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 9, flexShrink: 1 },
   logo: {
     width: 25,
     height: 24,
@@ -1087,9 +1094,9 @@ fontSize: 18,
   fontFamily: "Syne",
 },
   brandTag: { color: C.muted, fontSize: 7, letterSpacing: 1.5, marginTop: 2 },
-  userRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-  duName: { color: C.ink, fontSize: 12, fontWeight: "600", maxWidth: 104 },
-  duRole: { color: C.o2, fontSize: 9, maxWidth: 104, marginTop: 1 },
+  userRow: { flexDirection: "row", alignItems: "center", gap: 8, marginLeft: 12, flexShrink: 1 },
+  duName: { color: C.ink, fontSize: 12, fontWeight: "600", maxWidth: 124, textAlign: "right" },
+  duRole: { color: C.o2, fontSize: 9, maxWidth: 124, marginTop: 1, textAlign: "right" },
   avatar: {
     width: 32,
     height: 32,
