@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { C, FONT, TOP_INSET, gwStyles } from '../theme';
 import { FadeInUp, Eyebrow } from '../../../lib/ui-kit';
+import { Ico } from '../../../lib/icons';
 
 /**
  * Top chrome for the article list: back pill + step tag (standalone route only)
@@ -13,7 +14,7 @@ export default function ListHeader({ showNav, onBack }) {
       {showNav && (
         <View style={styles.nav}>
           <Pressable onPress={onBack} style={styles.backBtn} hitSlop={10}>
-            <Text style={styles.backBtnText}>←</Text>
+            <Ico name="ChevronLeft" size={19} color={C.muted} />
           </Pressable>
           <View style={[gwStyles.glassPill, styles.stepTag]}>
             <Text style={styles.stepTagText}>GoWiser</Text>
@@ -27,8 +28,7 @@ export default function ListHeader({ showNav, onBack }) {
           <Eyebrow>Financial IQ</Eyebrow>
           <Text style={styles.title}>Read. Learn. Earn.</Text>
           <Text style={styles.sub}>
-            Stories that sharpen your instincts — every one you finish pays out{' '}
-            <Text style={styles.subXP}>XP</Text> toward your portfolio.
+            Finish a story, earn <Text style={styles.subXP}>XP</Text>.
           </Text>
         </FadeInUp>
       </View>

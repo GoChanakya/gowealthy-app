@@ -42,7 +42,7 @@ export default function Section2() {
 
   return (
     <View style={styles.root}>
-      <Embers />
+      <Embers count={0} />
       <ProgressBar progress={progress} />
       <TopBar visible label={STEP_LABEL[sub]} onBack={handleBack} />
 
@@ -63,7 +63,7 @@ export default function Section2() {
    ============================================================ */
 function Bridge({ persona, onNext }) {
   const delayCost = personaDelayCost(persona);
-  const bridgeSub = `For a ${persona.name}, the gap between these two isn't willpower — it's just when you begin.`;
+  const bridgeSub = `For a ${persona.name}, the difference isn't discipline. It's starting date.`;
 
   return (
     <View style={kitStyles.stage}>
@@ -75,24 +75,24 @@ function Bridge({ persona, onNext }) {
 
       <View style={styles.compareRow}>
         <View style={styles.compareCard}>
-          <Text style={styles.compareLabel}>Wait for two years</Text>
+          <Text style={styles.compareLabel}>Start in two years</Text>
           <Text style={[styles.compareValue, { color: C.muted }]}>Age 60</Text>
           <Text style={styles.compareSub}>Financially free</Text>
         </View>
         <View style={[styles.compareCard, styles.compareCardWin]}>
-          <Text style={[styles.compareLabel, { color: C.gold }]}>✦ Start today</Text>
+          <Text style={[styles.compareLabel, { color: C.gold }]}>Start today</Text>
           <Text style={[styles.compareValue, { color: C.gold2 }]}>Age 50</Text>
           <Text style={styles.compareSub}>Financially free</Text>
         </View>
       </View>
 
       <View style={styles.spark}>
-        <Text style={styles.sparkLabel}>The cost of delay is high</Text>
+        <Text style={styles.sparkLabel}>Cost of waiting</Text>
         <Text style={styles.sparkVal}>{delayCost}</Text>
         <Text style={styles.sparkSub}>{persona.sparkSub}</Text>
       </View>
 
-      <PrimaryButton label="Build my blueprint →" onPress={onNext} style={{ marginTop: 26 }} />
+      <PrimaryButton label="Build my plan" onPress={onNext} style={{ marginTop: 26 }} />
     </View>
   );
 }
@@ -105,7 +105,7 @@ function AgeScreen({ age, setAge, onNext }) {
     <View style={kitStyles.stage}>
       <Eyebrow withLines={false}>Quick setup · 1 of 3</Eyebrow>
       <Text style={kitStyles.h2}>How old are you?</Text>
-      <Text style={kitStyles.sub}>This sets when every milestone lands on your timeline.</Text>
+      <Text style={kitStyles.sub}>This sets the dates on your timeline.</Text>
 
       <View style={styles.sliderWrap}>
         <View style={styles.sliderValRow}>
@@ -129,7 +129,7 @@ function AgeScreen({ age, setAge, onNext }) {
         </View>
       </View>
 
-      <PrimaryButton label="That's me →" onPress={onNext} style={{ marginTop: 26 }} />
+      <PrimaryButton label="Continue" onPress={onNext} style={{ marginTop: 26 }} />
     </View>
   );
 }
@@ -183,7 +183,7 @@ function MonthlyScreen({ monthly, setMonthly, onNext }) {
         </View>
       </View>
 
-      <PrimaryButton label="That works →" onPress={onNext} style={{ marginTop: 26 }} />
+      <PrimaryButton label="Continue" onPress={onNext} style={{ marginTop: 26 }} />
     </View>
   );
 }
@@ -217,7 +217,7 @@ function LivingScreen({ living, setLiving, onNext }) {
       </View>
 
       {living !== null && living !== undefined && (
-        <PrimaryButton label="Got it →" onPress={onNext} style={{ marginTop: 12 }} />
+        <PrimaryButton label="Got it" onPress={onNext} style={{ marginTop: 12 }} />
       )}
     </View>
   );

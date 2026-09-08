@@ -1,6 +1,8 @@
 import React, { useRef, useEffect, useMemo } from "react";
-import { View, Text, Pressable, Animated, Easing, StyleSheet, Platform } from "react-native";
+import { View, Text, Pressable, Animated, Easing, StyleSheet, Platform, StatusBar } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { ChevronLeft } from "lucide-react-native";
+import { Ico } from "./icons";
 
 /**
  * kit.jsx — shared "ember forge" chrome for the whole v2 questionnaire flow.
@@ -24,6 +26,17 @@ export const C = {
 };
 export const RADIUS = { lg: 22, md: 15, sm: 11 };
 
+/**
+ * Top clearance for stage content.
+ *
+ * TopBar is absolutely positioned, so content underneath needs to start below
+ * it. Android reports its own status-bar height; iOS notches are covered by the
+ * fixed inset. Previously this was a flat 90, which clipped headings on taller
+ * Android status bars.
+ */
+export const TOP_INSET = Platform.OS === "ios" ? 56 : (StatusBar.currentHeight || 24) + 14;
+export const STAGE_TOP = TOP_INSET + 58;
+
 export const FONT = {
   display: "SpaceGrotesk_700Bold",
   displaySemi: "SpaceGrotesk_600SemiBold",
@@ -37,18 +50,24 @@ export const FONT = {
  *  questionnaire-v2/_layout.jsx via useFonts(), not per-screen. */
 
 /* ============================================================
-   Ambient embers — rising particles, ported from .ember/@keyframes rise
+   Ambient embers
+
+   Deliberately sparse. Constant drifting particles behind every screen read as
+   decoration; a few, on the screens that are actually moments (landing, the
+   finished plan), read as atmosphere. Working screens pass count={0} or simply
+   don't render this at all.
    ============================================================ */
-export function Embers() {
+export function Embers({ count = 4 }) {
   const particles = useMemo(() => (
-    Array.from({ length: 14 }).map((_, i) => ({
+    Array.from({ length: count }).map((_, i) => ({
       id: i,
       left: Math.random() * 100,
-      size: 1 + Math.random() * 2.5,
-      duration: 7000 + Math.random() * 8000,
-      delay: Math.random() * 4000,
+      size: 1 + Math.random() * 1.6,
+      duration: 9000 + Math.random() * 9000,
+      delay: Math.random() * 6000,
     }))
-  ), []);
+  ), [count]);
+  if (!count) return null;
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       {particles.map(p => <Ember key={p.id} {...p} />)}
@@ -68,7 +87,7 @@ function Ember({ left, size, duration, delay }) {
     return () => { mounted = false; };
   }, []);
   const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [0, -700] });
-  const opacity = anim.interpolate({ inputRange: [0, 0.12, 0.85, 1], outputRange: [0, 0.7, 0.5, 0] });
+  const opacity = anim.interpolate({ inputRange: [0, 0.12, 0.85, 1], outputRange: [0, 0.2, 0.13, 0] });
   return (
     <Animated.View
       style={{
@@ -101,7 +120,7 @@ export function TopBar({ visible, label, onBack }) {
   return (
     <View style={kitStyles.topbar}>
       <Pressable onPress={onBack} style={kitStyles.backBtn} hitSlop={10}>
-        <Text style={{ color: C.muted, fontSize: 17 }}>←</Text>
+        <ChevronLeft size={19} color={C.muted} strokeWidth={1.9} />
       </Pressable>
       <View style={kitStyles.stepTag}>
         <Text style={{ color: C.muted, fontSize: 10.5, fontFamily: FONT.bodySemi, letterSpacing: 1.5, textTransform: "uppercase" }}>
@@ -112,6 +131,16 @@ export function TopBar({ visible, label, onBack }) {
     </View>
   );
 }
+
+/* ============================================================
+   Icons
+
+   All iconography comes from lucide-react-native at one of these three sizes
+   and a 1.75 stroke. Emoji were used as placeholders originally; they can't be
+   tinted, they render differently on every Android skin, and they read as
+   unfinished. Anything decorative gets no icon at all.
+   ============================================================ */
+export const ICON = { sm: 15, md: 18, lg: 22, stroke: 1.75 };
 
 /* ============================================================
    Shared small components
@@ -184,7 +213,7 @@ export function ChoiceRow({ icon, title, sub, selected, onPress, delay = 0 }) {
         onPress={onPress}
         style={[kitStyles.choiceCard, selected && kitStyles.choiceCardSelected]}
       >
-        <Text style={kitStyles.chIcon}>{icon}</Text>
+        <View style={kitStyles.chIcon}><Ico name={icon} size={ICON.lg} /></View>
         {sub ? (
           <View style={{ flex: 1, gap: 3 }}>
             <Text style={kitStyles.chText}>{title}</Text>
@@ -201,7 +230,7 @@ export function ChoiceRow({ icon, title, sub, selected, onPress, delay = 0 }) {
 export const kitStyles = StyleSheet.create({
   progWrap: { position: "absolute", top: 0, left: 0, right: 0, height: 3, backgroundColor: "rgba(255,255,255,0.05)", zIndex: 60 },
   topbar: {
-    position: "absolute", top: Platform.OS === "ios" ? 52 : 28, left: 18, right: 18, zIndex: 55,
+    position: "absolute", top: TOP_INSET, left: 18, right: 18, zIndex: 55,
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
   },
   backBtn: {
@@ -215,10 +244,13 @@ export const kitStyles = StyleSheet.create({
   eyebrowLine: { width: 20, height: 1, backgroundColor: C.o2 },
   eyebrowText: { color: C.o2, fontSize: 11, fontFamily: FONT.bodySemi, letterSpacing: 2, textTransform: "uppercase" },
 
+  // The primary CTA is the only element in the kit that glows. Everything else
+  // earns attention through contrast and spacing instead, so this stays the
+  // single brightest thing on any screen.
   btn: {
     borderRadius: RADIUS.md, paddingVertical: 16, paddingHorizontal: 26,
     alignItems: "center", justifyContent: "center",
-    shadowColor: C.o, shadowOpacity: 0.45, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 6,
+    shadowColor: C.o, shadowOpacity: 0.13, shadowRadius: 9, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
   btnText: { color: "#1a0d04", fontSize: 15.5, fontFamily: FONT.bodySemi },
   btnGhost: {
@@ -228,8 +260,8 @@ export const kitStyles = StyleSheet.create({
   btnGhostText: { color: C.muted, fontSize: 15.5, fontFamily: FONT.bodySemi },
 
   // shared stage/typography primitives so every section's layout matches exactly
-  stage: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 22, paddingTop: 90, paddingBottom: 40 },
-  stageTopContent: { alignItems: "center", paddingHorizontal: 22, paddingTop: 90, paddingBottom: 60 },
+  stage: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 22, paddingTop: STAGE_TOP, paddingBottom: 44 },
+  stageTopContent: { alignItems: "center", paddingHorizontal: 22, paddingTop: STAGE_TOP, paddingBottom: 72 },
   h1: { fontFamily: FONT.display, color: C.ink, fontSize: 36, lineHeight: 40, letterSpacing: -1, textAlign: "center" },
   h2: { fontFamily: FONT.display, color: C.ink, fontSize: 26, lineHeight: 31, letterSpacing: -0.8, textAlign: "center", marginBottom: 12 },
   gradText: { color: C.gold }, // true gradient text needs MaskedView; solid gold is the RN fallback
@@ -240,11 +272,12 @@ export const kitStyles = StyleSheet.create({
     backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.line,
     borderRadius: RADIUS.md, paddingVertical: 15, paddingHorizontal: 17, marginBottom: 11,
   },
+  // Selection reads from the border and a faint tint. No glow — when every
+  // selected row glows, the primary action stops being the brightest thing.
   choiceCardSelected: {
-    borderColor: C.o, backgroundColor: "rgba(255,106,26,0.14)",
-    shadowColor: C.o, shadowOpacity: 0.4, shadowRadius: 12, elevation: 4,
+    borderColor: "rgba(255,106,26,0.55)", backgroundColor: "rgba(255,106,26,0.055)",
   },
-  chIcon: { fontSize: 22, width: 26, textAlign: "center" },
+  chIcon: { width: 26, alignItems: "center", justifyContent: "center" },
   chText: { color: C.ink, fontSize: 14.5, fontFamily: FONT.bodyMed, lineHeight: 20 },
   chSub: { color: C.muted, fontSize: 12, lineHeight: 17 },
 });

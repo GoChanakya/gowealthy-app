@@ -10,6 +10,7 @@ import Slide from '../components/slides';
 import { StoryTopBar, SlideCounter } from '../components/StoryChrome';
 import LoadingState from '../components/LoadingState';
 import PrimaryAction from '../components/PrimaryAction';
+import TapArrow from '../components/TapArrow';
 
 /** Story-style article reader: tap left/right to page through the deck. */
 export default function ArticleStoryScreen() {
@@ -64,6 +65,8 @@ export default function ArticleStoryScreen() {
         />
 
         <SlideCounter current={currentSlide + 1} total={slides.length} />
+
+        <TapArrow visible={currentSlide === 0} />
 
       </View>
     </>

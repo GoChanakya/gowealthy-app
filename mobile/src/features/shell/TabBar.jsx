@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, Image, Pressable, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { C, FONT } from '../../lib/ui-kit';
+import { C, FONT, ICON } from '../../lib/ui-kit';
+import { Ico } from '../../lib/icons';
 
 const BRAND_LOGO = require('../../../assets/images/logo.png');
 
@@ -24,7 +25,7 @@ export default function TabBar({ active, onSelect, onProfile, onLockedTab }) {
       <View style={styles.bar}>
         {/* warm glow bleeding up from behind the bar */}
         <LinearGradient
-          colors={['rgba(255,106,26,0.10)', 'transparent']}
+          colors={['rgba(255,106,26,0.06)', 'transparent']}
           start={{ x: 0.5, y: 1 }}
           end={{ x: 0.5, y: 0 }}
           style={StyleSheet.absoluteFill}
@@ -32,7 +33,7 @@ export default function TabBar({ active, onSelect, onProfile, onLockedTab }) {
         />
 
         <Tab
-          icon="◆"
+          icon="BookOpen"
           label="GoWiser"
           active={isGowiser}
           onPress={() => onSelect(SURFACE.GOWISER)}
@@ -40,7 +41,7 @@ export default function TabBar({ active, onSelect, onProfile, onLockedTab }) {
 
         <View style={styles.centerSpacer} />
 
-        <Tab icon="◈" label="Funds" locked onPress={onLockedTab} />
+        <Tab icon="PieChart" label="Funds" locked onPress={onLockedTab} />
       </View>
 
       <Pressable style={styles.brandBtn} onPress={onProfile} hitSlop={8}>
@@ -62,10 +63,10 @@ function Tab({ icon, label, active, locked, onPress }) {
 
   return (
     <Pressable style={styles.tab} onPress={onPress} hitSlop={6}>
-      <Text style={[styles.icon, { color: tint }]}>{icon}</Text>
+      <Ico name={icon} size={ICON.md} color={tint} strokeWidth={active ? 2 : 1.7} />
       <View style={styles.labelRow}>
         <Text style={[styles.label, { color: tint }, active && styles.labelActive]}>{label}</Text>
-        {locked && <Text style={styles.lock}>🔒</Text>}
+        {locked && <Ico name="Lock" size={9} color={tint} strokeWidth={2.4} />}
       </View>
       {active && <View style={styles.activeDot} />}
     </Pressable>
@@ -104,11 +105,9 @@ const styles = StyleSheet.create({
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
   centerSpacer: { width: AVATAR_SIZE + 16 },
 
-  icon: { fontSize: 17, lineHeight: 20 },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   label: { fontSize: 10, fontFamily: FONT.bodyMed, letterSpacing: 0.4 },
   labelActive: { fontFamily: FONT.bodySemi },
-  lock: { fontSize: 8 },
 
   activeDot: {
     position: 'absolute',
@@ -132,8 +131,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: C.o,
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 10,
   },

@@ -12,9 +12,11 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { C, FONT } from '../lib/ui-kit';
 
-const ORANGE = '#FF8500';
-const PURPLE = '#8D73E6';
+// Ember-forge tokens, so the reward moment matches the rest of the app.
+const ORANGE = C.o2;
+const PURPLE = C.gold;
 const AUTO_DISMISS_MS = 2800;
 const LOGO_MARK = require('../../assets/gowealthy.png');
 
@@ -243,15 +245,15 @@ const styles = StyleSheet.create({
     height: 110,
     borderRadius: 55,
     borderWidth: 2,
-    borderColor: 'rgba(255,133,0,0.66)',
-    backgroundColor: '#0B0B0E',
+    borderColor: 'rgba(255,143,60,0.5)',
+    backgroundColor: C.bg2,
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: ORANGE,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.22,
-    shadowRadius: 22,
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
     elevation: 10,
   },
   coinRim: {
@@ -267,18 +269,18 @@ const styles = StyleSheet.create({
   logo: { width: 45, height: 72 },
   copy: { alignItems: 'center', width: '100%' },
   eyebrow: {
-    color: 'rgba(255,255,255,0.52)',
+    color: C.muted,
     fontSize: 10,
-    fontWeight: '800',
+    fontFamily: FONT.bodySemi,
     letterSpacing: 1.8,
     marginBottom: 7,
   },
   title: {
-    color: '#FFFFFF',
+    color: C.ink,
     fontSize: 20,
     lineHeight: 25,
-    fontWeight: '800',
-    letterSpacing: -0.35,
+    fontFamily: FONT.display,
+    letterSpacing: -0.5,
     textAlign: 'center',
     marginBottom: 13,
   },
@@ -289,10 +291,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,133,0,0.24)',
-    backgroundColor: 'rgba(255,133,0,0.08)',
+    borderColor: 'rgba(255,143,60,0.28)',
+    backgroundColor: 'rgba(255,143,60,0.08)',
   },
   rewardDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: ORANGE, marginRight: 8 },
-  reward: { color: ORANGE, fontSize: 15, fontWeight: '800', letterSpacing: 0.2 },
+  reward: { color: ORANGE, fontSize: 15, fontFamily: FONT.bodyBold, letterSpacing: 0.2 },
   paymentReward: { color: PURPLE },
 });

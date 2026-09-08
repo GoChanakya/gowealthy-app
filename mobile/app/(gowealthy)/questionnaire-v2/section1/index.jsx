@@ -12,12 +12,14 @@ import { useQuestionnaireV2 } from "../../../../src/context/QuestionnaireV2Conte
 //   app/(gowealthy)/questionnaire-v2/section1/index.jsx -> src/context/*
 
 import {
-  QUIZ, getPersonality, bandLabel, B1_MSG, B1_EMO,
+  QUIZ, getPersonality, bandLabel, B1_MSG, B1_ICON,
 } from "../../../../src/lib/goPersonaEngine";
 
 import {
-  C, FONT, RADIUS, Embers, ProgressBar, TopBar, PrimaryButton, FadeInUp, Eyebrow, kitStyles,
+  C, FONT, RADIUS, ICON, Embers, ProgressBar, TopBar, PrimaryButton, FadeInUp, Eyebrow, kitStyles,
 } from "../../../../src/lib/ui-kit";
+import { Ico } from "../../../../src/lib/icons";
+import { Lightbulb, Zap, TrendingDown, Telescope } from "lucide-react-native";
 // Fonts are loaded once in questionnaire-v2/_layout.jsx — no per-screen font gate needed here.
 
 const STEP_LABEL = { landing: "Start", quiz: "Personality read", loading: "Reading", reveal: "Your persona" };
@@ -101,7 +103,7 @@ export default function Section1() {
 
   return (
     <View style={styles.root}>
-      <Embers />
+      <Embers count={step === "landing" || step === "reveal" ? 7 : 0} />
       <ProgressBar progress={progress} />
       <TopBar visible={step !== "landing" && step !== "loading"} label={STEP_LABEL[step]} onBack={handleBack} />
 
@@ -139,18 +141,17 @@ export default function Section1() {
 function Landing({ onStart }) {
   return (
     <View style={kitStyles.stage}>
-      <Eyebrow>GoPersona × GoWealthy</Eyebrow>
+      <Eyebrow>GoWealthy</Eyebrow>
       <Text style={[kitStyles.h1, { marginBottom: 16 }]}>
-        Your money,{"\n"}
-        <Text style={kitStyles.gradText}>forged</Text> around what you actually want.
+        Build a plan{"\n"}around <Text style={kitStyles.gradText}>your</Text> goals.
       </Text>
       <Text style={kitStyles.sub}>
-        Eight quick gut-checks. No spreadsheets, no jargon. We read how you really move with
-        money, then turn it into a live plan built around the goals you rank first.
+        Eight questions about how you handle money. No jargon, no spreadsheets.
+        You get a real plan at the end.
       </Text>
-      <PrimaryButton label="Start the 90-second read →" onPress={onStart} style={{ marginTop: 26 }} />
+      <PrimaryButton label="Start" onPress={onStart} style={{ marginTop: 26 }} />
       <View style={styles.landingChipsRow}>
-        {["✦ 8 scenarios", "✦ 1 personality", "✦ 1 real plan"].map(t => (
+        {["8 questions", "90 seconds", "1 plan"].map(t => (
           <Text key={t} style={styles.landingChip}>{t}</Text>
         ))}
       </View>
@@ -199,7 +200,7 @@ function ChoiceCard({ icon, text, onPress, delay = 0 }) {
           onPress={press}
           style={[styles.choice, selected && styles.choiceSelected]}
         >
-          <Text style={styles.chIcon}>{icon}</Text>
+          <View style={styles.chIcon}><Ico name={icon} size={ICON.lg} /></View>
           <Text style={styles.chText}>{text}</Text>
         </Pressable>
       </Animated.View>
@@ -224,7 +225,7 @@ function TripleQuestion({ question, sel, onPick, onConfirm }) {
                     onPress={() => onPick(ri, oi)}
                     style={[styles.rowqOpt, active && styles.rowqOptSelected]}
                   >
-                    <Text style={styles.rowqIc}>{o.icon}</Text>
+                    <View style={styles.rowqIc}><Ico name={o.icon} size={ICON.md} /></View>
                     <Text style={[styles.rowqOptText, active && { color: C.o2, fontFamily: FONT.bodySemi }]}>
                       {o.text}
                     </Text>
@@ -235,7 +236,7 @@ function TripleQuestion({ question, sel, onPick, onConfirm }) {
           </View>
         </FadeInUp>
       ))}
-      <PrimaryButton label="Next →" onPress={onConfirm} disabled={!allPicked} style={{ marginTop: 8 }} />
+      <PrimaryButton label="Next" onPress={onConfirm} disabled={!allPicked} style={{ marginTop: 8 }} />
     </View>
   );
 }
@@ -276,11 +277,11 @@ function BuildLoading({ onDone }) {
           <LinearGradient colors={["transparent", C.o, C.gold, "transparent"]} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
         </Animated.View>
         <View style={styles.buildOrbCenter}>
-          <Text style={{ fontSize: 44 }}>{B1_EMO[msgIdx]}</Text>
+          <Ico name={B1_ICON[msgIdx]} size={34} strokeWidth={1.6} />
         </View>
       </View>
       <Text style={[kitStyles.h2, { marginTop: 8 }]}>
-        {pct >= 100 ? "Your persona is ready ✦" : "Reading how you move…"}
+        {pct >= 100 ? "Ready" : "Working it out"}
       </Text>
       <View style={styles.buildTrack}>
         <View style={[styles.buildFill, { width: `${pct}%` }]} />
@@ -307,11 +308,11 @@ function RevealScreen({ scores, answers, personaCode, onContinue }) {
 
   return (
     <ScrollView style={styles.stageTopScroll} contentContainerStyle={kitStyles.stageTopContent} showsVerticalScrollIndicator={false}>
-      <Eyebrow withLines={false}>Your GoPersona</Eyebrow>
+      <Eyebrow withLines={false}>Your profile</Eyebrow>
       <Text style={[kitStyles.h2, { marginBottom: 6 }]}>
         Here's how <Text style={kitStyles.gradText}>you</Text> move.
       </Text>
-      <Text style={[kitStyles.sub, { marginBottom: 22 }]}>Pulled straight from your gut-calls — nothing generic.</Text>
+      <Text style={[kitStyles.sub, { marginBottom: 22 }]}>Based on your answers.</Text>
 
       <Animated.View style={{ opacity: cardOpacity, transform: [{ scale: cardScale }], width: "100%", maxWidth: 360, alignSelf: "center" }}>
         <TiltCard persona={persona} opened={opened} onOpen={() => setOpened(true)} />
@@ -325,7 +326,7 @@ function RevealScreen({ scores, answers, personaCode, onContinue }) {
         <WhyPanel scores={scores} answers={answers} persona={persona} code={code} />
       )}
 
-      <PrimaryButton label="See what starting today unlocks →" onPress={onContinue} style={{ marginTop: 22 }} />
+      <PrimaryButton label="Continue" onPress={onContinue} style={{ marginTop: 22 }} />
     </ScrollView>
   );
 }
@@ -368,12 +369,12 @@ function TiltCard({ persona, opened, onOpen }) {
     >
       <Animated.View style={[styles.tcard, { transform: [{ perspective: 900 }, { rotateX: rotateXStr }, { rotateY: rotateYStr }] }]}>
         <Text style={styles.tcardRank}>GoPersona</Text>
-        <Text style={styles.tcardIcon}>{persona.icon}</Text>
+        <View style={styles.tcardIcon}><Ico name={persona.icon} size={30} /></View>
         <Text style={styles.tcardName}>{persona.name}</Text>
 
         {!opened && (
           <View style={styles.tcardTap}>
-            <Text style={styles.tcardTapText}>Tap to know more ✦</Text>
+            <Text style={styles.tcardTapText}>Tap for detail</Text>
           </View>
         )}
 
@@ -384,20 +385,23 @@ function TiltCard({ persona, opened, onOpen }) {
                 <View key={t} style={styles.trait}><Text style={styles.traitText}>{t}</Text></View>
               ))}
             </View>
-            <TLine label="💡 Superpower" text={persona.superpower} />
-            <TLine label="⚡ Blind spot" text={persona.blindspot} />
-            <TLine label="📉 In a crash" text={persona.crash} />
-            <TLine label="🔮 Five years out" text={persona.prediction} />
+            <TLine Icon={Lightbulb} label="Strength" text={persona.superpower} />
+            <TLine Icon={Zap} label="Blind spot" text={persona.blindspot} />
+            <TLine Icon={TrendingDown} label="In a downturn" text={persona.crash} />
+            <TLine Icon={Telescope} label="Five years out" text={persona.prediction} />
           </View>
         )}
       </Animated.View>
     </View>
   );
 }
-function TLine({ label, text }) {
+function TLine({ Icon, label, text }) {
   return (
     <View style={styles.tline}>
-      <Text style={styles.tlineLabel}>{label}</Text>
+      <View style={styles.tlineHead}>
+        <Icon size={ICON.sm} color={C.o2} strokeWidth={ICON.stroke} />
+        <Text style={styles.tlineLabel}>{label}</Text>
+      </View>
       <Text style={styles.tlineText}>{text}</Text>
     </View>
   );
@@ -485,7 +489,7 @@ const styles = StyleSheet.create({
     borderColor: C.o, backgroundColor: "rgba(255,106,26,0.14)",
     shadowColor: C.o, shadowOpacity: 0.4, shadowRadius: 12, elevation: 4,
   },
-  chIcon: { fontSize: 22, width: 26, textAlign: "center" },
+  chIcon: { width: 26, alignItems: "center", justifyContent: "center" },
   chText: { color: C.ink, fontSize: 14.5, fontFamily: FONT.bodyMed, flex: 1, lineHeight: 20 },
 
   rowq: {
@@ -533,8 +537,9 @@ const styles = StyleSheet.create({
     borderRadius: 30, paddingVertical: 6, paddingHorizontal: 13,
   },
   traitText: { color: C.o2, fontSize: 11.5, fontFamily: FONT.bodySemi },
-  tline: { marginBottom: 13 },
-  tlineLabel: { color: C.muted, fontSize: 10, fontFamily: FONT.bodySemi, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 4 },
+  tline: { marginBottom: 14 },
+  tlineHead: { flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 5 },
+  tlineLabel: { color: C.muted, fontSize: 10, fontFamily: FONT.bodySemi, letterSpacing: 1.4, textTransform: "uppercase" },
   tlineText: { color: C.ink, fontSize: 13, lineHeight: 20 },
 
   whyToggle: {

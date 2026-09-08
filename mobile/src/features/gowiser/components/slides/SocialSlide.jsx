@@ -1,12 +1,13 @@
 import React from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity, Linking, StyleSheet } from 'react-native';
-import { C, FONT, RADIUS, gwStyles } from '../../theme';
+import { C, FONT, RADIUS, ICON, gwStyles , STORY_TOP } from '../../theme';
 import { getYouTubeVideoId } from '../../lib/html';
+import { Ico } from '../../../../lib/icons';
 
 const PLATFORM = {
-  instagram: { emoji: '📸', heading: 'View on Instagram' },
-  twitter: { emoji: '🐦', heading: 'Read on Twitter' },
-  linkedin: { emoji: '💼', heading: 'View on LinkedIn' },
+  instagram: { icon: 'Instagram', heading: 'Instagram' },
+  twitter: { icon: 'Twitter', heading: 'Twitter' },
+  linkedin: { icon: 'Linkedin', heading: 'LinkedIn' },
 };
 
 const platformMeta = (platform) => PLATFORM[platform] || PLATFORM.linkedin;
@@ -14,7 +15,7 @@ const platformMeta = (platform) => PLATFORM[platform] || PLATFORM.linkedin;
 function YouTubeCard({ post, videoId }) {
   return (
     <>
-      <Text style={styles.heading}>Watch on YouTube</Text>
+      <Text style={styles.heading}>YouTube</Text>
       <TouchableOpacity
         style={styles.videoWrap}
         onPress={() => Linking.openURL(post.url)}
@@ -26,7 +27,7 @@ function YouTubeCard({ post, videoId }) {
           resizeMode="cover"
         />
         <View style={styles.playButton}>
-          <Text style={styles.playIcon}>▶</Text>
+          <Ico name="Play" size={20} color="#1a0d04" strokeWidth={2.2} />
         </View>
       </TouchableOpacity>
     </>
@@ -34,7 +35,7 @@ function YouTubeCard({ post, videoId }) {
 }
 
 function LinkCard({ post }) {
-  const { emoji, heading } = platformMeta(post.platform);
+  const { icon, heading } = platformMeta(post.platform);
   return (
     <>
       <Text style={styles.heading}>{heading}</Text>
@@ -44,7 +45,7 @@ function LinkCard({ post }) {
         activeOpacity={0.75}
       >
         <View style={styles.linkIcon}>
-          <Text style={styles.linkEmoji}>{emoji}</Text>
+          <Ico name={icon} size={ICON.md} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.platform}>{post.platform}</Text>
@@ -52,7 +53,7 @@ function LinkCard({ post }) {
             Tap to open
           </Text>
         </View>
-        <Text style={styles.arrow}>→</Text>
+        <Ico name="ArrowUpRight" size={ICON.md} color={C.muted} />
       </TouchableOpacity>
     </>
   );
@@ -67,8 +68,7 @@ export default function SocialSlide({ content, scrollHandlers }) {
         showsVerticalScrollIndicator={false}
         {...scrollHandlers}
       >
-        <Text style={styles.title}>Related Content</Text>
-        <Text style={styles.subtitle}>Check out these resources for more insights</Text>
+        <Text style={styles.title}>More on this</Text>
 
         <View style={{ gap: 16 }}>
           {content.map((post, idx) => {
@@ -86,7 +86,7 @@ export default function SocialSlide({ content, scrollHandlers }) {
 }
 
 const styles = StyleSheet.create({
-  slide: { flex: 1, paddingTop: 100 },
+  slide: { flex: 1, paddingTop: STORY_TOP },
   inner: { padding: 24, paddingBottom: 130 },
 
   title: {

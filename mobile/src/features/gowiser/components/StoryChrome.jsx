@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { C, FONT, TOP_INSET, gwStyles } from '../theme';
+import { C, FONT, TOP_INSET, ICON, gwStyles } from '../theme';
+import { Ico } from '../../../lib/icons';
 
 /** Segmented story progress — the current segment burns brighter than the rest. */
 function ProgressSegments({ total, currentSlide }) {
@@ -28,7 +29,7 @@ export function StoryTopBar({ total, currentSlide, xp, onClose }) {
   return (
     <View style={styles.topBar}>
       <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={10}>
-        <Text style={styles.closeText}>✕</Text>
+        <Ico name="X" size={16} color={C.muted} />
       </Pressable>
 
       <ProgressSegments total={total} currentSlide={currentSlide} />

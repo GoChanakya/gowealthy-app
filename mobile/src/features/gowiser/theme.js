@@ -1,5 +1,5 @@
-import { StyleSheet, Platform } from 'react-native';
-import { C, FONT, RADIUS } from '../../lib/ui-kit';
+import { StyleSheet } from 'react-native';
+import { C, FONT, RADIUS, ICON, TOP_INSET } from '../../lib/ui-kit';
 
 /**
  * Ember-forge patterns used by more than one GoWiser component. Anything used
@@ -8,10 +8,10 @@ import { C, FONT, RADIUS } from '../../lib/ui-kit';
  * Tokens themselves are never redefined here — always import C/FONT/RADIUS
  * from src/lib/ui-kit so gowiser can't drift from the questionnaire.
  */
-export { C, FONT, RADIUS };
+export { C, FONT, RADIUS, ICON, TOP_INSET };
 
-/** Vertical offset for absolutely-positioned top chrome, matching kitStyles.topbar. */
-export const TOP_INSET = Platform.OS === 'ios' ? 52 : 28;
+/** Clearance below the story reader's floating top bar (close button + progress). */
+export const STORY_TOP = TOP_INSET + 52;
 
 export const gwStyles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: C.bg },

@@ -6,7 +6,8 @@ import { useRouter } from "expo-router";
 
 import { useQuestionnaireV2 } from "../../../../src/context/QuestionnaireV2Context";
 import { GOALS, PRI_WORDS, PRI_ICON } from "../../../../src/lib/goPersonaEngine";
-import { C, FONT, RADIUS, Embers, ProgressBar, TopBar, PrimaryButton, Eyebrow, kitStyles } from "../../../../src/lib/ui-kit";
+import { C, FONT, RADIUS, ICON, Embers, ProgressBar, TopBar, PrimaryButton, Eyebrow, kitStyles } from "../../../../src/lib/ui-kit";
+import { Ico } from "../../../../src/lib/icons";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -65,7 +66,7 @@ export default function Section3() {
 
   return (
     <View style={styles.root}>
-      <Embers />
+      <Embers count={0} />
       <ProgressBar progress={0.5} />
       <TopBar visible label="Rank goals" onBack={handleBack} />
 
@@ -84,15 +85,15 @@ export default function Section3() {
           Pick your goals{"\n"}<Text style={kitStyles.gradText}>— in order.</Text>
         </Text>
         <Text style={[kitStyles.sub, { marginBottom: 16 }]}>
-          The order you tap them <Text style={{ fontFamily: FONT.bodyBold }}>is</Text> their priority. Your #1 gets
-          the biggest push and lands soonest. Drag the handle to reorder anytime.
+          Tap them in order of importance. Your first pick gets the biggest
+          share and finishes soonest. Drag to reorder.
         </Text>
 
         <Text style={styles.counter}>
           {n === 0 ? (
-            <>Tap <Text style={styles.counterBold}>1 to 4</Text> goals — the order becomes your priority</>
+            <>Pick up to <Text style={styles.counterBold}>4</Text>. Order matters.</>
           ) : (
-            <>Ranked <Text style={styles.counterBold}>{n}</Text> · {n < MAX_GOALS ? "tap more or " : ""}drag the handle to reorder</>
+            <><Text style={styles.counterBold}>{n}</Text> picked{n < MAX_GOALS ? " · tap more or drag to reorder" : " · drag to reorder"}</>
           )}
         </Text>
 
@@ -117,7 +118,7 @@ export default function Section3() {
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        <PrimaryButton label="Set your timeframes →" onPress={goNext} disabled={!canContinue} />
+        <PrimaryButton label="Continue" onPress={goNext} disabled={!canContinue} />
       </View>
     </View>
   );
@@ -204,7 +205,7 @@ function GoalCard({ goal, rank, picked, pickedCount, onToggle, onReorder, onDrag
             {picked ? PRI_ICON[rank] : "+"}
           </Text>
         </View>
-        <Text style={styles.icon}>{goal.icon}</Text>
+        <View style={styles.icon}><Ico name={goal.icon} size={ICON.lg} /></View>
         <View style={{ flex: 1 }}>
           <Text style={styles.name}>{goal.name}</Text>
           <Text style={styles.desc}>{picked ? PRI_WORDS[rank] : goal.desc}</Text>

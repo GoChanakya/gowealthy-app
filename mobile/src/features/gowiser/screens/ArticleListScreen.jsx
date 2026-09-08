@@ -16,11 +16,11 @@ const MAX_STAGGERED = 6;
 const STAGGER_MS = 55;
 
 const EMPTY = {
-  [FILTERS.NEW]: { emoji: '📚', title: 'No new stories', subtitle: 'Check back soon' },
+  [FILTERS.NEW]: { icon: 'BookOpen', title: 'No new stories', subtitle: 'Check back soon' },
   [FILTERS.COMPLETED]: {
-    emoji: '🏆',
-    title: 'Nothing forged yet',
-    subtitle: 'Start reading to earn XP',
+    icon: 'Trophy',
+    title: 'Nothing finished yet',
+    subtitle: 'Read a story to earn XP',
   },
 };
 

@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
-import { C, FONT, RADIUS } from '../../theme';
+import { C, FONT, RADIUS, ICON , STORY_TOP } from '../../theme';
 import { useMcqAnswers } from '../../hooks/useMcqAnswers';
+import { Ico } from '../../../../lib/icons';
 
 /** Resolve an option's colours from the answer state for its question. */
 function optionAppearance({ answered, isSelected, isCorrect }) {
@@ -40,9 +41,12 @@ function Question({ mcq, index, result, onAnswer }) {
         </View>
 
         {answered && (
-          <Text style={[styles.verdict, { color: result.isCorrect ? C.gd : C.rd }]}>
-            {result.isCorrect ? '✓ Correct' : '✗ Not quite — the right answer is highlighted above.'}
-          </Text>
+          <View style={styles.verdictRow}>
+            <Ico name={result.isCorrect ? 'CircleCheck' : 'CircleX'} size={ICON.sm} color={result.isCorrect ? C.gd : C.rd} />
+            <Text style={[styles.verdict, { color: result.isCorrect ? C.gd : C.rd }]}>
+            {result.isCorrect ? 'Correct' : 'The right answer is highlighted.'}
+            </Text>
+          </View>
         )}
       </View>
     </View>
@@ -60,9 +64,9 @@ export default function McqSlide({ content, scrollHandlers, onOptionTap }) {
         showsVerticalScrollIndicator={false}
         {...scrollHandlers}
       >
-        <Text style={styles.title}>Test Your Knowledge</Text>
+        <Text style={styles.title}>Quick check</Text>
         <Text style={styles.subtitle}>
-          Answer all {content.length} question{content.length === 1 ? '' : 's'}
+          {content.length} question{content.length === 1 ? '' : 's'}
         </Text>
 
         <View style={{ gap: 13 }}>
@@ -76,7 +80,7 @@ export default function McqSlide({ content, scrollHandlers, onOptionTap }) {
 }
 
 const styles = StyleSheet.create({
-  slide: { flex: 1, paddingTop: 100 },
+  slide: { flex: 1, paddingTop: STORY_TOP },
   inner: { padding: 24, paddingBottom: 130 },
 
   title: {
@@ -114,5 +118,6 @@ const styles = StyleSheet.create({
   option: { borderWidth: 1.5, paddingVertical: 13, paddingHorizontal: 14, borderRadius: RADIUS.sm },
   optionText: { fontSize: 14, fontFamily: FONT.bodyMed, lineHeight: 20 },
 
-  verdict: { marginTop: 11, fontSize: 12.5, fontFamily: FONT.bodySemi },
+  verdictRow: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: 12 },
+  verdict: { fontSize: 12.5, fontFamily: FONT.bodySemi },
 });

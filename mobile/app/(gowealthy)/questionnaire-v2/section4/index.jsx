@@ -7,10 +7,12 @@ import { useQuestionnaireV2 } from "../../../../src/context/QuestionnaireV2Conte
 import {
   GOALS, HORIZON_PRESETS, PRI_ICON, fmtYears, buildAllocation,
 } from "../../../../src/lib/goPersonaEngine";
-import { C, FONT, RADIUS, Embers, ProgressBar, TopBar, PrimaryButton, Eyebrow, kitStyles } from "../../../../src/lib/ui-kit";
+import { C, FONT, RADIUS, ICON, Embers, ProgressBar, TopBar, PrimaryButton, Eyebrow, kitStyles } from "../../../../src/lib/ui-kit";
+import { Shield, Target, TrendingUp, Map, Check } from "lucide-react-native";
+import { Ico } from "../../../../src/lib/icons";
 
-const B2_MSG = ['Locking your safety net…', 'Weighting by priority…', 'Running the compounding…', 'Routing your money…', 'Almost done ✦'];
-const B2_EMO = ['🛡️', '🥇', '📈', '🗺️', '✨'];
+const B2_MSG = ['Sizing your emergency fund', 'Weighting by priority', 'Running the numbers', 'Splitting your monthly amount', 'Done'];
+const B2_ICON = [Shield, Target, TrendingUp, Map, Check];
 
 export default function Section4() {
   const router = useRouter();
@@ -31,7 +33,7 @@ export default function Section4() {
 
   return (
     <View style={styles.root}>
-      <Embers />
+      <Embers count={step === "build" ? 8 : 0} />
       <ProgressBar progress={step === "horizon" ? 0.75 : 0.9} />
       <TopBar visible={step !== "build2"} label="Timeframes" onBack={handleBack} />
 
@@ -66,7 +68,7 @@ function HorizonScreen({ selectedGoals, setGoalYears, onNext }) {
         When do you want{"\n"}<Text style={kitStyles.gradText}>each one done?</Text>
       </Text>
       <Text style={[kitStyles.sub, { marginBottom: 20 }]}>
-        Want that trip in a year, not five? Say so — sooner + higher priority both pull more of your monthly ₹.
+        Sooner goals get a bigger share of your monthly amount.
       </Text>
 
       <View style={{ width: "100%", maxWidth: 460, gap: 11 }}>
@@ -75,7 +77,7 @@ function HorizonScreen({ selectedGoals, setGoalYears, onNext }) {
         ))}
       </View>
 
-      <PrimaryButton label="Build my Life Allocation →" onPress={onNext} style={{ marginTop: 26 }} />
+      <PrimaryButton label="Build my plan" onPress={onNext} style={{ marginTop: 26 }} />
     </ScrollView>
   );
 }
@@ -87,9 +89,11 @@ function HorizonRow({ sg, idx, setGoalYears }) {
   return (
     <View style={styles.horizonRow}>
       <View style={styles.horizonTop}>
-        <Text style={styles.horizonName}>
-          {g.icon} {g.name} <Text style={[styles.horizonPri, { color: g.color, backgroundColor: g.color + "22" }]}> {PRI_ICON[idx]} P{idx + 1} </Text>
-        </Text>
+        <View style={styles.horizonNameRow}>
+          <Ico name={g.icon} size={ICON.sm} color={g.color} />
+          <Text style={styles.horizonName}>{g.name}</Text>
+          <Text style={[styles.horizonPri, { color: g.color, backgroundColor: g.color + "22" }]}> {PRI_ICON[idx]} </Text>
+        </View>
         <Text style={[styles.horizonVal, { color: g.color }]}>{fmtYears(sg.years)}</Text>
       </View>
       <View style={styles.hchipsRow}>
@@ -150,14 +154,14 @@ function Build2Loading({ onDone }) {
     <View style={kitStyles.stage}>
       <View style={styles.buildOrbWrap}>
         <Animated.View style={[styles.buildOrbRing, { transform: [{ rotate }] }]}>
-          <LinearGradient colors={["transparent", C.o, C.gold, "transparent"]} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
+          <LinearGradient colors={["transparent", "rgba(255,106,26,0.55)", "rgba(247,200,90,0.35)", "transparent"]} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
         </Animated.View>
         <View style={styles.buildOrbCenter}>
-          <Text style={{ fontSize: 44 }}>{B2_EMO[msgIdx]}</Text>
+          {React.createElement(B2_ICON[msgIdx], { size: 34, color: C.o2, strokeWidth: 1.6 })}
         </View>
       </View>
       <Text style={[kitStyles.h2, { marginTop: 8 }]}>
-        {pct >= 100 ? "Your allocation is ready ✦" : "Routing your money…"}
+        {pct >= 100 ? "Your plan is ready" : "Building your plan"}
       </Text>
       <View style={styles.buildTrack}>
         <View style={[styles.buildFill, { width: `${pct}%` }]} />
@@ -172,6 +176,7 @@ const styles = StyleSheet.create({
 
   horizonRow: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderRadius: RADIUS.md, padding: 14 },
   horizonTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 11, flexWrap: "wrap", gap: 6 },
+  horizonNameRow: { flexDirection: "row", alignItems: "center", gap: 7, flex: 1 },
   horizonName: { color: C.ink, fontSize: 13.5, fontFamily: FONT.bodySemi },
   horizonPri: { fontSize: 9.5, fontFamily: FONT.bodyBold, borderRadius: 20, letterSpacing: 0.5 },
   horizonVal: { fontFamily: FONT.display, fontSize: 13 },
@@ -182,9 +187,9 @@ const styles = StyleSheet.create({
   },
   hchipText: { color: C.muted, fontSize: 11.5 },
 
-  buildOrbWrap: { width: 120, height: 120, marginBottom: 26, alignItems: "center", justifyContent: "center" },
-  buildOrbRing: { position: "absolute", width: 120, height: 120, borderRadius: 60, overflow: "hidden" },
-  buildOrbCenter: { width: 108, height: 108, borderRadius: 54, backgroundColor: C.bg2, alignItems: "center", justifyContent: "center" },
+  buildOrbWrap: { width: 104, height: 104, marginBottom: 26, alignItems: "center", justifyContent: "center" },
+  buildOrbRing: { position: "absolute", width: 104, height: 104, borderRadius: 52, overflow: "hidden" },
+  buildOrbCenter: { width: 95, height: 95, borderRadius: 48, backgroundColor: C.bg2, alignItems: "center", justifyContent: "center" },
   buildTrack: { width: "100%", maxWidth: 300, height: 6, backgroundColor: C.faint, borderRadius: 6, overflow: "hidden", marginTop: 6 },
   buildFill: { height: "100%", backgroundColor: C.o, borderRadius: 6 },
   buildMsg: { color: C.muted, fontSize: 13.5, marginTop: 16, textAlign: "center", fontFamily: FONT.bodyMed },

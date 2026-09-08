@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { C, FONT } from '../../theme';
+import { C, FONT, STORY_TOP } from '../../theme';
 
 const { width, height } = Dimensions.get('window');
 
 const IMAGE_HEIGHT = height * 0.45;
-const CHROME_HEIGHT = 100;
+const CHROME_HEIGHT = STORY_TOP;
 
 export default function IntroSlide({ content }) {
   return (

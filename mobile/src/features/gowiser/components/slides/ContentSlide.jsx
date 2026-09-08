@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
-import { C, FONT } from '../../theme';
+import { C, FONT , STORY_TOP } from '../../theme';
 
 /** Render the parsed text runs from `parseContentWithFormatting`. */
 function FormattedText({ parts }) {
@@ -37,7 +37,7 @@ export default function ContentSlide({ content, scrollHandlers }) {
 }
 
 const styles = StyleSheet.create({
-  slide: { flex: 1, paddingTop: 100 },
+  slide: { flex: 1, paddingTop: STORY_TOP },
   inner: { padding: 24, paddingBottom: 130 },
 
   title: {

@@ -1,22 +1,23 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { C, FONT } from '../../theme';
+import { C, FONT , STORY_TOP } from '../../theme';
 import PrimaryAction from '../PrimaryAction';
+import { Ico } from '../../../../lib/icons';
 
 export default function EndSlide({ content, alreadyEarned, onDone }) {
   return (
     <View style={styles.slide}>
       <View style={styles.inner}>
-        <Text style={styles.emoji}>🔥</Text>
-        <Text style={styles.eyebrow}>Forged</Text>
-        <Text style={styles.title}>Story complete</Text>
+        <View style={styles.mark}><Ico name="Trophy" size={28} color={C.gold} /></View>
+        <Text style={styles.eyebrow}>Complete</Text>
+        <Text style={styles.title}>Nice work</Text>
 
         {alreadyEarned ? (
           <View style={styles.earnedBadge}>
-            <Text style={styles.earnedText}>✓ XP already earned</Text>
+            <Text style={styles.earnedText}>XP already earned</Text>
           </View>
         ) : (
-          <Text style={styles.subtitle}>+{content.xp} XP added to your balance</Text>
+          <Text style={styles.subtitle}>+{content.xp} XP</Text>
         )}
 
         {content.tags.length > 0 && (
@@ -29,14 +30,14 @@ export default function EndSlide({ content, alreadyEarned, onDone }) {
           </View>
         )}
 
-        <PrimaryAction label="Back to stories" onPress={onDone} />
+        <PrimaryAction label="Done" onPress={onDone} />
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  slide: { flex: 1, paddingTop: 100 },
+  slide: { flex: 1, paddingTop: STORY_TOP },
   inner: {
     flex: 1,
     justifyContent: 'center',
@@ -45,7 +46,11 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
 
-  emoji: { fontSize: 64, marginBottom: 20 },
+  mark: {
+    width: 60, height: 60, borderRadius: 30,
+    borderWidth: 1.5, borderColor: C.line2, backgroundColor: C.surface,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 20,
+  },
   eyebrow: {
     color: C.o2,
     fontSize: 11,
