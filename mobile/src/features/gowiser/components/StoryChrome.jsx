@@ -1,7 +1,8 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { C, FONT, TOP_INSET, ICON, gwStyles } from '../theme';
+
+import { C, FONT, TOP_INSET, gwStyles } from '../theme';
 import { Ico } from '../../../lib/icons';
 import { hapticSmall } from '../../../lib/haptics';
 
@@ -29,7 +30,11 @@ function ProgressSegments({ total, currentSlide }) {
 export function StoryTopBar({ total, currentSlide, xp, onClose }) {
   return (
     <View style={styles.topBar}>
-      <Pressable onPress={() => { hapticSmall(); onClose?.(); }} style={styles.closeBtn} hitSlop={10}>
+      <Pressable
+        onPress={() => { hapticSmall(); onClose?.(); }}
+        style={styles.closeBtn}
+        hitSlop={10}
+      >
         <Ico name="X" size={16} color={C.muted} />
       </Pressable>
 
@@ -42,49 +47,11 @@ export function StoryTopBar({ total, currentSlide, xp, onClose }) {
   );
 }
 
-export function StoryNavigation({
-  currentSlide,
-  total,
-  onPrevious,
-  onNext,
-}) {
-  const isFirst = currentSlide === 0;
-  const isLast = currentSlide === total - 1;
-
+/** Compact current-page indicator used by ArticleStoryScreen. */
+export function SlideCounter({ current, total }) {
   return (
-    <View style={styles.navigation}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Previous page"
-        disabled={isFirst}
-        onPress={() => { hapticSmall(); onPrevious?.(); }}
-        style={({ pressed }) => [
-          styles.navigationButton,
-          pressed && !isFirst && styles.navigationButtonPressed,
-          isFirst && styles.navigationButtonDisabled,
-        ]}
-      >
-        <Text style={[styles.navigationArrow, isFirst && styles.navigationTextDisabled]}>‹</Text>
-        <Text style={[styles.navigationText, isFirst && styles.navigationTextDisabled]}>Previous</Text>
-      </Pressable>
-
-      <View style={styles.counter}>
-        <Text style={styles.counterText}>{currentSlide + 1} / {total}</Text>
-      </View>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={isLast ? 'Finish story' : 'Next page'}
-        onPress={() => { hapticSmall(); onNext?.(); }}
-        style={({ pressed }) => [
-          styles.navigationButton,
-          styles.nextButton,
-          pressed && styles.nextButtonPressed,
-        ]}
-      >
-        <Text style={styles.nextText}>{isLast ? 'Finish' : 'Next'}</Text>
-        <Text style={styles.nextArrow}>›</Text>
-      </Pressable>
+    <View style={[gwStyles.glassPill, styles.counter]}>
+      <Text style={styles.counterText}>{current} / {total}</Text>
     </View>
   );
 }
@@ -112,8 +79,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  closeText: { color: C.muted, fontSize: 15, fontFamily: FONT.bodyMed },
-
   segments: { flex: 1, flexDirection: 'row', gap: 4, marginHorizontal: 12 },
   segment: {
     flex: 1,
@@ -122,56 +87,19 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     overflow: 'hidden',
   },
-
   xpBadge: { paddingHorizontal: 11, paddingVertical: 6 },
   xpBadgeText: { fontSize: 10.5 },
-
-  navigation: {
-    zIndex: 12,
-    minHeight: 54,
-    marginHorizontal: 18,
-    marginBottom: Platform.OS === 'ios' ? 28 : 18,
-    padding: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(24,18,25,0.96)',
-    borderWidth: 1,
-    borderColor: C.line2,
-    borderRadius: 18,
-    shadowColor: '#000',
-    shadowOpacity: 0.35,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
-  },
-  navigationButton: {
-    flex: 1,
-    minHeight: 44,
-    paddingHorizontal: 10,
-    borderRadius: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  navigationButtonPressed: { backgroundColor: 'rgba(255,255,255,0.06)' },
-  navigationButtonDisabled: { opacity: 0.35 },
-  navigationText: { color: C.ink, fontSize: 12.5, fontFamily: FONT.bodySemi },
-  navigationArrow: { color: C.o2, fontSize: 23, lineHeight: 24 },
-  navigationTextDisabled: { color: C.muted },
-  nextButton: {
-    backgroundColor: 'rgba(255,106,26,0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,143,60,0.42)',
-  },
-  nextButtonPressed: { backgroundColor: 'rgba(255,106,26,0.26)' },
-  nextText: { color: C.o2, fontSize: 12.5, fontFamily: FONT.bodyBold },
-  nextArrow: { color: C.o2, fontSize: 23, lineHeight: 24 },
   counter: {
-    minWidth: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
+    position: 'absolute',
+    bottom: 38,
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
   },
-  counterText: { color: C.muted, fontSize: 11, fontFamily: FONT.bodySemi, letterSpacing: 1 },
+  counterText: {
+    color: C.muted,
+    fontSize: 11,
+    fontFamily: FONT.bodySemi,
+    letterSpacing: 1,
+  },
 });

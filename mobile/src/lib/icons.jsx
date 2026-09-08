@@ -11,7 +11,12 @@ import {
   CircleCheck, CircleX, X, ChevronLeft, ChevronRight, ArrowUpRight, Play,
   PieChart, Lock, Eye, Clock,
 } from "lucide-react-native";
-import { C, ICON } from "./ui-kit";
+
+// Keep defaults local: ui-kit renders Ico, so importing ui-kit back from this
+// module creates a cycle and can expose partially initialized exports in Metro.
+const DEFAULT_COLOR = "#ff8f3c";
+const DEFAULT_SIZE = 18;
+const DEFAULT_STROKE = 1.75;
 
 /**
  * Icon registry.
@@ -37,7 +42,13 @@ const REGISTRY = {
   PieChart, Lock, Eye, Clock,
 };
 
-export function Ico({ name, size = ICON.md, color = C.o2, strokeWidth = ICON.stroke, style }) {
+export function Ico({
+  name,
+  size = DEFAULT_SIZE,
+  color = DEFAULT_COLOR,
+  strokeWidth = DEFAULT_STROKE,
+  style,
+}) {
   const Cmp = REGISTRY[name] || Circle;
   return <Cmp size={size} color={color} strokeWidth={strokeWidth} style={style} />;
 }
