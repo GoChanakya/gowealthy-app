@@ -18,6 +18,7 @@ import {
 import {
   C, FONT, RADIUS, Embers, ProgressBar, TopBar, PrimaryButton, FadeInUp, Eyebrow, kitStyles,
 } from "../../../../src/lib/ui-kit";
+import { hapticSmall, hapticSuccess } from "../../../../src/lib/haptics";
 // Fonts are loaded once in questionnaire-v2/_layout.jsx — no per-screen font gate needed here.
 
 const STEP_LABEL = { landing: "Start", quiz: "Personality read", loading: "Reading", reveal: "Your persona" };
@@ -73,6 +74,7 @@ export default function Section1() {
     const { persona, code } = getPersonality(state.scores.h, state.scores.c, state.scores.o);
     setPersonaResult(code, persona.key);
     setStep("reveal");
+    hapticSuccess();
   };
 
   const handleContinue = () => {
@@ -185,6 +187,7 @@ function ChoiceCard({ icon, text, onPress, delay = 0 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const [selected, setSelected] = useState(false);
   const press = () => {
+    hapticSmall();
     setSelected(true);
     Animated.sequence([
       Animated.timing(scale, { toValue: 0.97, duration: 90, useNativeDriver: true }),
@@ -221,7 +224,7 @@ function TripleQuestion({ question, sel, onPick, onConfirm }) {
                 return (
                   <Pressable
                     key={oi}
-                    onPress={() => onPick(ri, oi)}
+                    onPress={() => { if (!active) hapticSmall(); onPick(ri, oi); }}
                     style={[styles.rowqOpt, active && styles.rowqOptSelected]}
                   >
                     <Text style={styles.rowqIc}>{o.icon}</Text>
@@ -317,7 +320,7 @@ function RevealScreen({ scores, answers, personaCode, onContinue }) {
         <TiltCard persona={persona} opened={opened} onOpen={() => setOpened(true)} />
       </Animated.View>
 
-      <Pressable onPress={() => setWhyOpen(v => !v)} style={styles.whyToggle}>
+      <Pressable onPress={() => { hapticSmall(); setWhyOpen(v => !v); }} style={styles.whyToggle}>
         <Text style={styles.whyToggleText}>{whyOpen ? "Hide the breakdown ▴" : "Why did I get this? ▾"}</Text>
       </Pressable>
 
@@ -353,7 +356,10 @@ function TiltCard({ persona, opened, onOpen }) {
         Animated.spring(tiltX, { toValue: 0, useNativeDriver: true }).start();
         Animated.spring(tiltY, { toValue: 0, useNativeDriver: true }).start();
         // treat a near-stationary press as a tap
-        if (Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6 && !opened) onOpen();
+        if (Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6 && !opened) {
+          hapticSmall();
+          onOpen();
+        }
       },
     })
   ).current;

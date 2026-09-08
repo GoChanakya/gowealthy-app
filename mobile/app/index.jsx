@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { readLocalCompletion, verifyCompletionRemotely } from '../src/features/onboarding/completion';
+import LogoLoader from '../src/components/LogoLoader';
 
 const TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -70,11 +70,7 @@ export default function RootIndex() {
     };
 
     route();
-  }, [ready]);
+  }, [ready, router]);
 
-  return (
-    <View style={{ flex: 1, backgroundColor: '#08060a', alignItems: 'center', justifyContent: 'center' }}>
-      <ActivityIndicator size="large" color="#ff6a1a" />
-    </View>
-  );
+  return <LogoLoader />;
 }

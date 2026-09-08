@@ -2,14 +2,19 @@ import React from 'react';
 import { Pressable, Text, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { C, FONT, RADIUS, gwStyles } from '../theme';
+import { hapticSmall } from '../../../lib/haptics';
 
 /**
  * Gradient CTA. Mirrors ui-kit's PrimaryButton, but takes a Pressable child
  * layout rather than the kit's fixed max-width block so it can sit in slides.
  */
 export default function PrimaryAction({ label, onPress, style }) {
+  const handlePress = () => {
+    hapticSmall();
+    onPress?.();
+  };
   return (
-    <Pressable onPress={onPress} style={[{ width: '100%', maxWidth: 420 }, style]}>
+    <Pressable onPress={handlePress} style={[{ width: '100%', maxWidth: 420 }, style]}>
       {({ pressed }) => (
         <LinearGradient
           colors={[C.o2, C.o]}

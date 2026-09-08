@@ -483,6 +483,7 @@ import {
   Percent, TrendingUp, DollarSign, Clock,
   Edit2, Check, AlertTriangle,
 } from 'lucide-react-native';
+import { hapticError, hapticSmall, hapticSuccess, hapticToggle, hapticWarning } from '../../lib/haptics';
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const PURPLE = 'rgb(108,80,196)';
@@ -660,6 +661,7 @@ const FixedDepositCard = ({ data, onAdd, onUpdate, onDelete }) => {
   const handleSubmit = async () => {
     const { bank, fdNumber, principalAmount, interestRate, startDate, maturityDate } = formData;
     if (!bank || !fdNumber || !principalAmount || !interestRate || !startDate || !maturityDate) {
+      hapticError();
       Toast.show({ type: 'error', text1: 'Missing fields', text2: 'Please fill in all required fields' });
       return;
     }
@@ -682,9 +684,11 @@ const FixedDepositCard = ({ data, onAdd, onUpdate, onDelete }) => {
       : await onAdd({ ...base, id: `fd_${Date.now()}`, addedAt: new Date().toISOString() });
 
     if (result?.success) {
+      hapticSuccess();
       resetForm();
       Toast.show({ type: 'success', text1: isEditing ? 'FD updated' : 'FD added', text2: `${bank} — ${formatCurrency(principal)}` });
     } else {
+      hapticError();
       Toast.show({ type: 'error', text1: isEditing ? 'Update failed' : 'Add failed', text2: result?.error || 'Please try again' });
     }
     setIsSaving(false);
@@ -711,14 +715,17 @@ const FixedDepositCard = ({ data, onAdd, onUpdate, onDelete }) => {
   // ── Delete ────────────────────────────────────────────────────────────────
   const confirmDelete = async () => {
     if (!fdToDelete) return;
+    hapticWarning();
     setIsSaving(true);
     const result = await onDelete(fdToDelete);
     if (result?.success) {
+      hapticSuccess();
       setExpandedFD(null);
       setDeleteOpen(false);
       setFdToDelete(null);
       Toast.show({ type: 'success', text1: 'FD deleted' });
     } else {
+      hapticError();
       Toast.show({ type: 'error', text1: 'Delete failed', text2: result?.error });
     }
     setIsSaving(false);
@@ -732,7 +739,7 @@ const FixedDepositCard = ({ data, onAdd, onUpdate, onDelete }) => {
         {/* Stats header */}
         <TouchableOpacity
           style={s.headerArea}
-          onPress={() => !isSaving && setIsExpanded(v => !v)}
+          onPress={() => { if (!isSaving) { hapticSmall(); setIsExpanded(v => !v); } }}
           activeOpacity={0.85}
         >
           <View style={s.titleRow}>
@@ -804,7 +811,7 @@ const FixedDepositCard = ({ data, onAdd, onUpdate, onDelete }) => {
                     {/* Row */}
                     <TouchableOpacity
                       style={s.fdRow}
-                      onPress={() => setExpandedFD(isOpen ? null : fd.id)}
+                      onPress={() => { hapticSmall(); setExpandedFD(isOpen ? null : fd.id); }}
                       activeOpacity={0.8}
                     >
                       <View style={{ flex: 1 }}>
@@ -938,7 +945,7 @@ const FixedDepositCard = ({ data, onAdd, onUpdate, onDelete }) => {
         </View>
 
         <Label required>Compounding Frequency</Label>
-        <TouchableOpacity style={ff.input} onPress={() => setFreqSheetOpen(true)}>
+        <TouchableOpacity style={ff.input} onPress={() => { hapticSmall(); setFreqSheetOpen(true); }}>
           <Text style={{ color: '#fff', fontSize: 15 }}>{formData.compoundingFrequency}</Text>
         </TouchableOpacity>
 
@@ -947,7 +954,7 @@ const FixedDepositCard = ({ data, onAdd, onUpdate, onDelete }) => {
           <Text style={s.toggleLabel}>Enable Auto Renewal</Text>
           <Switch
             value={formData.autoRenewal}
-            onValueChange={v => set('autoRenewal', v)}
+            onValueChange={v => { hapticToggle(v); set('autoRenewal', v); }}
             trackColor={{ false: BORDER, true: PURPLE }}
             thumbColor="#fff"
           />
@@ -977,7 +984,7 @@ const FixedDepositCard = ({ data, onAdd, onUpdate, onDelete }) => {
             <TouchableOpacity
               key={f}
               style={[s.pickerRow, active && s.pickerRowActive]}
-              onPress={() => { set('compoundingFrequency', f); setFreqSheetOpen(false); }}
+              onPress={() => { hapticSmall(); set('compoundingFrequency', f); setFreqSheetOpen(false); }}
             >
               <Text style={[s.pickerText, active && { color: '#fff', fontWeight: '700' }]}>{f}</Text>
               {active && <Check size={16} color={PURPLE} />}

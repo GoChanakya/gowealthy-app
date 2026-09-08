@@ -665,6 +665,7 @@ import { db } from '../../../../src/config/firebase';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';  // ← added getDoc, updateDoc
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';
 import { uploadToSignedPost } from '../../../../src/utils/upload';
+import { hapticError, hapticSmall, hapticSuccess, hapticWarning } from '../../../../src/lib/haptics';
 const OCR_ENDPOINT = 'https://adhar-parser-763133497996.asia-south1.run.app';
 
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
@@ -825,6 +826,7 @@ const loadExistingData = async () => {
     });
 
     if (!result.canceled) {
+      hapticSmall();
       setAadharImage(result.assets[0].uri);
       setIsProcessed(false);
       setAadharData({ number: '', name: '', address: '', dob: '' });
@@ -836,6 +838,7 @@ const loadExistingData = async () => {
 
   const handleProcessAadhar = async () => {
     if (!aadharImage) {
+      hapticError();
       Alert.alert('Error', 'Please select an image first');
       return;
     }
@@ -846,6 +849,7 @@ const loadExistingData = async () => {
 
       const phoneNumber = await AsyncStorage.getItem('user_phone');
       if (!phoneNumber) {
+        hapticError();
         Alert.alert('Error', 'User not found. Please log in again.');
         return;
       }
@@ -921,8 +925,10 @@ const loadExistingData = async () => {
 
       // Step 4: Save Aadhaar data to mf_onboarding
       await saveToFirebase(phoneNumber, mappedData, gcsFileUrl, gcsUri);
+      hapticSuccess();
 
     } catch (error) {
+      hapticError();
       console.error('❌ Error:', error);
       Alert.alert('Error', error.message || 'Failed to process Aadhaar');
       setIsUploading(false);
@@ -967,6 +973,7 @@ const loadExistingData = async () => {
 
       const phoneNumber = await AsyncStorage.getItem('user_phone');
       if (!phoneNumber) {
+        hapticError();
         Alert.alert('Error', 'User session expired. Please log in again.');
         return;
       }
@@ -982,6 +989,7 @@ const loadExistingData = async () => {
       const docSnap = await getDoc(docRef);
 
       if (!docSnap.exists() || !docSnap.data()?.pan_data?.pan_number) {
+        hapticError();
         Alert.alert('Error', 'PAN data not found. Please complete Screen 1 first.');
         setIsCheckingKYC(false);
         return;
@@ -1023,16 +1031,19 @@ const loadExistingData = async () => {
 
       // ── Routing decision ──────────────────────────────────────────────────
       if (kycStatus === 'S') {
+        hapticSuccess();
         // KYC verified or registered — skip fresh KYC, go to email OTP
         console.log('✅ KYC found → navigating to Screen 4 (Email OTP)');
         router.push('/(gowealthy)/mf/onboarding/screen4');
       } else {
+        hapticWarning();
         // KYC not found / rejected — needs fresh KYC registration
         console.log('⚠️ KYC not found → navigating to Screen 3 (Fresh KYC)');
         router.push('/(gowealthy)/mf/onboarding/screen3');
       }
 
     } catch (error) {
+      hapticError();
       console.error('❌ KYC check error:', error);
       setIsCheckingKYC(false);
       Alert.alert(
@@ -1078,7 +1089,7 @@ const loadExistingData = async () => {
         </View>
 
         <View style={styles.topbar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => { hapticSmall(); router.back(); }} style={styles.backBtn} activeOpacity={0.8}>
             <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>
           <View style={styles.stepTag}>

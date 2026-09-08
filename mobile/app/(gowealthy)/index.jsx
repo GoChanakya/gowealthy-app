@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { hapticSmall } from '../../src/lib/haptics';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { collection, doc, getDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../src/config/firebase';
@@ -246,7 +247,7 @@ const JourneyCard = ({ item, enterAnim, onPress }) => {
       ],
       marginBottom: 12,
     }}>
-      <TouchableOpacity activeOpacity={1} onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
+      <TouchableOpacity activeOpacity={1} onPress={() => { hapticSmall(); onPress?.(); }} onPressIn={onPressIn} onPressOut={onPressOut}>
 
         {/* Outer glow ring */}
         <View style={[jc.glowBorder, isOrange ? jc.glowOrange : jc.glowPurple]} />

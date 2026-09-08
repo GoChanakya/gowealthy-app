@@ -8,6 +8,7 @@ import {
   GOALS, HORIZON_PRESETS, PRI_ICON, fmtYears, buildAllocation,
 } from "../../../../src/lib/goPersonaEngine";
 import { C, FONT, RADIUS, Embers, ProgressBar, TopBar, PrimaryButton, Eyebrow, kitStyles } from "../../../../src/lib/ui-kit";
+import { hapticSmall, hapticSuccess } from "../../../../src/lib/haptics";
 
 const B2_MSG = ['Locking your safety net…', 'Weighting by priority…', 'Running the compounding…', 'Routing your money…', 'Almost done ✦'];
 const B2_EMO = ['🛡️', '🥇', '📈', '🗺️', '✨'];
@@ -47,6 +48,7 @@ export default function Section4() {
           onDone={() => {
             const allocation = buildAllocation(state.monthlyInvestment, state.living, state.selectedGoals);
             setAllocation(allocation);
+            hapticSuccess();
             goNext();
           }}
         />
@@ -98,7 +100,7 @@ function HorizonRow({ sg, idx, setGoalYears }) {
           return (
             <Pressable
               key={p.label}
-              onPress={() => setGoalYears(sg.key, p.years)}
+              onPress={() => { if (!active) hapticSmall(); setGoalYears(sg.key, p.years); }}
               style={[styles.hchip, active && { borderColor: C.o, backgroundColor: "rgba(255,106,26,0.12)" }]}
             >
               <Text style={[styles.hchipText, active && { color: C.o2, fontFamily: FONT.bodySemi }]}>{p.label}</Text>

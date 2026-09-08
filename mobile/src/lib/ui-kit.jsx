@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useMemo } from "react";
 import { View, Text, Pressable, Animated, Easing, StyleSheet, Platform } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { hapticSmall } from "./haptics";
 
 /**
  * kit.jsx — shared "ember forge" chrome for the whole v2 questionnaire flow.
@@ -98,9 +99,13 @@ export function ProgressBar({ progress }) {
 }
 export function TopBar({ visible, label, onBack }) {
   if (!visible) return null;
+  const handleBack = () => {
+    hapticSmall();
+    onBack?.();
+  };
   return (
     <View style={kitStyles.topbar}>
-      <Pressable onPress={onBack} style={kitStyles.backBtn} hitSlop={10}>
+      <Pressable onPress={handleBack} style={kitStyles.backBtn} hitSlop={10}>
         <Text style={{ color: C.muted, fontSize: 17 }}>←</Text>
       </Pressable>
       <View style={kitStyles.stepTag}>
@@ -129,9 +134,13 @@ export function PrimaryButton({ label, onPress, disabled, style }) {
   const scale = useRef(new Animated.Value(1)).current;
   const onPressIn = () => Animated.timing(scale, { toValue: 0.985, duration: 90, useNativeDriver: true }).start();
   const onPressOut = () => Animated.timing(scale, { toValue: 1, duration: 140, useNativeDriver: true }).start();
+  const handlePress = () => {
+    hapticSmall();
+    onPress?.();
+  };
   return (
     <Animated.View style={[{ transform: [{ scale }], width: "100%", maxWidth: 420 }, style]}>
-      <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} disabled={disabled}>
+      <Pressable onPress={handlePress} onPressIn={onPressIn} onPressOut={onPressOut} disabled={disabled}>
         <LinearGradient
           colors={disabled ? [C.faint, C.faint] : [C.o2, C.o]}
           style={[kitStyles.btn, disabled && { opacity: 0.5 }]}
@@ -148,9 +157,13 @@ export function GhostButton({ label, onPress, style }) {
   const scale = useRef(new Animated.Value(1)).current;
   const onPressIn = () => Animated.timing(scale, { toValue: 0.985, duration: 90, useNativeDriver: true }).start();
   const onPressOut = () => Animated.timing(scale, { toValue: 1, duration: 140, useNativeDriver: true }).start();
+  const handlePress = () => {
+    hapticSmall();
+    onPress?.();
+  };
   return (
     <Animated.View style={[{ transform: [{ scale }], width: "100%", maxWidth: 420 }, style]}>
-      <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} style={kitStyles.btnGhost}>
+      <Pressable onPress={handlePress} onPressIn={onPressIn} onPressOut={onPressOut} style={kitStyles.btnGhost}>
         <Text style={kitStyles.btnGhostText}>{label}</Text>
       </Pressable>
     </Animated.View>
@@ -178,10 +191,14 @@ export function Eyebrow({ children, withLines = true }) {
  *  real gap between them, not crammed on one line). Used for the Living screen
  *  and any future simple single-select list. */
 export function ChoiceRow({ icon, title, sub, selected, onPress, delay = 0 }) {
+  const handlePress = () => {
+    hapticSmall();
+    onPress?.();
+  };
   return (
     <FadeInUp delay={delay}>
       <Pressable
-        onPress={onPress}
+        onPress={handlePress}
         style={[kitStyles.choiceCard, selected && kitStyles.choiceCardSelected]}
       >
         <Text style={kitStyles.chIcon}>{icon}</Text>

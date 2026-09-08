@@ -14,8 +14,7 @@ import {
   PanResponder,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import * as Haptics from "expo-haptics";
-// ^ if this isn't installed yet: npx expo install expo-haptics
+import { hapticSmall, hapticSuccess } from "../../../src/lib/haptics";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter, useNavigation } from "expo-router";
 import { doc, getDoc } from "firebase/firestore";
@@ -301,7 +300,7 @@ export default function Home() {
       <View style={styles.centerRoot}>
         <Text style={styles.centerTitle}>No blueprint yet</Text>
         <Text style={styles.centerText}>Finish the questionnaire to build your plan.</Text>
-        <Pressable style={styles.centerBtn} onPress={() => router.replace("/(gowealthy)/questionnaire-v2/section1")}>
+        <Pressable style={styles.centerBtn} onPress={() => { hapticSmall(); router.replace("/(gowealthy)/questionnaire-v2/section1"); }}>
           <Text style={styles.centerBtnText}>Start the questionnaire →</Text>
         </Pressable>
       </View>
@@ -365,7 +364,7 @@ export default function Home() {
           {NAV_ITEMS.map((n) => {
             const active = activeSec === n.key;
             return (
-              <Pressable key={n.key} onPress={() => jumpTo(n.key)} style={[styles.navChip, active && styles.navChipActive]}>
+              <Pressable key={n.key} onPress={() => { hapticSmall(); jumpTo(n.key); }} style={[styles.navChip, active && styles.navChipActive]}>
                 <Text style={[styles.navChipIcon, active && styles.navChipTextActive]}>{n.icon}</Text>
                 <Text style={[styles.navChipText, active && styles.navChipTextActive]}>{n.label}</Text>
               </Pressable>
@@ -563,10 +562,10 @@ export default function Home() {
 
         {/* ---- ACTIONS + FOOTER ---- */}
         <View style={styles.btnsBlock}>
-          <Pressable style={styles.ghostBtn} onPress={goEditGoals}>
+          <Pressable style={styles.ghostBtn} onPress={() => { hapticSmall(); goEditGoals(); }}>
             <Text style={styles.ghostBtnText}>✏️ Adjust my plan</Text>
           </Pressable>
-          <Pressable style={styles.ghostBtn} onPress={goRestart}>
+          <Pressable style={styles.ghostBtn} onPress={() => { hapticSmall(); goRestart(); }}>
             <Text style={styles.ghostBtnText}>↺ Start over</Text>
           </Pressable>
         </View>
@@ -804,11 +803,7 @@ function StartInvestingButton({ onComplete, done }) {
   const handlePress = () => {
     if (done) return;
 
-    try {
-      Haptics.notificationAsync(
-        Haptics.NotificationFeedbackType.Success
-      );
-    } catch (e) {}
+    hapticSuccess();
 
     onComplete?.();
   };

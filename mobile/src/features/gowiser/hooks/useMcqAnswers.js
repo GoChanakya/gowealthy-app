@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { hapticError, hapticSuccess } from '../../../lib/haptics';
 
 /**
  * One-shot answer state for a quiz slide: `{ [questionIndex]: { selected, isCorrect } }`.
@@ -12,13 +13,16 @@ export function useMcqAnswers({ onAnswer } = {}) {
 
   const answer = useCallback(
     (questionIndex, optionIndex, isCorrect) => {
+      if (answers[questionIndex] !== undefined) return;
       setAnswers((prev) => {
         if (prev[questionIndex] !== undefined) return prev;
         return { ...prev, [questionIndex]: { selected: optionIndex, isCorrect } };
       });
+      if (isCorrect) hapticSuccess();
+      else hapticError();
       onAnswer?.();
     },
-    [onAnswer]
+    [answers, onAnswer]
   );
 
   return { answers, answer };

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, Pressable, StyleSheet, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { C, FONT } from '../../lib/ui-kit';
+import { hapticSmall } from '../../lib/haptics';
 
 const BRAND_LOGO = require('../../../assets/images/logo.png');
 
@@ -18,6 +19,10 @@ export const SURFACE = { DASHBOARD: 'dashboard', GOWISER: 'gowiser', PROFILE: 'p
  */
 export default function TabBar({ active, onSelect, onProfile, onLockedTab }) {
   const isGowiser = active === SURFACE.GOWISER;
+  const selectWithHaptic = (handler) => () => {
+    hapticSmall();
+    handler?.();
+  };
 
   return (
     <View style={styles.wrap} pointerEvents="box-none">
@@ -35,15 +40,15 @@ export default function TabBar({ active, onSelect, onProfile, onLockedTab }) {
           icon="◆"
           label="GoWiser"
           active={isGowiser}
-          onPress={() => onSelect(SURFACE.GOWISER)}
+          onPress={selectWithHaptic(() => onSelect(SURFACE.GOWISER))}
         />
 
         <View style={styles.centerSpacer} />
 
-        <Tab icon="◈" label="Funds" locked onPress={onLockedTab} />
+        <Tab icon="◈" label="Funds" locked onPress={selectWithHaptic(onLockedTab)} />
       </View>
 
-      <Pressable style={styles.brandBtn} onPress={onProfile} hitSlop={8}>
+      <Pressable style={styles.brandBtn} onPress={selectWithHaptic(onProfile)} hitSlop={8}>
         <LinearGradient
           colors={active === SURFACE.PROFILE ? [C.o2, C.o] : [C.line2, C.surface]}
           style={styles.brandRing}

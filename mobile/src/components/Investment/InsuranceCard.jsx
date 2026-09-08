@@ -355,6 +355,7 @@ import {
   X, Calendar, DollarSign, FileText,
   AlertTriangle, Edit2, Check,
 } from 'lucide-react-native';
+import { hapticError, hapticSmall, hapticSuccess, hapticWarning } from '../../lib/haptics';
 
 // ─── Brand tokens ─────────────────────────────────────────────────────────────
 const PURPLE = 'rgb(108,80,196)';
@@ -521,6 +522,7 @@ const InsuranceCard = ({ data, onAdd, onUpdate, onDelete }) => {
   const handleSubmit = async () => {
     const { type, provider, policyNumber, coverageAmount, premiumAmount, startDate, endDate } = formData;
     if (!provider || !policyNumber || !coverageAmount || !premiumAmount || !startDate || !endDate) {
+      hapticError();
       Toast.show({ type: 'error', text1: 'Missing fields', text2: 'Please fill in all fields' });
       return;
     }
@@ -537,9 +539,11 @@ const InsuranceCard = ({ data, onAdd, onUpdate, onDelete }) => {
       : await onAdd({ ...base, id: `ins_${Date.now()}`, addedAt: new Date().toISOString() });
 
     if (result?.success) {
+      hapticSuccess();
       resetForm();
       Toast.show({ type: 'success', text1: isEditing ? 'Policy updated' : 'Policy added', text2: `${provider} — ${formatCurrency(base.coverageAmount)}` });
     } else {
+      hapticError();
       Toast.show({ type: 'error', text1: isEditing ? 'Update failed' : 'Add failed', text2: result?.error || 'Please try again' });
     }
     setIsSaving(false);
@@ -563,14 +567,17 @@ const InsuranceCard = ({ data, onAdd, onUpdate, onDelete }) => {
   // ── Delete ──────────────────────────────────────────────────────────────────
   const confirmDelete = async () => {
     if (!policyToDelete) return;
+    hapticWarning();
     setIsSaving(true);
     const result = await onDelete(policyToDelete);
     if (result?.success) {
+      hapticSuccess();
       setExpandedPolicy(null);
       setDeleteOpen(false);
       setPolicyToDelete(null);
       Toast.show({ type: 'success', text1: 'Policy deleted' });
     } else {
+      hapticError();
       Toast.show({ type: 'error', text1: 'Delete failed', text2: result?.error || 'Please try again' });
     }
     setIsSaving(false);
@@ -584,7 +591,7 @@ const InsuranceCard = ({ data, onAdd, onUpdate, onDelete }) => {
         {/* Stats header */}
         <TouchableOpacity
           style={s.headerArea}
-          onPress={() => !isSaving && setIsExpanded(v => !v)}
+          onPress={() => { if (!isSaving) { hapticSmall(); setIsExpanded(v => !v); } }}
           activeOpacity={0.85}
         >
           {/* Title row */}
@@ -643,7 +650,7 @@ const InsuranceCard = ({ data, onAdd, onUpdate, onDelete }) => {
                     {/* Row */}
                     <TouchableOpacity
                       style={s.policyRow}
-                      onPress={() => setExpandedPolicy(isOpen ? null : policy.id)}
+                      onPress={() => { hapticSmall(); setExpandedPolicy(isOpen ? null : policy.id); }}
                       activeOpacity={0.8}
                     >
                       <View style={[s.policyIcon, { backgroundColor: `${color}22` }]}>
@@ -738,7 +745,7 @@ const InsuranceCard = ({ data, onAdd, onUpdate, onDelete }) => {
       >
         {/* Policy Type selector */}
         <Label>Policy Type</Label>
-        <TouchableOpacity style={f.input} onPress={() => setTypeSheetOpen(true)}>
+        <TouchableOpacity style={f.input} onPress={() => { hapticSmall(); setTypeSheetOpen(true); }}>
           <Text style={{ color: '#fff', fontSize: 15 }}>{formData.type} Insurance</Text>
         </TouchableOpacity>
 
@@ -801,7 +808,7 @@ const InsuranceCard = ({ data, onAdd, onUpdate, onDelete }) => {
             <TouchableOpacity
               key={t}
               style={[s.typeRow, active && { backgroundColor: `${PURPLE}22`, borderColor: `${PURPLE}55` }]}
-              onPress={() => { set('type', t); setTypeSheetOpen(false); }}
+              onPress={() => { hapticSmall(); set('type', t); setTypeSheetOpen(false); }}
             >
               <View style={[s.typeIcon, { backgroundColor: `${color}22` }]}>
                 <Ic size={18} color={color} />

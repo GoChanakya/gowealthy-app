@@ -6,6 +6,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../../src/config/firebase';
 import { NSE_SERVICE_URL } from '../../../../src/config/services';
 import { reconcileSipMandates } from '../../../../src/lib/mandate';
+import { hapticError, hapticSmall, hapticSuccess } from '../../../../src/lib/haptics';
 
 const valueOf = (value, fallback = '') => Array.isArray(value) ? value[0] : (value ?? fallback);
 const dateText = (date) => `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
@@ -105,6 +106,7 @@ export default function SIPConfirmScreen() {
       await updateDoc(snapshot.ref, { [`sip_mandates.${id}`]: { sip_reg_id: id, purchase_order_id: purchaseOrder, scheme_code: schemeCode, fund_name: fundName, amount, tenure: tenureLabel, mandate_id: mandate, sip_link: link, status: 'PENDING_AUTH', created_at: new Date().toISOString(), umrn_linked: false } });
       setSipId(id);
       setSipLink(link);
+      hapticSuccess();
 
       // The SIP was registered with sip_mandate_id blank because the mandate is
       // not approved yet. If it has since been approved, link the UMRN now;
@@ -117,6 +119,7 @@ export default function SIPConfirmScreen() {
         linked: reconcile.linked,
       });
     } catch (err) {
+      hapticError();
       setError(err.message || 'Could not register SIP.');
     } finally {
       setLoading(false);
@@ -125,7 +128,7 @@ export default function SIPConfirmScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}><TouchableOpacity onPress={() => router.back()} style={styles.back}><Text style={styles.backText}>‹</Text></TouchableOpacity><Text style={styles.headerTitle}>Confirm SIP</Text><View style={styles.headerSpacer} /></View>
+      <View style={styles.header}><TouchableOpacity onPress={() => { hapticSmall(); router.back(); }} style={styles.back}><Text style={styles.backText}>‹</Text></TouchableOpacity><Text style={styles.headerTitle}>Confirm SIP</Text><View style={styles.headerSpacer} /></View>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}><Text style={styles.kicker}>FINAL STEP</Text><Text style={styles.heroTitle}>Register your SIP</Text><Text style={styles.heroMeta}>{fundName}</Text></View>
         <View style={styles.card}>
@@ -144,7 +147,7 @@ export default function SIPConfirmScreen() {
             </Text>
           </View>
         ) : null}
-        {sipLink ? <TouchableOpacity onPress={() => Linking.openURL(sipLink)} style={styles.linkButton}><Text style={styles.linkText}>Open SIP authorization link</Text></TouchableOpacity> : null}
+        {sipLink ? <TouchableOpacity onPress={() => { hapticSmall(); Linking.openURL(sipLink); }} style={styles.linkButton}><Text style={styles.linkText}>Open SIP authorization link</Text></TouchableOpacity> : null}
         <TouchableOpacity disabled={loading} onPress={sipId ? () => router.replace('/(gowealthy)/mf/trading/funds') : registerSIP} style={styles.primary}>
           {loading ? <ActivityIndicator color="#FFFDF8" /> : <Text style={styles.primaryText}>{sipId ? 'Done' : 'Register SIP with NSE'}</Text>}
         </TouchableOpacity>

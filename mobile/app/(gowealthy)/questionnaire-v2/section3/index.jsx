@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { useQuestionnaireV2 } from "../../../../src/context/QuestionnaireV2Context";
 import { GOALS, PRI_WORDS, PRI_ICON } from "../../../../src/lib/goPersonaEngine";
 import { C, FONT, RADIUS, Embers, ProgressBar, TopBar, PrimaryButton, Eyebrow, kitStyles } from "../../../../src/lib/ui-kit";
+import { hapticDragEnd, hapticDragStart, hapticSmall, hapticTick, hapticWarning } from "../../../../src/lib/haptics";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -43,10 +44,15 @@ export default function Section3() {
     animateLayout();
     const i = state.selectedGoals.findIndex(g => g.key === key);
     if (i >= 0) {
+      hapticSmall();
       // tapping a picked card's body (not the handle) un-ranks it — matches the HTML
       setSelectedGoals(state.selectedGoals.filter(g => g.key !== key));
     } else {
-      if (state.selectedGoals.length >= MAX_GOALS) return;
+      if (state.selectedGoals.length >= MAX_GOALS) {
+        hapticWarning();
+        return;
+      }
+      hapticSmall();
       const g = GOALS.find(x => x.key === key);
       setSelectedGoals([...state.selectedGoals, { key, years: g.defaultYears }]);
     }
@@ -57,6 +63,7 @@ export default function Section3() {
   // pointermove/elementFromPoint approach.
   const reorder = (fromIndex, toIndex) => {
     if (fromIndex === toIndex) return;
+    hapticTick();
     const next = [...state.selectedGoals];
     const [moved] = next.splice(fromIndex, 1);
     next.splice(toIndex, 0, moved);
@@ -155,6 +162,7 @@ function GoalCard({ goal, rank, picked, pickedCount, onToggle, onReorder, onDrag
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onPanResponderGrant: () => {
+        hapticDragStart();
         setDragging(true);
         onDragStateChangeRef.current?.(true);
         startIndexRef.current = rankRef.current;
@@ -177,11 +185,13 @@ function GoalCard({ goal, rank, picked, pickedCount, onToggle, onReorder, onDrag
         }
       },
       onPanResponderRelease: () => {
+        hapticDragEnd();
         setDragging(false);
         onDragStateChangeRef.current?.(false);
         Animated.spring(dragY, { toValue: 0, useNativeDriver: true, friction: 7 }).start();
       },
       onPanResponderTerminate: () => {
+        hapticDragEnd();
         setDragging(false);
         onDragStateChangeRef.current?.(false);
         Animated.spring(dragY, { toValue: 0, useNativeDriver: true, friction: 7 }).start();

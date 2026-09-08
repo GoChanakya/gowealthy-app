@@ -4,6 +4,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { hapticSmall, hapticWarning } from '../../../../src/lib/haptics';
 
 // ── Hardcoded Parag Parikh data ───────────────────────────────────────────────
 const BASE_FUND = {
@@ -99,7 +100,7 @@ const FundDetailScreen = () => {
     return (
       <View style={[styles.container, { alignItems: 'center', justifyContent: 'center', padding: 24 }]}>
         <Text style={styles.fundName}>Scheme details missing</Text>
-        <TouchableOpacity onPress={() => router.replace('/(gowealthy)/mf/trading/funds')} style={styles.ctaPrimary}>
+        <TouchableOpacity onPress={() => { hapticSmall(); router.replace('/(gowealthy)/mf/trading/funds'); }} style={styles.ctaPrimary}>
           <Text style={styles.ctaPrimaryTxt}>Back to funds</Text>
         </TouchableOpacity>
       </View>
@@ -111,7 +112,7 @@ const FundDetailScreen = () => {
       {/* Fixed header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => { hapticSmall(); router.back(); }} style={styles.backBtn}>
             <Text style={styles.backTxt}>←</Text>
           </TouchableOpacity>
           <Text style={styles.fundName}>{FUND.name}</Text>
@@ -290,17 +291,17 @@ const FundDetailScreen = () => {
         <TouchableOpacity
           disabled={!sipAllowed}
           style={[styles.ctaPrimary, !sipAllowed && styles.ctaDisabled]}
-          onPress={() => router.push(
+          onPress={() => { hapticSmall(); router.push(
             `/(gowealthy)/mf/trading/sip-amount?schemeCode=${encodeURIComponent(schemeCode)}`
             + `&amcCode=${encodeURIComponent(amcCode)}`
             + `&fundName=${encodeURIComponent(FUND.name)}`
             + `&nav=${FUND.nav}&minSIP=${FUND.minSIP}`
-          )}>
+          ); }}>
           <Text style={styles.ctaPrimaryTxt}>{sipAllowed ? 'Start SIP' : 'SIP unavailable'}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.ctaSecondary}
-          onPress={() => Alert.alert('Lumpsum purchase not wired yet', 'server.js currently has no purchase registration route. SIP is connected to the available NSE mandate and SIP routes.')}
+          onPress={() => { hapticWarning(); Alert.alert('Lumpsum purchase not wired yet', 'server.js currently has no purchase registration route. SIP is connected to the available NSE mandate and SIP routes.'); }}
         >
           <Text style={styles.ctaSecondaryTxt}>Lumpsum</Text>
         </TouchableOpacity>

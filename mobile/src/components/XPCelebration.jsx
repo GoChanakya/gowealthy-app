@@ -10,8 +10,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { hapticSuccess } from '../lib/haptics';
 
 const ORANGE = '#FF8500';
 const PURPLE = '#8D73E6';
@@ -93,7 +93,7 @@ export default function XPCelebrationHost() {
     echo.setValue(0);
     copy.setValue(0);
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    hapticSuccess();
 
     Animated.parallel([
       Animated.timing(backdrop, { toValue: 1, duration: 180, useNativeDriver: true }),

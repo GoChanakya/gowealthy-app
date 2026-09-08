@@ -397,6 +397,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../../../src/config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL, EKYC_AMC_CODE } from '../../../../src/config/services';
+import { hapticError, hapticSmall, hapticSuccess, hapticWarning } from '../../../../src/lib/haptics';
 
 // RTA AMC code for EKYCREG — configured in src/config/services.js, not here,
 // because the valid value differs between UAT and production.
@@ -558,6 +559,7 @@ const Screen3FreshKYC = () => {
 
   const handleSendKYCLink = async () => {
     if (!isValidEmail(email)) {
+      hapticError();
       Alert.alert('Invalid Email', 'Please enter a valid email address.');
       return;
     }
@@ -603,9 +605,11 @@ const Screen3FreshKYC = () => {
       });
 
       setEkycLink(link);
+      hapticSmall();
       console.log('✅ EKYC link saved:', link);
 
     } catch (error) {
+      hapticError();
       console.error('❌ EKYC Register error:', error);
       Alert.alert('Error', error.message || 'Failed to send KYC link. Please try again.');
     } finally {
@@ -618,11 +622,14 @@ const Screen3FreshKYC = () => {
     try {
       const supported = await Linking.canOpenURL(ekycLink);
       if (supported) {
+        hapticSmall();
         await Linking.openURL(ekycLink);
       } else {
+        hapticError();
         Alert.alert('Error', 'Cannot open this link on your device.');
       }
     } catch (e) {
+      hapticError();
       Alert.alert('Error', 'Failed to open link.');
     }
   };
@@ -635,6 +642,7 @@ const Screen3FreshKYC = () => {
   // other state comes back "F" with the reason in kyc_status_remark (p.192).
   const verifyEkycCompletion = async () => {
     if (!panNumber) {
+      hapticError();
       Alert.alert('Missing PAN', 'We could not find your PAN. Please go back and re-scan it.');
       return false;
     }
@@ -658,6 +666,7 @@ const Screen3FreshKYC = () => {
       setKycRemark(remark);
 
       if (data.kyc_status === 'S') {
+        hapticSuccess();
         setKycState('verified');
         const phone = await AsyncStorage.getItem('user_phone');
         await updateDoc(doc(db, 'mf_onboarding', phone), {
@@ -670,8 +679,10 @@ const Screen3FreshKYC = () => {
       }
 
       setKycState('pending');
+      hapticWarning();
       return false;
     } catch (error) {
+      hapticError();
       console.error('❌ KYC status check error:', error);
       setKycState('idle');
       Alert.alert('Check Failed', error.message || 'Could not check your KYC status. Please try again.');
@@ -744,7 +755,7 @@ const Screen3FreshKYC = () => {
         </View>
 
         <View style={styles.topbar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} activeOpacity={0.8}>
+          <TouchableOpacity onPress={() => { hapticSmall(); router.back(); }} style={styles.backBtn} activeOpacity={0.8}>
             <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>
           <View style={styles.stepTag}>

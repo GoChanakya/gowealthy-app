@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Toast from 'react-native-toast-message';
@@ -15,9 +15,9 @@ import {
   Inter_600SemiBold,
   Inter_700Bold,
 } from '@expo-google-fonts/inter';
-import { useEffect } from 'react';
-import { View, ActivityIndicator, Text, ScrollView, Alert } from 'react-native';
+import { Text, ScrollView, Alert } from 'react-native';
 import XPCelebrationHost from '../src/components/XPCelebration';
+import LogoLoader from '../src/components/LogoLoader';
 
 class ErrorBoundary extends React.Component {
   state = { error: null };
@@ -76,11 +76,7 @@ export default function RootLayout() {
   }, [fontsLoaded, fontError, fontTimeout]);
 
   if (!fontsLoaded && !fontError && !fontTimeout) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#08060a' }}>
-        <ActivityIndicator color="#ff6a1a" />
-      </View>
-    );
+    return <LogoLoader label="Starting GoChanakya…" />;
   }
 
   return (

@@ -40,7 +40,21 @@ export default function AppShell() {
   );
 
   /** Tapping the tab you're already on returns you to the dashboard. */
-  const selectTab = (key) => setSurface((current) => (current === key ? SURFACE.DASHBOARD : key));
+  const selectTab = (key) => {
+    const nextSurface = surface === key ? SURFACE.DASHBOARD : key;
+    if (__DEV__) {
+      const files = {
+        [SURFACE.DASHBOARD]: 'app/(gowealthy)/dashboard/home.jsx',
+        [SURFACE.GOWISER]: 'src/features/gowiser/screens/ArticleListScreen.jsx',
+        [SURFACE.PROFILE]: 'src/features/profile/ProfileScreen.jsx',
+      };
+      console.log(`[Navigation] Bottom tab -> ${nextSurface}`, {
+        shellFile: 'src/features/shell/AppShell.jsx',
+        visiblePageFile: files[nextSurface],
+      });
+    }
+    setSurface(nextSurface);
+  };
 
   const openFunds = () => {
     if (FEATURES.mutualFunds) router.push('/(gowealthy)/mf/onboarding/screen1');

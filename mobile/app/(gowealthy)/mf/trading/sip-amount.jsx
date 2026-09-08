@@ -8,6 +8,7 @@ import { NSE_SERVICE_URL } from '../../../../src/config/services';
 import { awardBadge, classifyFund } from '../../../../src/lib/xpBadges';
 import { celebratePayment } from '../../../../src/components/XPCelebration';
 import { getPurchasePaymentLink, cancelPurchaseOrder } from '../../../../src/lib/payment';
+import { hapticError, hapticSmall, hapticSuccess, hapticWarning } from '../../../../src/lib/haptics';
 
 const readPhone = async () => {
   const raw = await AsyncStorage.getItem('user_phone')
@@ -154,7 +155,9 @@ export default function SIPAmountScreen() {
       });
 
       setOrder({ id: purchaseOrderId, paymentLink });
+      hapticSuccess();
     } catch (err) {
+      hapticError();
       console.log('[MF][Purchase][ORDER_FAILED]', { error: err.message });
       setError(err.message || 'Could not create purchase order.');
     } finally {
@@ -168,8 +171,10 @@ export default function SIPAmountScreen() {
     try {
       setError('');
       await Linking.openURL(order.paymentLink);
+      hapticSmall();
       setPaymentOpened(true);
     } catch {
+      hapticError();
       setError('Could not open the payment page. Copy the link and try in a browser.');
     }
   };
@@ -177,6 +182,7 @@ export default function SIPAmountScreen() {
   // Cancels the unpaid order at NSE so the investor is not left owing it.
   const cancelOrder = async () => {
     if (cancelling) return;
+    hapticWarning();
     try {
       setCancelling(true);
       setError('');
@@ -197,7 +203,9 @@ export default function SIPAmountScreen() {
       });
       setOrder({ id: '', paymentLink: '' });
       setPaymentOpened(false);
+      hapticSuccess();
     } catch (err) {
+      hapticError();
       console.log('[MF][Purchase][CANCEL_FAILED]', { error: err.message });
       setError(err.message || 'Could not cancel the order.');
     } finally {
@@ -225,7 +233,7 @@ export default function SIPAmountScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.back}><Text style={styles.backText}>‹</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => { hapticSmall(); router.back(); }} style={styles.back}><Text style={styles.backText}>‹</Text></TouchableOpacity>
         <Text style={styles.headerTitle}>Set up SIP</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -256,7 +264,7 @@ export default function SIPAmountScreen() {
           <Text style={styles.label}>SIP DURATION</Text>
           <View style={styles.chips}>
             {DURATIONS.map((item) => (
-              <TouchableOpacity key={item.label} onPress={() => setDuration(item)} style={[styles.chip, item.label === duration.label && styles.chipActive]}>
+              <TouchableOpacity key={item.label} onPress={() => { if (item.label !== duration.label) hapticSmall(); setDuration(item); }} style={[styles.chip, item.label === duration.label && styles.chipActive]}>
                 <Text style={[styles.chipText, item.label === duration.label && styles.chipTextActive]}>{item.label}</Text>
               </TouchableOpacity>
             ))}

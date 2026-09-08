@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../src/config/firebase';
+import { hapticError, hapticSmall } from '../../src/lib/haptics';
 
 const { width: W, height: H } = Dimensions.get('window');
 const ND = Platform.OS !== 'web';
@@ -154,11 +155,14 @@ const LoginScreen = () => {
       }),
     });
     if (res.ok) {
+      hapticSmall();
       router.push({ pathname: '/(auth)/otp', params: { phone: clean, otp, expiry } });
     } else {
+      hapticError();
       Alert.alert('Could not send OTP', 'Please check your number and try again.');
     }
   } catch {
+    hapticError();
     Alert.alert('Network Error', 'Check your connection and try again.');
   } finally {
     setLoading(false);

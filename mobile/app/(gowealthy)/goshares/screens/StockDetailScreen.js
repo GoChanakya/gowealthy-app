@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { db } from "../../../../src/config/firebase"; 
+import { hapticError, hapticSuccess } from "../../../../src/lib/haptics";
 
 export default function StockDetailScreen({ route, navigation }) {
   const { stock } = route.params;
@@ -47,6 +48,7 @@ export default function StockDetailScreen({ route, navigation }) {
     try {
       const userId = await AsyncStorage.getItem("userId");
       if (!userId) {
+        hapticError();
         Alert.alert("Error", "Please login again");
         return;
       }
@@ -65,6 +67,7 @@ export default function StockDetailScreen({ route, navigation }) {
         // Remove from watchlist
         await deleteDoc(watchlistRef);
         setIsInWatchlist(false);
+        hapticSuccess();
         Alert.alert("Success", "Removed from watchlist");
       } else {
         // Add to watchlist
@@ -76,9 +79,11 @@ export default function StockDetailScreen({ route, navigation }) {
           tag: "", // User can add tag later
         });
         setIsInWatchlist(true);
+        hapticSuccess();
         Alert.alert("Success", "Added to watchlist");
       }
     } catch (error) {
+      hapticError();
       console.error("Error toggling watchlist:", error);
       Alert.alert("Error", "Failed to update watchlist");
     } finally {

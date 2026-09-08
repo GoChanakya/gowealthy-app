@@ -450,6 +450,7 @@ import {
   simulateJourney, timelineStatus, fmtINR, fmtLac, fmtAgeSmart, PRI_ICON, PERSONALITIES,
 } from "../../../../src/lib/goPersonaEngine";
 import { C, FONT, RADIUS, Embers, ProgressBar, TopBar, PrimaryButton, GhostButton, Eyebrow, kitStyles } from "../../../../src/lib/ui-kit";
+import { hapticError, hapticSmall, hapticSuccess } from "../../../../src/lib/haptics";
 
 const R = 52, CIRC = Math.PI * 2 * R;
 
@@ -482,6 +483,7 @@ export default function Section5() {
   const goFinish = async () => {
     setProjection(journey);
     setStep("finish");
+    hapticSuccess();
     await saveSubmission();
   };
 
@@ -517,6 +519,7 @@ export default function Section5() {
         balanceAfter: xpResult.balanceAfter,
       });
       if (xpResult.status === "awarded" && xpResult.verified) {
+        hapticSuccess();
         Toast.show({
           type: "success",
           text1: "+50 XP credited",
@@ -531,6 +534,7 @@ export default function Section5() {
           visibilityTime: 5000,
         });
       } else {
+        hapticError();
         Toast.show({
           type: "error",
           text1: "XP verification failed",
@@ -543,6 +547,7 @@ export default function Section5() {
       // dashboard without a Firestore round-trip on every cold start.
       await markQuestionnaireCompleted();
     } catch (e) {
+      hapticError();
       console.error("Failed to save questionnaire submission:", e);
       setXpVerification({ status: "failed", verified: false });
       // Deliberately non-blocking — the user already sees their finished blueprint.
@@ -564,6 +569,7 @@ export default function Section5() {
   const submitName = async () => {
     const trimmed = nameDraft.trim();
     if (!trimmed) {
+      hapticError();
       setNameError("Go on, tell us what to call you.");
       return;
     }
@@ -576,8 +582,10 @@ export default function Section5() {
         await setDoc(doc(db, "gowealthy-questionaire", phone), { name: trimmed }, { merge: true });
       }
       setNameModalOpen(false);
+      hapticSuccess();
       router.replace("/(gowealthy)/dashboard");
     } catch (e) {
+      hapticError();
       console.error("Failed to save name:", e);
       setNameError("Couldn't save that — check your connection and try again.");
     } finally {
@@ -601,7 +609,7 @@ export default function Section5() {
       <TopBar visible label={step === "alloc" ? "Allocation" : step === "ach" ? "Future story" : "Done"} onBack={handleBack} />
 
       {step === "alloc" && (
-        <AllocationScreen alloc={alloc} monthly={state.monthlyInvestment} journey={journey} onNext={() => setStep("ach")} />
+        <AllocationScreen alloc={alloc} monthly={state.monthlyInvestment} journey={journey} onNext={() => { hapticSuccess(); setStep("ach"); }} />
       )}
       {step === "ach" && (
         <AchievementsScreen
@@ -744,7 +752,7 @@ function AllocationScreen({ alloc, monthly, journey, onNext }) {
             <View key={b.key}>
               <Pressable
                 style={[styles.alRow, open && { borderColor: b.color, backgroundColor: b.color + "1a" }]}
-                onPress={() => setOpenIdx(open ? null : i)}
+                onPress={() => { hapticSmall(); setOpenIdx(open ? null : i); }}
               >
                 <Text style={[styles.alPri, { color: b.color, backgroundColor: b.color + "22" }]}>{pri}</Text>
                 <Text style={styles.alName}>{b.icon} {b.name}</Text>

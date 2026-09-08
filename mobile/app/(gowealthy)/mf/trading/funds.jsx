@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { refreshUccActivation } from '../../../../src/lib/ucc';
 import { reconcileSipMandates } from '../../../../src/lib/mandate';
 import { fetchSchemes, fetchFeaturedSchemes, prettySchemeName, amcInitials, FEATURED_AMCS } from '../../../../src/lib/schemes';
+import { hapticSmall } from '../../../../src/lib/haptics';
 
 const formatAmount = (amount) => `₹${Number(amount).toLocaleString('en-IN')}`;
 
@@ -151,6 +152,7 @@ const FundsListScreen = () => {
   // AMC code or minimum from a local table — that mismatch is what produced
   // "AMC DOES NOT EXISTS" on every SIP registration.
   const openScheme = (scheme) => {
+    hapticSmall();
     const params = new URLSearchParams({
       schemeCode: scheme.scheme_code,
       amcCode: scheme.amc_code,
@@ -172,7 +174,7 @@ const FundsListScreen = () => {
         keyboardShouldPersistTaps="handled"
       >
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => router.replace('/(gowealthy)')} style={styles.backButton} accessibilityLabel="Go back to home">
+              <TouchableOpacity onPress={() => { hapticSmall(); router.replace('/(gowealthy)'); }} style={styles.backButton} accessibilityLabel="Go back to home">
                 <Ionicons name="arrow-back" size={21} color="#17352B" />
               </TouchableOpacity>
               <View>
@@ -213,7 +215,7 @@ const FundsListScreen = () => {
               {FEATURED_AMCS.map((amc) => (
                 <TouchableOpacity
                   key={amc}
-                  onPress={() => setSearch(search === amc ? '' : amc)}
+                  onPress={() => { hapticSmall(); setSearch(search === amc ? '' : amc); }}
                   style={[styles.filter, search === amc && styles.filterActive]}
                   accessibilityRole="button"
                   accessibilityState={{ selected: search === amc }}

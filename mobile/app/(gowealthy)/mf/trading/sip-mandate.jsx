@@ -7,6 +7,7 @@ import { db } from '../../../../src/config/firebase';
 import { NSE_SERVICE_URL } from '../../../../src/config/services';
 import { refreshUccActivation } from '../../../../src/lib/ucc';
 import { refreshMandateStatus, MANDATE_STATUS } from '../../../../src/lib/mandate';
+import { hapticError, hapticSmall, hapticSuccess } from '../../../../src/lib/haptics';
 
 // The investor approves the eNACH on an NSE page outside the app, so approval
 // only becomes visible by polling the mandate report.
@@ -95,6 +96,7 @@ export default function SIPMandateScreen() {
         hasLink: Boolean(savedAuthLink),
       });
     } catch (err) {
+      hapticError();
       setAuthError(err.message || 'Could not prepare NSE authorization.');
       logActivity('AUTHORIZATION_PAGE_FAILED', { error: err.message });
     } finally {
@@ -137,6 +139,9 @@ export default function SIPMandateScreen() {
       const result = await refreshMandateStatus(phone);
       if (!active) return;
       setMandateStatus(result.status);
+      if (result.status === MANDATE_STATUS.APPROVED && mandateStatus !== MANDATE_STATUS.APPROVED) hapticSuccess();
+      if ([MANDATE_STATUS.REJECTED, MANDATE_STATUS.ERROR].includes(result.status)
+        && result.status !== mandateStatus) hapticError();
       if (result.umrn) setMandateUmrn(result.umrn);
       logActivity('MANDATE_STATUS_POLL', { mandateId, status: result.status, hasUmrn: Boolean(result.umrn) });
     };
@@ -245,7 +250,9 @@ export default function SIPMandateScreen() {
       logActivity('FIRESTORE_UPDATED', { mandateId: id, mandateStatus: 'PENDING' });
       setMandateId(id);
       setMandateLink(link);
+      hapticSuccess();
     } catch (err) {
+      hapticError();
       logActivity('FAILED', { error: err.message });
       setError(err.message || 'Could not register mandate.');
     } finally {
@@ -254,13 +261,14 @@ export default function SIPMandateScreen() {
   };
 
   const continueToSIP = () => {
+    hapticSmall();
     router.push(`/(gowealthy)/mf/trading/sip-confirm?schemeCode=${encodeURIComponent(schemeCode)}&amcCode=${encodeURIComponent(amcCode)}&fundName=${encodeURIComponent(fundName)}&amount=${amount}&tenureMonths=${tenureMonths}&tenureLabel=${encodeURIComponent(tenureLabel)}&mandateId=${encodeURIComponent(mandateId)}&purchaseOrderId=${encodeURIComponent(purchaseOrderId)}`);
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.back}><Text style={styles.backText}>‹</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => { hapticSmall(); router.back(); }} style={styles.back}><Text style={styles.backText}>‹</Text></TouchableOpacity>
         <Text style={styles.headerTitle}>Authorize mandate</Text><View style={styles.headerSpacer} />
       </View>
       <ScrollView contentContainerStyle={styles.content}>
@@ -289,7 +297,7 @@ export default function SIPMandateScreen() {
           {authStatusRaw ? <Text style={styles.authRaw}>NSE response: {authStatusRaw}</Text> : null}
           <Text style={styles.authDescription}>Complete this authorization before registering your bank mandate.</Text>
           {authLink ? (
-            <TouchableOpacity onPress={() => Linking.openURL(authLink)} style={styles.authButton}>
+            <TouchableOpacity onPress={() => { hapticSmall(); Linking.openURL(authLink); }} style={styles.authButton}>
               <Text style={styles.authLink}>Authorize client code on NSE</Text>
             </TouchableOpacity>
           ) : (
@@ -300,7 +308,7 @@ export default function SIPMandateScreen() {
           {authError ? <Text style={styles.authError}>{authError}</Text> : null}
         </View>
         {error ? <Text style={styles.error}>{error}</Text> : null}
-        {mandateLink ? <TouchableOpacity onPress={() => Linking.openURL(mandateLink)} style={styles.linkButton}><Text style={styles.linkText}>Open NSE mandate authorization</Text></TouchableOpacity> : null}
+        {mandateLink ? <TouchableOpacity onPress={() => { hapticSmall(); Linking.openURL(mandateLink); }} style={styles.linkButton}><Text style={styles.linkText}>Open NSE mandate authorization</Text></TouchableOpacity> : null}
         <TouchableOpacity disabled={loading} onPress={mandateId ? continueToSIP : createMandate} style={styles.primary}>
           {loading ? <ActivityIndicator color="#FFFDF8" /> : <Text style={styles.primaryText}>{mandateId ? 'Continue to SIP registration' : 'Register mandate with NSE'}</Text>}
         </TouchableOpacity>
