@@ -42,6 +42,22 @@ export function StoryTopBar({ total, currentSlide, xp, onClose }) {
   );
 }
 
+/**
+ * Standalone page counter, floating at the bottom.
+ *
+ * Used when the reader navigates by tapping the screen edges rather than with
+ * StoryNavigation's buttons — that component carries its own counter inline.
+ */
+export function SlideCounter({ current, total }) {
+  return (
+    <View style={[gwStyles.glassPill, styles.floatingCounter]}>
+      <Text style={styles.floatingCounterText}>
+        {current} / {total}
+      </Text>
+    </View>
+  );
+}
+
 export function StoryNavigation({
   currentSlide,
   total,
@@ -174,4 +190,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   counterText: { color: C.muted, fontSize: 11, fontFamily: FONT.bodySemi, letterSpacing: 1 },
+
+  floatingCounter: {
+    position: 'absolute',
+    bottom: 38,
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  floatingCounterText: {
+    color: C.muted,
+    fontSize: 11,
+    fontFamily: FONT.bodySemi,
+    letterSpacing: 1,
+  },
 });
