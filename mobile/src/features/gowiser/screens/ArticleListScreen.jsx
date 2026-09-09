@@ -28,7 +28,7 @@ const EMPTY = {
  * GoWiser article list.
  *
  * Rendered as the standalone /(gowealthy)/gowiser route and, with
- * `hideHeader`, as the Learn tab inside (gowealthy)/index.jsx.
+ * `hideHeader`, as the GoWiser tab inside the app shell.
  */
 export default function ArticleListScreen({ hideHeader = false }) {
   const router = useRouter();

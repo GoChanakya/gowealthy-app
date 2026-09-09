@@ -23,10 +23,8 @@ const AVATAR = require('../../../assets/images/profile/profileUser.png');
 
 /** Parked flows, reachable only in a full (local) build. */
 const DEV_ROUTES = [
-  { label: 'Product hub', route: '/(gowealthy)' },
   { label: 'GoShares', route: '/(gowealthy)/goshares' },
   { label: 'Mutual funds', route: '/(gowealthy)/mf/onboarding/screen1' },
-  { label: 'Questionnaire v1', route: '/(gowealthy)/questionnaire/section1/screen1' },
   { label: 'Raw dashboard route', route: '/(gowealthy)/dashboard/home' },
 ];
 

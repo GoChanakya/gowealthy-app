@@ -36,11 +36,36 @@ function canPlay() {
   return Platform.OS !== 'web' && currentLevel !== HAPTIC_LEVEL.OFF;
 }
 
+/**
+ * Haptics must never break a user flow, so every failure is swallowed — but
+ * swallowing silently also hides the most common real cause: a dev build made
+ * before expo-haptics was installed has no native module, so every call throws
+ * and the app just feels dead. In development we log once so that's visible.
+ */
+let warnedUnavailable = false;
+
+function reportUnavailable(error) {
+  if (!__DEV__ || warnedUnavailable) return;
+  warnedUnavailable = true;
+  console.warn(
+    [
+      '[haptics] a haptic call failed — no vibration will play.',
+      'If this appears on iOS the native module is missing from the build:',
+      'rebuild with  npx eas build -p ios --profile development',
+      'If it does NOT appear but you still feel nothing, it is the device:',
+      'Settings > Sounds & Haptics > System Haptics must be ON, and Low Power',
+      'Mode must be OFF — either one silences all app haptics.',
+    ].join(' '),
+    error
+  );
+}
+
 function safely(play) {
   if (!canPlay()) return Promise.resolve();
   try {
-    return Promise.resolve(play()).catch(() => {});
-  } catch {
+    return Promise.resolve(play()).catch(reportUnavailable);
+  } catch (e) {
+    reportUnavailable(e);
     return Promise.resolve();
   }
 }

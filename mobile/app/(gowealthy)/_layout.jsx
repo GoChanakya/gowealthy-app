@@ -6,12 +6,11 @@ export default function GoWealthyLayout() {
       {/* The signed-in app. `dashboard/index` is the shell. */}
       <Stack.Screen name="dashboard" />
       <Stack.Screen name="questionnaire-v2" />
+      <Stack.Screen name="gowiser" />
 
-      {/* Parked in the shipped build — each group's _layout carries a FeatureGate. */}
-      <Stack.Screen name="index" />
-      <Stack.Screen name="goshares" />
+      {/* Gated in the shipped build — see each group's _layout. */}
       <Stack.Screen name="mf" />
-      <Stack.Screen name="questionnaire" />
+      <Stack.Screen name="goshares" />
     </Stack>
   );
 }
