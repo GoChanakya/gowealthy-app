@@ -559,12 +559,6 @@ logoInner: {
   height: LOGO_SIZE,
   borderRadius: LOGO_SIZE * 0.26,
   overflow: 'hidden',
-  // ✅ REMOVE backgroundColor entirely, just keep shadow
-  // shadowColor: '#FF8500',
-  // shadowOffset: { width: 0, height: 0 },  // center glow, not offset
-  // shadowOpacity: 0.45,
-  // shadowRadius: 24,
-  // elevation: 16,
 },
   logoImg: {
     width: LOGO_SIZE,
@@ -608,26 +602,6 @@ logoInner: {
     marginBottom: 20,
   },
 
-  // // Dots
-  // dotRow: {
-  //   flexDirection: 'row',
-  //   gap: 6,
-  //   alignItems: 'center',
-  // },
-  // dot: {
-  //   width: 5,
-  //   height: 5,
-  //   borderRadius: 3,
-  //   backgroundColor: 'rgba(255,255,255,0.15)',
-  // },
-  // dotActive: {
-  //   width: 20,
-  //   height: 5,
-  //   borderRadius: 3,
-  //   backgroundColor: '#FF8500',
-  // },
-
-  // Bottom
   bottom: {
     width: '100%',
     alignItems: 'center',

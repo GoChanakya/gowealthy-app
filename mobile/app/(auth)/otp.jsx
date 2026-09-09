@@ -186,28 +186,6 @@ const OtpScreen = () => {
       refs.current[i - 1]?.focus();
   };
 
-  // const saveToFirebase = async (phoneNumber) => {
-  //   try {
-  //     const ts   = new Date();
-  //     const sid  = ts.toISOString().replace(/[:.]/g, '-');
-  //     const ref  = doc(db, 'questionnaire_submissions', phoneNumber);
-  //     const snap = await getDoc(ref);
-  //     const count = snap.exists() ? (snap.data().total_submissions || 0) : 0;
-  //     await setDoc(doc(collection(ref, 'submissions'), sid), {
-  //       raw_answers: {}, timestamp: ts.toISOString(),
-  //       submitted_at: ts, version: count + 1, auth_only: true,
-  //     });
-  //     await setDoc(ref, {
-  //       phone_number: phoneNumber, full_name: '', email: '',
-  //       latest_submission_date: ts.toISOString(),
-  //       latest_submission_id: sid,
-  //       total_submissions: count + 1,
-  //       last_updated: ts,
-  //       createdAt: snap.exists() ? (snap.data().createdAt ?? ts.toISOString()) : ts.toISOString(),
-  //       timestamp: ts.toISOString(),
-  //     }, { merge: true });
-  //   } catch (e) { console.error('❌ Firebase save error:', e); }
-  // };
 
 
   const saveToFirebase = async (phoneNumber) => {
