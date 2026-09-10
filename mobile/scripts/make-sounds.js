@@ -107,3 +107,40 @@ console.log('writing to assets/sounds/');
   tone(b, 0.285, E6, 0.95, 0.20);   // quiet third for warmth
   writeWav('milestone.wav', b);
 }
+
+// Selection tick — quiz answers, goal picks. Fires ~20x in the questionnaire,
+// so it's deliberately near-subliminal: one short high note, low gain. It should
+// read as tactile, not as a noise.
+{
+  const b = buffer(0.14);
+  tone(b, 0.000, G6, 0.075, 0.20);
+  writeWav('tick.wav', b);
+}
+
+// Quiz answer correct — bright, quick, upward.
+{
+  const b = buffer(0.40);
+  tone(b, 0.000, E6, 0.13, 0.34);
+  tone(b, 0.048, G6, 0.30, 0.36);
+  writeWav('correct.wav', b);
+}
+
+// Quiz answer wrong — downward, soft and rounded. This is a learning app; it
+// should read as "not quite", never as a buzzer.
+{
+  const b = buffer(0.45);
+  tone(b, 0.000, E5, 0.16, 0.26);
+  tone(b, 0.070, C5, 0.34, 0.24);
+  writeWav('wrong.wav', b);
+}
+
+// Persona reveal — the card turning over. A suspended fourth resolving to the
+// third, which is the "ahh" shape. Distinct from milestone, which is the finale.
+{
+  const b = buffer(1.1);
+  tone(b, 0.000, G5, 0.34, 0.26);
+  tone(b, 0.070, C6, 0.40, 0.30);
+  tone(b, 0.230, note(83), 0.70, 0.22);   // B5, the suspension
+  tone(b, 0.330, E6, 0.72, 0.30);         // resolves up to the third
+  writeWav('reveal.wav', b);
+}

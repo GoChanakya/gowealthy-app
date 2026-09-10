@@ -22,14 +22,22 @@ let currentLevel = VALID.has(ENV_LEVEL) ? ENV_LEVEL : SOUND_LEVEL.STANDARD;
 
 /** Per-cue ceiling, so the frequent ones sit lower than the rare ones. */
 const VOLUME = {
+  tick: 0.16,      // fires constantly — barely there on purpose
+  correct: 0.30,
+  wrong: 0.26,
   xp: 0.34,
   complete: 0.42,
+  reveal: 0.46,
   milestone: 0.55,
 };
 
 const SOURCES = {
+  tick: require('../../assets/sounds/tick.wav'),
+  correct: require('../../assets/sounds/correct.wav'),
+  wrong: require('../../assets/sounds/wrong.wav'),
   xp: require('../../assets/sounds/xp.wav'),
   complete: require('../../assets/sounds/complete.wav'),
+  reveal: require('../../assets/sounds/reveal.wav'),
   milestone: require('../../assets/sounds/milestone.wav'),
 };
 
@@ -97,7 +105,24 @@ function play(key) {
   }
 }
 
-/** XP earned. The most frequent cue, so the quietest and shortest. */
+/** A choice was registered. Rate-limited so a fast tapper gets a rhythm, not a buzz. */
+const TICK_THROTTLE_MS = 70;
+let lastTickAt = 0;
+export function soundTick() {
+  const now = Date.now();
+  if (now - lastTickAt < TICK_THROTTLE_MS) return;
+  lastTickAt = now;
+  play('tick');
+}
+
+/** Quiz answer graded. */
+export const soundCorrect = () => play('correct');
+export const soundWrong = () => play('wrong');
+
+/** A result being revealed to the user for the first time. */
+export const soundReveal = () => play('reveal');
+
+/** XP earned. */
 export const soundXP = () => play('xp');
 
 /** A piece of content finished — an article read end to end. */

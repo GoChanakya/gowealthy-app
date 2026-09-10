@@ -21,6 +21,7 @@ import {
 import { Ico } from "../../../../src/lib/icons";
 import { Lightbulb, Zap, TrendingDown, Telescope } from "lucide-react-native";
 import { hapticSmall, hapticSuccess } from "../../../../src/lib/haptics";
+import { soundTick, soundReveal } from "../../../../src/lib/sound";
 // Fonts are loaded once in questionnaire-v2/_layout.jsx — no per-screen font gate needed here.
 
 const STEP_LABEL = { landing: "Start", quiz: "Personality read", loading: "Reading", reveal: "Your persona" };
@@ -76,6 +77,7 @@ export default function Section1() {
     const { persona, code } = getPersonality(state.scores.h, state.scores.c, state.scores.o);
     setPersonaResult(code, persona.key);
     setStep("reveal");
+    soundReveal();
     hapticSuccess();
   };
 
@@ -189,6 +191,7 @@ function ChoiceCard({ icon, text, onPress, delay = 0 }) {
   const [selected, setSelected] = useState(false);
   const press = () => {
     hapticSmall();
+    soundTick();
     setSelected(true);
     Animated.sequence([
       Animated.timing(scale, { toValue: 0.97, duration: 90, useNativeDriver: true }),
@@ -225,7 +228,7 @@ function TripleQuestion({ question, sel, onPick, onConfirm }) {
                 return (
                   <Pressable
                     key={oi}
-                    onPress={() => { if (!active) hapticSmall(); onPick(ri, oi); }}
+                    onPress={() => { if (!active) { hapticSmall(); soundTick(); } onPick(ri, oi); }}
                     style={[styles.rowqOpt, active && styles.rowqOptSelected]}
                   >
                     <View style={styles.rowqIc}><Ico name={o.icon} size={ICON.md} /></View>
@@ -359,6 +362,7 @@ function TiltCard({ persona, opened, onOpen }) {
         // treat a near-stationary press as a tap
         if (Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6 && !opened) {
           hapticSmall();
+    soundTick();
           onOpen();
         }
       },

@@ -9,6 +9,7 @@ import {
   C, FONT, RADIUS, Embers, ProgressBar, TopBar, PrimaryButton, Eyebrow, ChoiceRow, kitStyles,
 } from "../../../../src/lib/ui-kit";
 import { hapticSmall, hapticTick } from "../../../../src/lib/haptics";
+import { soundTick } from "../../../../src/lib/sound";
 
 const SUB_STEPS = ["bridge", "age", "monthly", "living"];
 const STEP_LABEL = { bridge: "Momentum", age: "Setup", monthly: "Setup", living: "Setup" };
@@ -180,7 +181,7 @@ function MonthlyScreen({ monthly, setMonthly, onNext }) {
           {MONTHLY_CHIPS.map(v => {
             const active = v === monthly;
             return (
-              <Pressable key={v} onPress={() => { if (!active) hapticSmall(); setMonthly(v); }} style={[styles.chip, active && styles.chipActive]}>
+              <Pressable key={v} onPress={() => { if (!active) { hapticSmall(); soundTick(); } setMonthly(v); }} style={[styles.chip, active && styles.chipActive]}>
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>₹{v / 1000}K</Text>
               </Pressable>
             );
