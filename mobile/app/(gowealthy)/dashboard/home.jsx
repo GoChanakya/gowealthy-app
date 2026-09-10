@@ -948,7 +948,7 @@ const styles = StyleSheet.create({
 
   centerRoot: { flex: 1, backgroundColor: C.bg, alignItems: "center", justifyContent: "center", padding: 24 },
   centerTitle: { color: C.ink, fontSize: 18, fontFamily: FONT.display, marginBottom: 8, textAlign: "center" },
-  centerText: { color: C.muted, fontSize: 13.5, marginTop: 10, textAlign: "center" },
+  centerText: { color: C.muted, fontSize: 13.5, marginTop: 10, textAlign: "center", fontFamily: 'Inter_400Regular' },
   centerBtn: { marginTop: 20, backgroundColor: C.o, paddingVertical: 14, paddingHorizontal: 22, borderRadius: RADIUS.sm },
   centerBtnText: { color: "#180f08", fontFamily: FONT.bodyBold, fontSize: 14 },
 
@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
     backgroundColor: C.gold,
     marginRight: 9,
   },
-  logoText: { color: "#eb7114", fontWeight: "800", fontSize: 15 },
+  logoText: { color: "#eb7114", fontWeight: "800", fontSize: 15, fontFamily: 'Inter_700Bold' },
   logoImage: {
   width: "100%",
   height: "110%",
@@ -986,10 +986,10 @@ const styles = StyleSheet.create({
 fontSize: 18,
   fontFamily: "Syne_700Bold",
 },
-  brandTag: { color: C.muted, fontSize: 7, letterSpacing: 1.5, marginTop: 2 },
+  brandTag: { color: C.muted, fontSize: 7, letterSpacing: 1.5, marginTop: 2, fontFamily: 'Inter_400Regular' },
   userRow: { flexDirection: "row", alignItems: "center", gap: 8, marginLeft: 12, flexShrink: 1 },
-  duName: { color: C.ink, fontSize: 12, fontWeight: "600", maxWidth: 124, textAlign: "right" },
-  duRole: { color: C.o2, fontSize: 9, maxWidth: 124, marginTop: 1, textAlign: "right" },
+  duName: { color: C.ink, fontSize: 12, fontWeight: "600", maxWidth: 124, textAlign: "right", fontFamily: 'Inter_600SemiBold' },
+  duRole: { color: C.o2, fontSize: 9, maxWidth: 124, marginTop: 1, textAlign: "right", fontFamily: 'Inter_400Regular' },
   avatar: {
     width: 32,
     height: 32,
@@ -999,7 +999,7 @@ fontSize: 18,
     justifyContent: "center",
     backgroundColor: C.o,
   },
-  avatarText: { color: "#fff", fontWeight: "700", fontSize: 13 },
+  avatarText: { color: "#fff", fontWeight: "700", fontSize: 13, fontFamily: 'Inter_700Bold' },
 avatarImage: {
   width: "50%",
   height: "50%",
@@ -1025,8 +1025,8 @@ avatarImage: {
     marginRight: 7,
   },
   navChipActive: { backgroundColor: C.gold, borderColor: "transparent" },
-  navChipIcon: { fontSize: 12, color: C.muted },
-  navChipText: { fontSize: 12, fontWeight: "600", color: C.muted },
+  navChipIcon: { fontSize: 12, color: C.muted, fontFamily: 'Inter_400Regular' },
+  navChipText: { fontSize: 12, fontWeight: "600", color: C.muted, fontFamily: 'Inter_600SemiBold' },
   navChipTextActive: { color: "#1a1006" },
 
   /* main */
@@ -1035,16 +1035,16 @@ avatarImage: {
   dtop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
   statusRow: { flexDirection: "row", alignItems: "center", gap: 7 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: C.gd },
-  statusText: { fontSize: 8.5, letterSpacing: 1.4, color: C.muted, fontWeight: "700" },
-  clockText: { fontSize: 8, letterSpacing: 1, color: "#7a6c76", textAlign: "right", lineHeight: 13 },
+  statusText: { fontSize: 8.5, letterSpacing: 1.4, color: C.muted, fontWeight: "700", fontFamily: 'Inter_700Bold' },
+  clockText: { fontSize: 8, letterSpacing: 1, color: "#7a6c76", textAlign: "right", lineHeight: 13, fontFamily: 'Inter_400Regular' },
 
   greet: { fontSize: 32, fontWeight: "800", color: C.ink, lineHeight: 36, marginBottom: 10, fontFamily: FONT.display },
   gradText: { color: C.o2 },
-  greetSub: { color: C.muted, fontSize: 13.5, lineHeight: 20, marginBottom: 8, maxWidth: 330 },
+  greetSub: { color: C.muted, fontSize: 13.5, lineHeight: 20, marginBottom: 8, maxWidth: 330, fontFamily: 'Inter_400Regular' },
 
   heroBlock: { paddingTop: 14, paddingBottom: 4 },
   heroNum: { fontSize: 46, fontWeight: "800", color: C.o, marginVertical: 10, fontFamily: FONT.display },
-  heroSub: { fontSize: 12, color: C.muted, lineHeight: 18, maxWidth: 330, marginBottom: 4 },
+  heroSub: { fontSize: 12, color: C.muted, lineHeight: 18, maxWidth: 330, marginBottom: 4, fontFamily: 'Inter_400Regular' },
   heroMileBox: {
     marginTop: 20,
     padding: 15,
@@ -1053,18 +1053,18 @@ avatarImage: {
     borderRadius: RADIUS.sm,
     backgroundColor: "rgba(247,200,90,0.06)",
   },
-  heroMileName: { fontSize: 19, fontWeight: "800", color: C.gold2, marginVertical: 6 },
+  heroMileName: { fontSize: 19, fontWeight: "800", color: C.gold2, marginVertical: 6, fontFamily: 'Inter_700Bold' },
   heroMileRow: { flexDirection: "row", alignItems: "baseline", gap: 10 },
-  heroMileTgt: { fontSize: 17, fontWeight: "700", color: C.ink },
-  heroMilePct: { fontSize: 11, color: C.gd, fontWeight: "600" },
-  heroMileCap: { fontSize: 12, color: C.muted, lineHeight: 18, marginTop: 10 },
-  heroMileEta: { fontSize: 9.5, letterSpacing: 1.4, color: C.o2, marginTop: 11, fontWeight: "700" },
+  heroMileTgt: { fontSize: 17, fontWeight: "700", color: C.ink, fontFamily: 'Inter_700Bold' },
+  heroMilePct: { fontSize: 11, color: C.gd, fontWeight: "600", fontFamily: 'Inter_600SemiBold' },
+  heroMileCap: { fontSize: 12, color: C.muted, lineHeight: 18, marginTop: 10, fontFamily: 'Inter_400Regular' },
+  heroMileEta: { fontSize: 9.5, letterSpacing: 1.4, color: C.o2, marginTop: 11, fontWeight: "700", fontFamily: 'Inter_700Bold' },
 
   /* routed bar — now lives inside the blueprint hero */
   routedWrap: { marginTop: 10, marginBottom: 6 },
   routedTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 10 },
-  routedCaption: { fontSize: 9.5, letterSpacing: 1.6, color: C.muted, fontWeight: "700" },
-  routedCaptionSub: { fontSize: 10.5, color: "#7a6c76" },
+  routedCaption: { fontSize: 9.5, letterSpacing: 1.6, color: C.muted, fontWeight: "700", fontFamily: 'Inter_700Bold' },
+  routedCaptionSub: { fontSize: 10.5, color: "#7a6c76", fontFamily: 'Inter_400Regular' },
   routedTrack: {
     flexDirection: "row",
     height: 20,
@@ -1080,14 +1080,14 @@ avatarImage: {
   legendRow: { flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 12 },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 11, color: C.ink, fontWeight: "600" },
-  legendAmt: { color: C.muted, fontWeight: "500" },
-  routedTotal: { fontSize: 11.5, color: C.muted, marginTop: 12, lineHeight: 17 },
+  legendText: { fontSize: 11, color: C.ink, fontWeight: "600", fontFamily: 'Inter_600SemiBold' },
+  legendAmt: { color: C.muted, fontWeight: "500", fontFamily: 'Inter_500Medium' },
+  routedTotal: { fontSize: 11.5, color: C.muted, marginTop: 12, lineHeight: 17, fontFamily: 'Inter_400Regular' },
 
   dblock: { borderTopWidth: 1, borderTopColor: C.line, paddingVertical: 24 },
   blockHeadRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", marginBottom: 14 },
-  blockHeadR: { fontSize: 10.5, color: C.muted },
-  hint: { fontSize: 9, letterSpacing: 1.2, color: "#6f6272", fontWeight: "700", textTransform: "uppercase" },
+  blockHeadR: { fontSize: 10.5, color: C.muted, fontFamily: 'Inter_400Regular' },
+  hint: { fontSize: 9, letterSpacing: 1.2, color: "#6f6272", fontWeight: "700", textTransform: "uppercase", fontFamily: 'Inter_700Bold' },
 
   /* journey — dot + connecting trail line; comet gradient + traveling
      glow head on the "now" segment */
@@ -1120,34 +1120,34 @@ avatarImage: {
     borderRadius: 13,
     backgroundColor: "rgba(255,106,26,0.18)",
   },
-  jLbl: { fontSize: 11.5, fontWeight: "700", color: C.ink, lineHeight: 15 },
-  jSub: { fontSize: 9.5, color: C.muted, marginTop: 4 },
+  jLbl: { fontSize: 11.5, fontWeight: "700", color: C.ink, lineHeight: 15, fontFamily: 'Inter_700Bold' },
+  jSub: { fontSize: 9.5, color: C.muted, marginTop: 4, fontFamily: 'Inter_400Regular' },
 
-  linkText: { color: C.o2, fontSize: 12.5, fontWeight: "700" },
+  linkText: { color: C.o2, fontSize: 12.5, fontWeight: "700", fontFamily: 'Inter_700Bold' },
 
   /* money */
   moneyBig: { fontSize: 36, fontWeight: "800", color: C.ink, marginTop: 10, marginBottom: 3, fontFamily: FONT.display },
-  moneyCap: { fontSize: 8.5, letterSpacing: 1.4, color: "#7a6c76", marginBottom: 16, fontWeight: "700" },
+  moneyCap: { fontSize: 8.5, letterSpacing: 1.4, color: "#7a6c76", marginBottom: 16, fontWeight: "700", fontFamily: 'Inter_700Bold' },
   moneySplitRow: { flexDirection: "row", gap: 11, marginBottom: 15 },
   moneySplitCard: { flex: 1, backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderRadius: RADIUS.xs, padding: 11 },
-  msLabel: { fontSize: 8, letterSpacing: 1.2, color: "#7a6c76", marginBottom: 4, fontWeight: "700" },
-  msValue: { fontSize: 17, fontWeight: "800", color: C.ink },
-  moneyNote: { fontSize: 12.5, color: C.muted, lineHeight: 20 },
+  msLabel: { fontSize: 8, letterSpacing: 1.2, color: "#7a6c76", marginBottom: 4, fontWeight: "700", fontFamily: 'Inter_700Bold' },
+  msValue: { fontSize: 17, fontWeight: "800", color: C.ink, fontFamily: 'Inter_700Bold' },
+  moneyNote: { fontSize: 12.5, color: C.muted, lineHeight: 20, fontFamily: 'Inter_400Regular' },
   b: { fontFamily: FONT.bodyBold, color: C.ink },
 
   /* start-investing swipe CTA */
   swipeCardWrap: { marginTop : 0},
   swipeCard: { borderRadius: RADIUS.lg, padding: 22 },
-  eyebrowOnDark: { fontSize: 9.5, letterSpacing: 2, textTransform: "uppercase", color: "rgba(255,255,255,0.75)", fontWeight: "700" },
-  swipeH3: { fontSize: 24, fontWeight: "800", color: "#fff", marginVertical: 12 },
-  swipeWhy: { fontSize: 12.5, lineHeight: 19, color: "rgba(255,255,255,0.94)", marginBottom: 18 },
+  eyebrowOnDark: { fontSize: 9.5, letterSpacing: 2, textTransform: "uppercase", color: "rgba(255,255,255,0.75)", fontWeight: "700", fontFamily: 'Inter_700Bold' },
+  swipeH3: { fontSize: 24, fontWeight: "800", color: "#fff", marginVertical: 12, fontFamily: 'Inter_700Bold' },
+  swipeWhy: { fontSize: 12.5, lineHeight: 19, color: "rgba(255,255,255,0.94)", marginBottom: 18, fontFamily: 'Inter_400Regular' },
   bOnDark: { fontFamily: FONT.bodyBold, color: "#fff" },
 
   /* footer actions */
   btnsBlock: { flexDirection: "column", gap: 10, borderTopWidth: 1, borderTopColor: C.line, paddingTop: 22, marginTop: 26 },
   ghostBtn: { borderWidth: 1.5, borderColor: C.line2, borderRadius: RADIUS.sm, paddingVertical: 16, alignItems: "center" },
-  ghostBtnText: { color: C.ink, fontWeight: "600", fontSize: 14 },
-  footText: { textAlign: "center", fontSize: 10, color: "#6a5d66", marginTop: 20, lineHeight: 17 },
+  ghostBtnText: { color: C.ink, fontWeight: "600", fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  footText: { textAlign: "center", fontSize: 10, color: "#6a5d66", marginTop: 20, lineHeight: 17, fontFamily: 'Inter_400Regular' },
 
   /* goals */
   goalCard: {
@@ -1162,16 +1162,16 @@ avatarImage: {
   goalCardLead: { width: 288, backgroundColor: "#2a1d1c", borderColor: C.line2 },
   goalTop: { flexDirection: "row", alignItems: "flex-start", gap: 11, marginBottom: 13 },
   goalIcon: { width: 38, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center" },
-  goalName: { fontSize: 15.5, fontWeight: "700", color: C.ink },
-  goalMeta: { fontSize: 10.5, color: C.muted, marginTop: 3 },
-  goalRank: { fontSize: 8, letterSpacing: 0.6, textTransform: "uppercase", color: C.o2, borderWidth: 1, borderColor: C.line2, borderRadius: 99, paddingVertical: 3, paddingHorizontal: 8 },
+  goalName: { fontSize: 15.5, fontWeight: "700", color: C.ink, fontFamily: 'Inter_700Bold' },
+  goalMeta: { fontSize: 10.5, color: C.muted, marginTop: 3, fontFamily: 'Inter_400Regular' },
+  goalRank: { fontSize: 8, letterSpacing: 0.6, textTransform: "uppercase", color: C.o2, borderWidth: 1, borderColor: C.line2, borderRadius: 99, paddingVertical: 3, paddingHorizontal: 8, fontFamily: 'Inter_400Regular' },
   goalAmtRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
-  goalAmtLeft: { fontSize: 11, color: C.muted },
-  goalAmtRight: { fontSize: 11, color: C.o2, fontWeight: "700" },
+  goalAmtLeft: { fontSize: 11, color: C.muted, fontFamily: 'Inter_400Regular' },
+  goalAmtRight: { fontSize: 11, color: C.o2, fontWeight: "700", fontFamily: 'Inter_700Bold' },
   goalTrack: { height: 7, backgroundColor: "#241a24", borderRadius: 99, overflow: "hidden" },
   goalFill: { height: "100%", borderRadius: 99 },
   goalFootRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
-  goalFootText: { fontSize: 10, color: C.muted },
+  goalFootText: { fontSize: 10, color: C.muted, fontFamily: 'Inter_400Regular' },
 
   /* identity */
   identityBlock: {
@@ -1182,9 +1182,9 @@ avatarImage: {
     padding: 20,
     marginTop: 4,
   },
-  identityName: { fontSize: 21, fontWeight: "800", color: C.gold2, marginVertical: 8 },
+  identityName: { fontSize: 21, fontWeight: "800", color: C.gold2, marginVertical: 8, fontFamily: 'Inter_700Bold' },
   identityRow: { flexDirection: "row", gap: 14, marginTop: 15 },
-  diLabel: { fontSize: 8.5, letterSpacing: 1.2, textTransform: "uppercase", color: "#7a6c76", marginBottom: 4, fontWeight: "700" },
-  diValue: { fontSize: 12, fontWeight: "600", color: C.ink, lineHeight: 17 },
+  diLabel: { fontSize: 8.5, letterSpacing: 1.2, textTransform: "uppercase", color: "#7a6c76", marginBottom: 4, fontWeight: "700", fontFamily: 'Inter_700Bold' },
+  diValue: { fontSize: 12, fontWeight: "600", color: C.ink, lineHeight: 17, fontFamily: 'Inter_600SemiBold' },
 });
 

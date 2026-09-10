@@ -313,16 +313,16 @@ const s = StyleSheet.create({
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 60 },
 
   backBtn:     { marginBottom: 36 },
-  backBtnText: { fontSize: 14, color: C.gray500, fontWeight: '500' },
+  backBtnText: { fontSize: 14, color: C.gray500, fontWeight: '500', fontFamily: 'Inter_500Medium' },
 
   brand: {
     flexDirection: 'row', alignItems: 'center',
     gap: 14, marginBottom: 32,
   },
   logoImg:        { width: 44, height: 44, borderRadius: 12 },
-  brandSub:       { fontSize: 12, color: C.gray500, fontWeight: '500', marginBottom: 2 },
+  brandSub:       { fontSize: 12, color: C.gray500, fontWeight: '500', marginBottom: 2, fontFamily: 'Inter_500Medium' },
   brandName:      { fontSize: 26, fontWeight: '800', color: C.orange, letterSpacing: -0.5, fontFamily: 'Syne_700Bold' },
-  brandNameLight: { color: 'rgba(255,255,255,0.55)', fontWeight: '300' },
+  brandNameLight: { color: 'rgba(255,255,255,0.55)', fontWeight: '300', fontFamily: 'Inter_400Regular' },
 
   // Card
   card: {
@@ -359,7 +359,7 @@ const s = StyleSheet.create({
     paddingHorizontal: 14, paddingVertical: 15,
     backgroundColor: 'rgba(255,133,0,0.05)',
   },
-  prefix:       { fontSize: 14, color: C.gray400, fontWeight: '600' },
+  prefix:       { fontSize: 14, color: C.gray400, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   inputDivider: { width: 1, height: '55%', backgroundColor: C.cardBorder },
   input: {
     flex: 1, fontSize: 16, color: C.white,
@@ -372,7 +372,7 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     marginRight: 12,
   },
-  validBadgeText: { color: C.orange, fontSize: 14, fontWeight: '800' },
+  validBadgeText: { color: C.orange, fontSize: 14, fontWeight: '800', fontFamily: 'Inter_700Bold' },
 
   btn: {
     borderRadius: 14, paddingVertical: 16,
@@ -383,14 +383,14 @@ const s = StyleSheet.create({
     backgroundColor: '#080d14',
     borderWidth: 1, borderColor: C.cardBorder,
   },
-  btnText: { fontSize: 15, fontWeight: '800', color: C.white, letterSpacing: 0.3 },
+  btnText: { fontSize: 15, fontWeight: '800', color: C.white, letterSpacing: 0.3, fontFamily: 'Inter_700Bold' },
 
   waNote: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'center', gap: 7,
   },
   waDot:     { width: 6, height: 6, borderRadius: 3, backgroundColor: '#25D366' },
-  waNoteText:{ fontSize: 12, color: C.gray600, fontWeight: '500' },
+  waNoteText:{ fontSize: 12, color: C.gray600, fontWeight: '500', fontFamily: 'Inter_500Medium' },
 
 
 
@@ -401,7 +401,7 @@ const s = StyleSheet.create({
     gap: 10, flexWrap: 'wrap',
   },
   trustDiv:  { width: 1, height: 10, backgroundColor: C.gray700 },
-  trustText: { fontSize: 11, color: 'rgba(255,255,255,0.2)', fontWeight: '500' },
+  trustText: { fontSize: 11, color: 'rgba(255,255,255,0.2)', fontWeight: '500', fontFamily: 'Inter_500Medium' },
 });
 
 export default LoginScreen;

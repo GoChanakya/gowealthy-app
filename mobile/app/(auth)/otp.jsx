@@ -436,16 +436,16 @@ const s = StyleSheet.create({
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 60 },
 
   backBtn:     { marginBottom: 36 },
-  backBtnText: { fontSize: 14, color: C.gray500, fontWeight: '500' },
+  backBtnText: { fontSize: 14, color: C.gray500, fontWeight: '500', fontFamily: 'Inter_500Medium' },
 
   brand: {
     flexDirection: 'row', alignItems: 'center',
     gap: 14, marginBottom: 32,
   },
   logoImg:        { width: 44, height: 44, borderRadius: 12 },
-  brandSub:       { fontSize: 12, color: C.gray500, fontWeight: '500', marginBottom: 2 },
+  brandSub:       { fontSize: 12, color: C.gray500, fontWeight: '500', marginBottom: 2, fontFamily: 'Inter_500Medium' },
   brandName:      { fontSize: 26, fontWeight: '800', color: C.orange, letterSpacing: -0.5, fontFamily: 'Syne_700Bold' },
-  brandNameLight: { color: 'rgba(255,255,255,0.55)', fontWeight: '300' },
+  brandNameLight: { color: 'rgba(255,255,255,0.55)', fontWeight: '300', fontFamily: 'Inter_400Regular' },
 
   // Card
   card: {
@@ -471,13 +471,13 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,133,0,0.2)',
     borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
   },
-  phonePillText: { fontSize: 13, color: C.gray300, fontWeight: '600' },
+  phonePillText: { fontSize: 13, color: C.gray300, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   editBtn: {
     backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1, borderColor: C.cardBorder,
     borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
   },
-  editBtnText: { fontSize: 12, color: C.gray400, fontWeight: '600' },
+  editBtnText: { fontSize: 12, color: C.gray400, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
 
   // OTP boxes
   otpRow: {
@@ -512,14 +512,14 @@ const s = StyleSheet.create({
     backgroundColor: '#080d14',
     borderWidth: 1, borderColor: C.cardBorder,
   },
-  btnText: { fontSize: 15, fontWeight: '800', color: C.white, letterSpacing: 0.3 },
+  btnText: { fontSize: 15, fontWeight: '800', color: C.white, letterSpacing: 0.3, fontFamily: 'Inter_700Bold' },
 
   // Resend
   resendRow:   { alignItems: 'center', paddingTop: 2 },
   timerWrap:   { flexDirection: 'row', alignItems: 'center', gap: 7 },
   timerDot:    { width: 6, height: 6, borderRadius: 3, backgroundColor: C.gray700 },
-  timerText:   { fontSize: 13, color: C.gray600, fontWeight: '500' },
-  resendActive:{ fontSize: 13, color: C.orange, fontWeight: '700' },
+  timerText:   { fontSize: 13, color: C.gray600, fontWeight: '500', fontFamily: 'Inter_500Medium' },
+  resendActive:{ fontSize: 13, color: C.orange, fontWeight: '700', fontFamily: 'Inter_700Bold' },
 
   // Trust
   trust: {
@@ -528,7 +528,7 @@ const s = StyleSheet.create({
     gap: 10, flexWrap: 'wrap',
   },
   trustDiv:  { width: 1, height: 10, backgroundColor: C.gray700 },
-  trustText: { fontSize: 11, color: 'rgba(255,255,255,0.2)', fontWeight: '500' },
+  trustText: { fontSize: 11, color: 'rgba(255,255,255,0.2)', fontWeight: '500', fontFamily: 'Inter_500Medium' },
 });
 
 export default OtpScreen;
