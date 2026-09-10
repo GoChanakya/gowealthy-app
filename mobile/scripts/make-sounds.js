@@ -108,15 +108,6 @@ console.log('writing to assets/sounds/');
   writeWav('milestone.wav', b);
 }
 
-// Selection tick — quiz answers, goal picks. Fires ~20x in the questionnaire,
-// so it's deliberately near-subliminal: one short high note, low gain. It should
-// read as tactile, not as a noise.
-{
-  const b = buffer(0.14);
-  tone(b, 0.000, G6, 0.075, 0.20);
-  writeWav('tick.wav', b);
-}
-
 // Quiz answer correct — bright, quick, upward.
 {
   const b = buffer(0.40);

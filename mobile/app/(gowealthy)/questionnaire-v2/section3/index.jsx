@@ -9,7 +9,6 @@ import { GOALS, PRI_WORDS, PRI_ICON } from "../../../../src/lib/goPersonaEngine"
 import { C, FONT, RADIUS, ICON, Embers, ProgressBar, TopBar, PrimaryButton, Eyebrow, kitStyles } from "../../../../src/lib/ui-kit";
 import { Ico } from "../../../../src/lib/icons";
 import { hapticDragEnd, hapticDragStart, hapticSmall, hapticTick, hapticWarning } from "../../../../src/lib/haptics";
-import { soundTick } from "../../../../src/lib/sound";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -47,7 +46,7 @@ export default function Section3() {
     const i = state.selectedGoals.findIndex(g => g.key === key);
     if (i >= 0) {
       hapticSmall();
-      soundTick();
+     
       // tapping a picked card's body (not the handle) un-ranks it — matches the HTML
       setSelectedGoals(state.selectedGoals.filter(g => g.key !== key));
     } else {
@@ -56,7 +55,7 @@ export default function Section3() {
         return;
       }
       hapticSmall();
-      soundTick();
+     
       const g = GOALS.find(x => x.key === key);
       setSelectedGoals([...state.selectedGoals, { key, years: g.defaultYears }]);
     }
