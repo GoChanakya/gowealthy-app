@@ -61,7 +61,8 @@
       "expo-router",
       "expo-web-browser",
       "expo-video",
-      "expo-image"
+      "expo-image",
+      "expo-audio"
     ],
     "experiments": {
       "reactCompiler": false

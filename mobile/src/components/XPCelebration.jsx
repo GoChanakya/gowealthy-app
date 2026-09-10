@@ -13,6 +13,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { C, FONT } from '../lib/ui-kit';
 import { hapticSuccess } from '../lib/haptics';
+import { soundXP } from '../lib/sound';
 
 // Ember-forge tokens, so the reward moment matches the rest of the app.
 const ORANGE = C.o2;
@@ -96,6 +97,7 @@ export default function XPCelebrationHost() {
     copy.setValue(0);
 
     hapticSuccess();
+    soundXP();
 
     Animated.parallel([
       Animated.timing(backdrop, { toValue: 1, duration: 180, useNativeDriver: true }),

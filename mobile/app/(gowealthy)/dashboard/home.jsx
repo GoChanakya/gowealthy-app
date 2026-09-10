@@ -984,7 +984,7 @@ const styles = StyleSheet.create({
   color: C.ink,
   fontWeight: "700",
 fontSize: 18,
-  fontFamily: "Syne",
+  fontFamily: "Syne_700Bold",
 },
   brandTag: { color: C.muted, fontSize: 7, letterSpacing: 1.5, marginTop: 2 },
   userRow: { flexDirection: "row", alignItems: "center", gap: 8, marginLeft: 12, flexShrink: 1 },

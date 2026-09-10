@@ -6,6 +6,7 @@ import {
   awardArticleXP,
 } from '../api/articles';
 import { buildSlides } from '../lib/slides';
+import { soundComplete } from '../../../lib/sound';
 import { celebrateXP } from '../../../components/XPCelebration';
 
 /**
@@ -81,7 +82,10 @@ export function useArticleStory(articleId) {
     (index) => {
       if (index < 0 || index >= slides.length) return;
       setCurrentSlide(index);
-      if (index === slides.length - 1) awardXP();
+      if (index === slides.length - 1) {
+        if (hasAwarded.current) soundComplete();
+        awardXP();
+      }
     },
     [slides.length, awardXP]
   );

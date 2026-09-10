@@ -12,7 +12,8 @@
     "start:lite": "node ./scripts/run-lite.js start --clear",
     "export:lite": "node ./scripts/run-lite.js export --platform android",
     "build:apk": "npx eas build -p android --profile production-apk",
-    "make-icons": "node ./scripts/make-icons.js"
+    "make-icons": "node ./scripts/make-icons.js",
+    "make-sounds": "node ./scripts/make-sounds.js"
   },
   "expo": {
     "install": {
@@ -43,6 +44,7 @@
     "@react-native-picker/picker": "2.11.4",
     "expo": "~56.0.0",
     "expo-asset": "~56.0.8",
+    "expo-audio": "~56.0.13",
     "expo-blur": "~56.0.4",
     "expo-build-properties": "~56.0.16",
     "expo-constants": "~56.0.9",

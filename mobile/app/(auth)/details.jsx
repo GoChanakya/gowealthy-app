@@ -243,7 +243,7 @@ const s = StyleSheet.create({
   brand:  { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 32 },
   logoImg:        { width: 44, height: 44, borderRadius: 12 },
   brandSub:       { fontSize: 12, color: C.gray500, fontWeight: '500', marginBottom: 2 },
-  brandName:      { fontSize: 26, fontWeight: '800', color: C.orange, letterSpacing: -0.5, fontFamily: 'Syne' },
+  brandName:      { fontSize: 26, fontWeight: '800', color: C.orange, letterSpacing: -0.5, fontFamily: 'Syne_700Bold' },
   brandNameLight: { color: 'rgba(255,255,255,0.55)', fontWeight: '300' },
   card: {
     backgroundColor: 'rgba(13,17,23,0.85)',
@@ -256,7 +256,7 @@ const s = StyleSheet.create({
   stepRow:        { flexDirection: 'row', gap: 6, marginBottom: 20 },
   stepDot:        { width: 24, height: 4, borderRadius: 2, backgroundColor: C.cardBorder },
   stepDotActive:  { backgroundColor: C.orange },
-  cardTitle:      { fontSize: 24, fontWeight: '800', color: C.white, marginBottom: 8, letterSpacing: -0.4, fontFamily: 'Syne' },
+  cardTitle:      { fontSize: 24, fontWeight: '800', color: C.white, marginBottom: 8, letterSpacing: -0.4, fontFamily: 'Syne_700Bold' },
   cardSub:        { fontSize: 13, color: C.gray500, lineHeight: 20, marginBottom: 24 },
   inputLabel:     { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.35)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1.2 },
   inputRow:       { flexDirection: 'row', alignItems: 'center', backgroundColor: C.inputBg, borderWidth: 1.5, borderColor: C.cardBorder, borderRadius: 14, marginBottom: 20, overflow: 'hidden' },

@@ -583,14 +583,14 @@ logoInner: {
     fontWeight: '300',
     color: 'rgba(255,255,255,0.65)',
     letterSpacing: -0.5,
-    fontFamily: 'Syne',
+    fontFamily: 'Syne_700Bold',
   },
   nameWealthy: {
     fontSize: 40,
     fontWeight: '800',
     color: '#FF8500',
     letterSpacing: -1,
-    fontFamily: 'Syne',
+    fontFamily: 'Syne_700Bold',
   },
   tagline: {
     fontSize: 12.5,
