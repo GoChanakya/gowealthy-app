@@ -62,16 +62,28 @@ export default function RootLayout() {
     Inter_700Bold,
   });
 
+  /**
+   * Escape hatch so a font problem can never strand the user on the splash.
+   *
+   * It used to fire after 3s, which is fine for a release build where fonts are
+   * local assets, but not in development: Metro serves them over the wire, and
+   * on a tunnel ten files don't arrive in time. The timeout fired, the app
+   * mounted with system fonts, and nothing said why. Longer now, and loud.
+   */
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setFontTimeout(true);
-    }, 3000);
+    const timer = setTimeout(() => setFontTimeout(true), 15000);
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    if (fontsLoaded || fontError || fontTimeout) {
-      // ready
+    if (!__DEV__) return;
+    if (fontError) {
+      console.warn('[fonts] failed to load — rendering in the system font.', fontError);
+    } else if (fontTimeout && !fontsLoaded) {
+      console.warn(
+        '[fonts] not loaded after 15s, rendering anyway. Text stays in the system ' +
+        'font until reload. Over a tunnel this is usually just slow asset delivery.'
+      );
     }
   }, [fontsLoaded, fontError, fontTimeout]);
 
