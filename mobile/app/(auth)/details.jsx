@@ -110,7 +110,7 @@ export default function DetailsScreen() {
         timestamp: ts.toISOString(),
       }, { merge: true });
       hapticSuccess();
-      router.replace('/(gowealthy)');
+      router.replace('/');
     } catch (e) {
       hapticError();
       console.error(e);

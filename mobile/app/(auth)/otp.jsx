@@ -232,7 +232,7 @@ if (!finalSnap?.exists() || !finalSnap.data()?.full_name) {
   router.replace({ pathname: '/(auth)/details', params: { phone } });
 } else {
   await saveToFirebase(phone);
-  router.replace('/(gowealthy)');
+  router.replace('/');
 }
     } else if (Date.now() > expiry) {
       hapticError();

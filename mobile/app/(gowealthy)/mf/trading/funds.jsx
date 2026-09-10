@@ -174,7 +174,7 @@ const FundsListScreen = () => {
         keyboardShouldPersistTaps="handled"
       >
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => { hapticSmall(); router.replace('/(gowealthy)'); }} style={styles.backButton} accessibilityLabel="Go back to home">
+              <TouchableOpacity onPress={() => { hapticSmall(); router.replace('/(gowealthy)/dashboard'); }} style={styles.backButton} accessibilityLabel="Go back to home">
                 <Ionicons name="arrow-back" size={21} color="#17352B" />
               </TouchableOpacity>
               <View>
