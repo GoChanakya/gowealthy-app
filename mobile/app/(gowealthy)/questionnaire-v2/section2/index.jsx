@@ -236,9 +236,10 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: C.surface, borderWidth: 1, borderColor: C.line,
     borderRadius: RADIUS.md, paddingVertical: 18, paddingHorizontal: 14, alignItems: "center",
   },
+  // Gold border alone. elevation would draw an opaque grey box on Android,
+  // not a gold glow — the same artefact the selected option had.
   compareCardWin: {
-    borderColor: C.gold,
-    shadowColor: C.gold, shadowOpacity: 0.3, shadowRadius: 20, elevation: 5,
+    borderColor: C.gold, backgroundColor: "rgba(247,200,90,0.05)",
   },
   compareLabel: { color: C.muted, fontSize: 10, fontFamily: FONT.bodySemi, letterSpacing: 1, textTransform: "uppercase", marginBottom: 9 },
   compareValue: { fontFamily: FONT.display, fontSize: 28 },

@@ -495,9 +495,11 @@ const styles = StyleSheet.create({
     backgroundColor: C.surface, borderWidth: 1.5, borderColor: C.line,
     borderRadius: RADIUS.md, paddingVertical: 15, paddingHorizontal: 17,
   },
+  // Matches kitStyles.choiceCardSelected. No elevation — Android draws it
+  // as an opaque grey box rather than a coloured glow, which on this dark
+  // surface reads as a rectangle behind the text.
   choiceSelected: {
-    borderColor: C.o, backgroundColor: "rgba(255,106,26,0.14)",
-    shadowColor: C.o, shadowOpacity: 0.4, shadowRadius: 12, elevation: 4,
+    borderColor: "rgba(255,106,26,0.55)", backgroundColor: "rgba(255,106,26,0.055)",
   },
   chIcon: { width: 26, alignItems: "center", justifyContent: "center" },
   chText: { color: C.ink, fontSize: 14.5, fontFamily: FONT.bodyMed, flex: 1, lineHeight: 20 },
