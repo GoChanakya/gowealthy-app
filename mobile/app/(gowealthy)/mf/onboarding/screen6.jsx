@@ -24,6 +24,7 @@ import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src
 import { awardBadge } from '../../../../src/lib/xpBadges';
 import { hapticError, hapticSmall, hapticSuccess, hapticWarning } from '../../../../src/lib/haptics';
 
+import { LogoSpinner } from '../../../../src/components/LogoLoader';
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
 const C = {
   bg: '#08060a', bg2: '#0e0a10', bg3: '#151019',
@@ -762,7 +763,7 @@ addr3 = (lines[2] || '').slice(0, 40).toUpperCase();
     return (
       <View style={styles.loadingScreen}>
         <EmberField />
-        <ActivityIndicator size="large" color={C.o} />
+        <LogoSpinner />
         <Text style={styles.loadingText}>Loading your details...</Text>
       </View>
     );

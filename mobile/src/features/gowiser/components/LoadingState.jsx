@@ -1,13 +1,14 @@
 import React from 'react';
-import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { C, FONT, gwStyles } from '../theme';
 import { Embers } from '../../../lib/ui-kit';
+import { LogoSpinner } from '../../../components/LogoLoader';
 
 export default function LoadingState({ label = 'Stoking the forge…' }) {
   return (
     <View style={gwStyles.centered}>
       <Embers />
-      <ActivityIndicator size="large" color={C.o} />
+      <LogoSpinner />
       <Text style={styles.label}>{label}</Text>
     </View>
   );

@@ -11,7 +11,6 @@ import {
 } from "firebase/firestore";
 import {useState } from "react";
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Modal,
@@ -25,6 +24,7 @@ import { db } from "../../../../src/config/firebase";
 import { ALL_STOCKS, getStockBySymbol } from "../utils/_stockData";
 import { hapticError, hapticSmall, hapticSuccess, hapticWarning } from "../../../../src/lib/haptics";
 
+import { LogoSpinner } from '../../../../src/components/LogoLoader';
 export default function WatchlistScreen({ navigation, refreshTrigger }) {
   const [watchlist, setWatchlist] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -288,7 +288,7 @@ export default function WatchlistScreen({ navigation, refreshTrigger }) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF8500" />
+        <LogoSpinner />
       </View>
     );
   }

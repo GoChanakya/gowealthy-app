@@ -8,7 +8,6 @@ import {
   ScrollView,
   StyleSheet,
   Platform,
-  ActivityIndicator,
   Animated,
   Easing,
   PanResponder,
@@ -34,6 +33,7 @@ import { C as UI_C, FONT as UI_FONT, RADIUS as UI_RADIUS, Embers, Eyebrow } from
 import { FEATURES } from "../../../src/config/features";
 import ComingSoonSheet from "../../../src/features/shell/ComingSoonSheet";
 
+import { LogoSpinner } from "../../../src/components/LogoLoader";
 /* ============================================================
    PALETTE — ui-kit token if present, else the exact hex from
    gowealthy_full.html's :root. Keeps the design "as it is" even
@@ -284,7 +284,7 @@ export default function Home() {
   if (status === "loading") {
     return (
       <View style={styles.centerRoot}>
-        <ActivityIndicator color={C.o2} size="large" />
+        <LogoSpinner />
         <Text style={styles.centerText}>Loading your blueprint…</Text>
       </View>
     );

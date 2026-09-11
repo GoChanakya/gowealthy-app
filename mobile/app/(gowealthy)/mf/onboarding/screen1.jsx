@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Image,
-  ActivityIndicator,
   TextInput,
   Alert,
   Animated,
@@ -21,6 +20,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';
 import { uploadToSignedPost } from '../../../../src/utils/upload';
 import { hapticError, hapticSmall, hapticSuccess } from '../../../../src/lib/haptics';
+import { LogoSpinner } from '../../../../src/components/LogoLoader';
  // CHANGE TO YOUR IP
 const PAN_OCR_ENDPOINT = 'https://pan-parser-763133497996.asia-south1.run.app';
 
@@ -405,7 +405,7 @@ const handleContinue = async () => {
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isLoadingExisting && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={C.o} />
+            <LogoSpinner />
             <Text style={styles.loadingText}>Loading your saved data...</Text>
           </View>
         )}

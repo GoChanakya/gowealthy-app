@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Keyboard,
   ScrollView,
@@ -13,6 +12,7 @@ import {
 } from 'react-native';
 import { ALL_STOCKS, searchStocks } from '../utils/_stockData';
 
+import { LogoSpinner } from '../../../../src/components/LogoLoader';
 export default function HomeScreen({ navigation }) {
   const [stocks, setStocks] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,7 +75,7 @@ const handleStockPress = (stock) => {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF8500" />
+        <LogoSpinner />
       </View>
     );
   }

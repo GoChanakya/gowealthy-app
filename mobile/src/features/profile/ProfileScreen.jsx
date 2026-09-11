@@ -46,12 +46,6 @@ export default function ProfileScreen({ onBack }) {
     };
   }, []);
 
-  useEffect(() => {
-    if (!showLoaderPreview) return undefined;
-    const timer = setTimeout(() => setShowLoaderPreview(false), 3500);
-    return () => clearTimeout(timer);
-  }, [showLoaderPreview]);
-
   const toAuth = () => router.replace('/(auth)/landing');
 
   const confirmRestart = () =>
@@ -163,7 +157,7 @@ export default function ProfileScreen({ onBack }) {
             <Eyebrow>App experience</Eyebrow>
             <ActionRow
               label="Test loading screen"
-              hint="Preview the animation for a few seconds"
+              hint="Preview the boot animation — close it when you're done"
               onPress={() => setShowLoaderPreview(true)}
             />
           </View>

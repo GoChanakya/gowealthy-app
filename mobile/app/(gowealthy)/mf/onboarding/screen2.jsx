@@ -21,6 +21,7 @@ import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';  // ← add
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';
 import { uploadToSignedPost } from '../../../../src/utils/upload';
 import { hapticError, hapticSmall, hapticSuccess, hapticWarning } from '../../../../src/lib/haptics';
+import { LogoSpinner } from '../../../../src/components/LogoLoader';
 const OCR_ENDPOINT = 'https://adhar-parser-763133497996.asia-south1.run.app';
 
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
@@ -428,7 +429,7 @@ const loadExistingData = async () => {
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {isLoadingExisting && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="large" color={C.o} />
+            <LogoSpinner />
             <Text style={styles.loadingText}>Loading your saved data...</Text>
           </View>
         )}

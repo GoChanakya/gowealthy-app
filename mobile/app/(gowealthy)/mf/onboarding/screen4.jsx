@@ -18,6 +18,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';
 import { hapticError, hapticSmall, hapticSuccess } from '../../../../src/lib/haptics';
 
+import { LogoSpinner } from '../../../../src/components/LogoLoader';
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
 const C = {
   bg: '#08060a', bg2: '#0e0a10', bg3: '#151019',
@@ -257,7 +258,7 @@ const Screen4EmailOTP = () => {
     return (
       <View style={styles.loadingScreen}>
         <EmberField />
-        <ActivityIndicator size="large" color={C.o} />
+        <LogoSpinner />
         <Text style={styles.loadingScreenText}>Loading...</Text>
       </View>
     );

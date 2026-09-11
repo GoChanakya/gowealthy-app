@@ -20,6 +20,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL, EKYC_AMC_CODE } from '../../../../src/config/services';
 import { hapticError, hapticSmall, hapticSuccess, hapticWarning } from '../../../../src/lib/haptics';
 
+import { LogoSpinner } from '../../../../src/components/LogoLoader';
 // RTA AMC code for EKYCREG — configured in src/config/services.js, not here,
 // because the valid value differs between UAT and production.
 const AMC_CODE = 'B';
@@ -355,7 +356,7 @@ const Screen3FreshKYC = () => {
     return (
       <View style={styles.loadingScreen}>
         <EmberField />
-        <ActivityIndicator size="large" color={C.o} />
+        <LogoSpinner />
         <Text style={styles.loadingScreenText}>Loading your details...</Text>
       </View>
     );
