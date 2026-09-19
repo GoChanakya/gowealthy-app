@@ -135,3 +135,25 @@ console.log('writing to assets/sounds/');
   tone(b, 0.330, E6, 0.72, 0.30);         // resolves up to the third
   writeWav('reveal.wav', b);
 }
+
+// Page turn — advancing a GoWiser story slide.
+//
+// Two notes, not one: a single tone is inert, and a short rise is what reads as
+// "forward" rather than just "something happened". They sit 32ms apart, which
+// is close enough to land as one gesture — a lift and a set-down — instead of
+// two beeps.
+//
+// The pair is safe against correct (E6->G6) and xp (C6->G6) because those live
+// an octave-plus higher; register keeps them apart, not note count. Kept low
+// and brief so the most frequent cue in the app stays underneath everything.
+//
+// Note that `gain` is NOT what makes this quiet: writeWav normalises every file
+// to the same 0.82 peak, so gain only sets the balance between these two tones
+// (the second is the louder, so it reads as the landing). Actual loudness lives
+// in VOLUME.page in src/lib/sound.js.
+{
+  const b = buffer(0.22);
+  tone(b, 0.000, note(74), 0.055, 0.11);   // D5 — the lift
+  tone(b, 0.032, G5,       0.130, 0.17);   // resolves a fourth up, and lands
+  writeWav('page.wav', b);
+}

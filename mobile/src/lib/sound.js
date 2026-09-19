@@ -22,6 +22,14 @@ let currentLevel = VALID.has(ENV_LEVEL) ? ENV_LEVEL : SOUND_LEVEL.STANDARD;
 
 /** Per-cue ceiling, so the frequent ones sit lower than the rare ones. */
 const VOLUME = {
+  /* The most frequent cue in the app — once per story slide. Worth knowing
+     before raising this: the retired selection tick sat at this exact level,
+     commented "barely there on purpose", and was still cut for being too
+     present. So level was never that cue's problem, frequency was (~20 fires
+     per questionnaire, on every answer and goal pick). A page turn fires a
+     handful of times per article and marks movement rather than selection,
+     which is why this one earns its place where that one didn't. */
+  page: 0.16,
   correct: 0.30,
   wrong: 0.26,
   xp: 0.34,
@@ -31,6 +39,7 @@ const VOLUME = {
 };
 
 const SOURCES = {
+  page: require('../../assets/sounds/page.wav'),
   correct: require('../../assets/sounds/correct.wav'),
   wrong: require('../../assets/sounds/wrong.wav'),
   xp: require('../../assets/sounds/xp.wav'),
@@ -102,6 +111,10 @@ function play(key) {
     reportUnavailable(e);
   }
 }
+
+/** Advancing a page in a GoWiser story. Forward motion only — going back is
+ *  left silent so the cue keeps meaning "onward". */
+export const soundPage = () => play('page');
 
 /** Quiz answer graded. */
 export const soundCorrect = () => play('correct');

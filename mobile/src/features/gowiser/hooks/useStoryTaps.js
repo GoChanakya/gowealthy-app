@@ -1,6 +1,7 @@
 import { useRef, useCallback, useState } from 'react';
 import { Dimensions } from 'react-native';
 import { hapticSmall } from '../../../lib/haptics';
+import { soundPage } from '../../../lib/sound';
 
 const { width } = Dimensions.get('window');
 
@@ -36,6 +37,10 @@ export function useStoryTaps({ currentSlide, totalSlides, goToSlide }) {
         goToSlide(currentSlide - 1);
       } else if (locationX > RIGHT_ZONE && currentSlide < totalSlides - 1) {
         hapticSmall();
+        /* Silent onto the last slide: that one fires its own cue — soundXP via
+           the XP celebration on a first read, soundComplete on a re-read — and
+           a page turn underneath it just muddies the payoff. */
+        if (currentSlide + 1 < totalSlides - 1) soundPage();
         goToSlide(currentSlide + 1);
       }
     },
