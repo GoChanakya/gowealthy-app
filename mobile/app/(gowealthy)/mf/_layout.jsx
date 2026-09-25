@@ -13,6 +13,7 @@ export default function MutualFundsLayout() {
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="trading" />
+        <Stack.Screen name="picks" />
       </Stack>
     </FeatureGate>
   );

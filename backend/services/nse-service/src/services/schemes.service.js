@@ -49,7 +49,9 @@ export async function listTradeableSchemes({ search, amc_code, sip_only, limit, 
         if (retail_only && s.settlement_type === "L1") return false;
         if (retail_only && s.redemption_allowed !== "Y") return false;
         if (amc_code && s.amc_code !== amc_code) return false;
-        if (term && !(`${s.scheme_name} ${s.scheme_code}`.toUpperCase().includes(term))) return false;
+        // ISIN is included so the app's fund picks can find the NSE scheme
+        // behind an AMFI-keyed recommendation.
+        if (term && !(`${s.scheme_name} ${s.scheme_code} ${s.isin ?? ""}`.toUpperCase().includes(term))) return false;
         return true;
     });
 

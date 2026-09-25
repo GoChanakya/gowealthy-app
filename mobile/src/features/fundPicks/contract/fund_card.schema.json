@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gowealthy.app/schemas/fund-cards/1.0",
+  "title": "GoWealthy fund card list",
+  "type": "object",
+  "required": ["schema_version", "as_of_date", "funds"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "as_of_date": { "$ref": "#/$defs/date" },
+    "user": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "persona_code": { "type": "string" },
+        "persona_label": { "type": "string" }
+      }
+    },
+    "funds": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/fund" } }
+  },
+  "$defs": {
+    "date": { "type": "string", "format": "date" },
+    "pct": { "type": "number", "description": "Percent as a plain number: 14.2 means 14.2%." },
+    "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+
+    "fund": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme_code", "name", "amc", "category", "hook", "nav", "returns_pct", "personality_match", "persona", "batting_average", "sip_3y", "rank_momentum", "recovery", "alternates"],
+      "properties": {
+        "scheme_code": { "type": "string", "description": "AMFI scheme code; stable key for the card." },
+        "isin": { "type": "string" },
+        "name": { "type": "string" },
+        "plan": { "type": "string" },
+        "amc": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "name", "short_name"],
+          "properties": { "code": { "type": "string" }, "name": { "type": "string" }, "short_name": { "type": "string" } }
+        },
+        "category": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["goc_short_code", "label"],
+          "properties": {
+            "goc_short_code": { "type": "string", "description": "GOC_ShortCode group; also the group for rank_momentum." },
+            "label": { "type": "string", "description": "Plain category name shown on the card, e.g. 'Large Cap'." }
+          }
+        },
+        "hook": { "type": "string", "maxLength": 48, "description": "One-line plain-English hook." },
+
+        "nav": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["value", "date"],
+          "properties": { "value": { "type": "number", "exclusiveMinimum": 0 }, "date": { "$ref": "#/$defs/date" } }
+        },
+        "returns_pct": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["m3", "m6", "y1"],
+          "properties": {
+            "m3": { "type": ["number", "null"] },
+            "m6": { "type": ["number", "null"] },
+            "y1": { "type": ["number", "null"] }
+          }
+        },
+
+        "personality_match": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["score"],
+          "properties": { "score": { "$ref": "#/$defs/score" } }
+        },
+        "persona": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "label", "description"],
+          "properties": {
+            "code": { "type": "string", "description": "Stable key, e.g. STEADY_CLIMBER; use it for i18n lookups." },
+            "label": { "type": "string" },
+            "description": { "type": "string" }
+          }
+        },
+
+        "batting_average": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["window_months", "months_beat", "monthly"],
+          "properties": {
+            "window_months": { "type": "integer", "minimum": 1 },
+            "months_beat": { "type": "integer", "minimum": 0 },
+            "monthly": {
+              "type": "array",
+              "description": "Oldest to newest; length = window_months.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["month", "beat"],
+                "properties": {
+                  "month": { "type": "string", "pattern": "^\\d{4}-(0[1-9]|1[0-2])$" },
+                  "beat": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+
+        "sip_3y": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["monthly_amount", "installments", "invested", "current_value"],
+          "properties": {
+            "monthly_amount": { "type": "number", "exclusiveMinimum": 0 },
+            "installments": { "type": "integer", "minimum": 1 },
+            "start_date": { "$ref": "#/$defs/date" },
+            "end_date": { "$ref": "#/$defs/date" },
+            "invested": { "type": "number" },
+            "current_value": { "type": "number" }
+          }
+        },
+
+        "rank_momentum": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["basis", "snapshots"],
+          "properties": {
+            "basis": { "const": "rolling_6m_return" },
+            "snapshots": {
+              "type": "array",
+              "maxItems": 12,
+              "description": "Oldest to newest, null snapshots dropped. The card shows the last 6.",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["date", "rank", "total"],
+                "properties": {
+                  "date": { "$ref": "#/$defs/date" },
+                  "rank": { "type": "integer", "minimum": 1, "description": "1 = best 6-month return in the category that month." },
+                  "total": { "type": "integer", "minimum": 1, "description": "Funds in the category that month." }
+                }
+              }
+            }
+          }
+        },
+
+        "recovery": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["typical_months", "category_typical_months", "events"],
+          "properties": {
+            "typical_months": { "type": ["number", "null"] },
+            "category_typical_months": { "type": ["number", "null"] },
+            "events": {
+              "type": "array",
+              "description": "Most recent crisis first; always all 6 fixed events.",
+              "items": { "$ref": "#/$defs/stressEvent" }
+            }
+          }
+        },
+
+        "alternates": {
+          "type": "array",
+          "maxItems": 5,
+          "description": "Same-category funds for the Switch sheet, best match first.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["scheme_code", "name", "amc_short_name", "personality_match", "returns_1y_pct"],
+            "properties": {
+              "scheme_code": { "type": "string" },
+              "name": { "type": "string" },
+              "amc_short_name": { "type": "string" },
+              "personality_match": { "$ref": "#/$defs/score" },
+              "returns_1y_pct": { "type": ["number", "null"] }
+            }
+          }
+        }
+      }
+    },
+
+    "stressEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_code", "name", "start_date", "end_date", "status", "fall_pct", "recovery_months", "recovered_pct"],
+      "properties": {
+        "event_code": { "enum": ["IRAN_2026", "FII_2021", "COVID_2020", "ILFS_2018", "DEMO_2016", "YUAN_2015"] },
+        "name": { "type": "string" },
+        "start_date": { "$ref": "#/$defs/date" },
+        "end_date": { "$ref": "#/$defs/date" },
+        "status": { "enum": ["recovered", "recovering", "not_applicable"] },
+        "fall_pct": { "type": ["number", "null"], "minimum": 0, "description": "Size of the fall as a positive number: 9.8 = fell 9.8%." },
+        "recovery_months": { "type": ["number", "null"], "minimum": 0 },
+        "recovered_pct": { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "const": "recovered" } } },
+          "then": { "properties": { "fall_pct": { "type": "number" }, "recovery_months": { "type": "number" } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "recovering" } } },
+          "then": { "properties": { "fall_pct": { "type": "number" }, "recovery_months": { "type": "null" }, "recovered_pct": { "type": "number" } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "not_applicable" } } },
+          "then": { "properties": { "fall_pct": { "type": "null" }, "recovery_months": { "type": "null" }, "recovered_pct": { "type": "null" } } }
+        }
+      ]
+    }
+  }
+}

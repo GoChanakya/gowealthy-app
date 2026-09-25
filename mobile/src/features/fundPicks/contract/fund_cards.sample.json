@@ -1,0 +1,171 @@
+{
+  "schema_version": "1.0",
+  "as_of_date": "2026-09-24",
+  "user": {
+    "persona_code": "BALANCED_SAVER",
+    "persona_label": "Balanced saver"
+  },
+  "funds": [
+    {
+      "scheme_code": "100001",
+      "isin": "INF000X01001",
+      "name": "Aarohan Bluechip Fund",
+      "plan": "Direct - Growth",
+      "amc": { "code": "NORTHSTAR", "name": "Northstar Mutual Fund", "short_name": "Northstar MF" },
+      "category": { "goc_short_code": "EQ-LC", "label": "Large Cap" },
+      "hook": "Steady grower, low drama",
+
+      "nav": { "value": 84.32, "date": "2026-09-24" },
+      "returns_pct": { "m3": 4.1, "m6": 7.8, "y1": 14.2 },
+
+      "personality_match": { "score": 92 },
+      "persona": {
+        "code": "STEADY_CLIMBER",
+        "label": "The Steady Climber",
+        "description": "Rises at a calm, even pace and rarely swings hard either way — built for patient investors."
+      },
+
+      "batting_average": {
+        "window_months": 12,
+        "months_beat": 9,
+        "monthly": [
+          { "month": "2025-10", "beat": true },
+          { "month": "2025-11", "beat": true },
+          { "month": "2025-12", "beat": false },
+          { "month": "2026-01", "beat": true },
+          { "month": "2026-02", "beat": true },
+          { "month": "2026-03", "beat": true },
+          { "month": "2026-04", "beat": false },
+          { "month": "2026-05", "beat": true },
+          { "month": "2026-06", "beat": true },
+          { "month": "2026-07", "beat": false },
+          { "month": "2026-08", "beat": true },
+          { "month": "2026-09", "beat": true }
+        ]
+      },
+
+      "sip_3y": {
+        "monthly_amount": 5000,
+        "installments": 36,
+        "start_date": "2023-09-25",
+        "end_date": "2026-09-24",
+        "invested": 180000,
+        "current_value": 234600
+      },
+
+      "rank_momentum": {
+        "basis": "rolling_6m_return",
+        "snapshots": [
+          { "date": "2025-10-31", "rank": 7, "total": 27 },
+          { "date": "2025-11-30", "rank": 6, "total": 27 },
+          { "date": "2025-12-31", "rank": 8, "total": 27 },
+          { "date": "2026-01-31", "rank": 6, "total": 28 },
+          { "date": "2026-02-28", "rank": 7, "total": 28 },
+          { "date": "2026-03-31", "rank": 5, "total": 28 },
+          { "date": "2026-04-30", "rank": 5, "total": 28 },
+          { "date": "2026-05-31", "rank": 6, "total": 28 },
+          { "date": "2026-06-30", "rank": 4, "total": 28 },
+          { "date": "2026-07-31", "rank": 3, "total": 28 },
+          { "date": "2026-08-31", "rank": 3, "total": 28 },
+          { "date": "2026-09-24", "rank": 2, "total": 28 }
+        ]
+      },
+
+      "recovery": {
+        "typical_months": 3,
+        "category_typical_months": 5,
+        "events": [
+          { "event_code": "IRAN_2026",  "name": "US and Israel Attack on Iran", "start_date": "2026-02-25", "end_date": "2026-07-18", "status": "recovered", "fall_pct": 9.8,  "recovery_months": 2, "recovered_pct": 100 },
+          { "event_code": "FII_2021",   "name": "Massive FII Selloff",          "start_date": "2021-10-20", "end_date": "2021-12-31", "status": "recovered", "fall_pct": 6.2,  "recovery_months": 1, "recovered_pct": 100 },
+          { "event_code": "COVID_2020", "name": "Covid-19 Crisis & Lockdown",   "start_date": "2020-02-15", "end_date": "2020-04-10", "status": "recovered", "fall_pct": 29.4, "recovery_months": 7, "recovered_pct": 100 },
+          { "event_code": "ILFS_2018",  "name": "IL&FS Liquidity Crisis",       "start_date": "2018-08-15", "end_date": "2018-10-15", "status": "recovered", "fall_pct": 8.1,  "recovery_months": 3, "recovered_pct": 100 },
+          { "event_code": "DEMO_2016",  "name": "Demonetization in India",      "start_date": "2016-10-31", "end_date": "2016-12-31", "status": "recovered", "fall_pct": 5.3,  "recovery_months": 2, "recovered_pct": 100 },
+          { "event_code": "YUAN_2015",  "name": "Chinese Yuan Devaluation",     "start_date": "2015-08-21", "end_date": "2016-02-10", "status": "recovered", "fall_pct": 12.6, "recovery_months": 5, "recovered_pct": 100 }
+        ]
+      },
+
+      "alternates": [
+        { "scheme_code": "100011", "name": "Meru Large Cap Fund",  "amc_short_name": "Summit MF",      "personality_match": 89, "returns_1y_pct": 13.1 },
+        { "scheme_code": "100012", "name": "Vindhya Top 100 Fund", "amc_short_name": "Harbourline MF", "personality_match": 86, "returns_1y_pct": 12.5 }
+      ]
+    },
+
+    {
+      "scheme_code": "100002",
+      "isin": "INF000X01002",
+      "name": "Kaveri Flexi Cap Fund",
+      "plan": "Direct - Growth",
+      "amc": { "code": "RIVERBEND", "name": "Riverbend Mutual Fund", "short_name": "Riverbend MF" },
+      "category": { "goc_short_code": "EQ-FC", "label": "Flexi Cap" },
+      "hook": "Strong recent momentum",
+
+      "nav": { "value": 31.07, "date": "2026-09-24" },
+      "returns_pct": { "m3": 6.9, "m6": 12.4, "y1": 21.8 },
+
+      "personality_match": { "score": 85 },
+      "persona": {
+        "code": "SPRINTER",
+        "label": "The Sprinter",
+        "description": "Moves fast when markets rise and can dip harder when they fall — rewards those who can sit through bumps."
+      },
+
+      "batting_average": {
+        "window_months": 12,
+        "months_beat": 7,
+        "monthly": [
+          { "month": "2025-10", "beat": false },
+          { "month": "2025-11", "beat": true },
+          { "month": "2025-12", "beat": true },
+          { "month": "2026-01", "beat": false },
+          { "month": "2026-02", "beat": true },
+          { "month": "2026-03", "beat": false },
+          { "month": "2026-04", "beat": true },
+          { "month": "2026-05", "beat": true },
+          { "month": "2026-06", "beat": false },
+          { "month": "2026-07", "beat": true },
+          { "month": "2026-08", "beat": true },
+          { "month": "2026-09", "beat": false }
+        ]
+      },
+
+      "sip_3y": {
+        "monthly_amount": 5000,
+        "installments": 36,
+        "start_date": "2023-09-25",
+        "end_date": "2026-09-24",
+        "invested": 180000,
+        "current_value": 251900
+      },
+
+      "rank_momentum": {
+        "basis": "rolling_6m_return",
+        "snapshots": [
+          { "date": "2026-04-30", "rank": 11, "total": 41 },
+          { "date": "2026-05-31", "rank": 9,  "total": 41 },
+          { "date": "2026-06-30", "rank": 8,  "total": 41 },
+          { "date": "2026-07-31", "rank": 6,  "total": 41 },
+          { "date": "2026-08-31", "rank": 4,  "total": 41 },
+          { "date": "2026-09-24", "rank": 3,  "total": 41 }
+        ]
+      },
+
+      "recovery": {
+        "typical_months": 5,
+        "category_typical_months": 5,
+        "events": [
+          { "event_code": "IRAN_2026",  "name": "US and Israel Attack on Iran", "start_date": "2026-02-25", "end_date": "2026-07-18", "status": "recovering",     "fall_pct": 14.2, "recovery_months": null, "recovered_pct": 91 },
+          { "event_code": "FII_2021",   "name": "Massive FII Selloff",          "start_date": "2021-10-20", "end_date": "2021-12-31", "status": "recovered",      "fall_pct": 9.6,  "recovery_months": 3,    "recovered_pct": 100 },
+          { "event_code": "COVID_2020", "name": "Covid-19 Crisis & Lockdown",   "start_date": "2020-02-15", "end_date": "2020-04-10", "status": "recovered",      "fall_pct": 34.8, "recovery_months": 8,    "recovered_pct": 100 },
+          { "event_code": "ILFS_2018",  "name": "IL&FS Liquidity Crisis",       "start_date": "2018-08-15", "end_date": "2018-10-15", "status": "not_applicable", "fall_pct": null, "recovery_months": null, "recovered_pct": null },
+          { "event_code": "DEMO_2016",  "name": "Demonetization in India",      "start_date": "2016-10-31", "end_date": "2016-12-31", "status": "not_applicable", "fall_pct": null, "recovery_months": null, "recovered_pct": null },
+          { "event_code": "YUAN_2015",  "name": "Chinese Yuan Devaluation",     "start_date": "2015-08-21", "end_date": "2016-02-10", "status": "not_applicable", "fall_pct": null, "recovery_months": null, "recovered_pct": null }
+        ]
+      },
+
+      "alternates": [
+        { "scheme_code": "100021", "name": "Narmada Flexi Cap Fund", "amc_short_name": "Summit MF",      "personality_match": 83, "returns_1y_pct": 19.6 },
+        { "scheme_code": "100022", "name": "Konkan Flexi Cap Fund",  "amc_short_name": "Harbourline MF", "personality_match": 80, "returns_1y_pct": 17.3 }
+      ]
+    }
+  ]
+}

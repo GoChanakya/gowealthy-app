@@ -575,6 +575,15 @@ export default function Home() {
           <Pressable style={styles.ghostBtn} onPress={() => { hapticSmall(); goRestart(); }}>
             <Text style={styles.ghostBtnText}>↺ Start over</Text>
           </Pressable>
+          {/* Test entry into fund picks until it's wired to the end of the questionnaire. */}
+          {FEATURES.devDoor && FEATURES.mutualFunds && (
+            <Pressable
+              style={styles.devPicksBtn}
+              onPress={() => { hapticSmall(); router.push("/(gowealthy)/mf/picks"); }}
+            >
+              <Text style={styles.devPicksText}>Fund picks (test)</Text>
+            </Pressable>
+          )}
         </View>
         {/* <Text style={styles.footText}>GoWealthy</Text> */}
       </ScrollView>
@@ -1147,6 +1156,8 @@ avatarImage: {
   btnsBlock: { flexDirection: "column", gap: 10, borderTopWidth: 1, borderTopColor: C.line, paddingTop: 22, marginTop: 26 },
   ghostBtn: { borderWidth: 1.5, borderColor: C.line2, borderRadius: RADIUS.sm, paddingVertical: 16, alignItems: "center" },
   ghostBtnText: { color: C.ink, fontWeight: "600", fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  devPicksBtn: { alignSelf: "center", minHeight: 44, justifyContent: "center", paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderStyle: "dashed", borderColor: C.line2 },
+  devPicksText: { color: C.muted, fontSize: 12.5, fontFamily: 'Inter_600SemiBold' },
   footText: { textAlign: "center", fontSize: 10, color: "#6a5d66", marginTop: 20, lineHeight: 17, fontFamily: 'Inter_400Regular' },
 
   /* goals */
