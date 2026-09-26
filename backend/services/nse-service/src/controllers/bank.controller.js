@@ -45,10 +45,60 @@ export async function bankElog(req, res) {
     }));
 }
 
-// Bank verification status readback (replaces a third-party penny drop).
+// NSE-side bank activation status after the verified account is added to UCC.
 export async function bankStatus(req, res) {
     const { client_code } = req.body || {};
     if (!client_code) throw new ValidationError("client_code is required");
 
     res.json(await bankService.bankStatus({ client_code, requestId: req.activityId }));
+}
+
+// RazorpayX composite Fund Account Validation. Passing validation_id polls an
+// already-created penny drop instead of creating (and charging for) a new one.
+export async function bankVerify(req, res) {
+    const body = req.body || {};
+
+    if (body.validation_id) {
+        if (!/^fav_[A-Za-z0-9]+$/.test(body.validation_id)) {
+            throw new ValidationError("validation_id is invalid");
+        }
+        return res.json(await bankService.verifyBankAccount({
+            validationId: body.validation_id,
+            requestId: req.activityId,
+        }));
+    }
+
+    const missing = missingFields(body, ["account_number", "ifsc", "name", "contact"]);
+    if (missing.length) throw new ValidationError(`Missing fields: ${missing.join(", ")}`);
+
+    const accountNumber = String(body.account_number).trim();
+    const ifsc = String(body.ifsc).trim().toUpperCase();
+    const name = String(body.name).trim();
+    const contact = String(body.contact).replace(/[^0-9+]/g, "");
+    const email = body.email ? String(body.email).trim() : "";
+
+    if (!/^[A-Za-z0-9]{5,35}$/.test(accountNumber)) {
+        throw new ValidationError("account_number must be 5-35 letters or digits");
+    }
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+        throw new ValidationError("ifsc must be a valid 11-character IFSC code");
+    }
+    if (name.length < 3 || name.length > 120) {
+        throw new ValidationError("name must be between 3 and 120 characters");
+    }
+    if (!/^\+?[0-9]{10,15}$/.test(contact)) {
+        throw new ValidationError("contact must be a valid phone number");
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new ValidationError("email must be valid");
+    }
+
+    res.json(await bankService.verifyBankAccount({
+        accountNumber,
+        ifsc,
+        name,
+        contact,
+        email,
+        requestId: req.activityId,
+    }));
 }

@@ -12,6 +12,7 @@
     "services/*"
   ],
   "scripts": {
+    "test": "node --test services/nse-service/test/*.test.js",
     "dev:nse": "node --watch services/nse-service/src/index.js",
     "dev:email": "node --watch services/email-service/src/index.js",
     "dev:upload": "node --watch services/upload-service/src/index.js",

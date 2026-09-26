@@ -8,3 +8,4 @@ bankRouter.post("/bank-add", asyncHandler("bank-add", c.bankAdd));
 bankRouter.post("/cancel-cheque-upload", asyncHandler("cancel-cheque-upload", c.cancelChequeUpload));
 bankRouter.post("/bank-elog", asyncHandler("bank-elog", c.bankElog));
 bankRouter.post("/bank-status", asyncHandler("bank-status", c.bankStatus));
+bankRouter.post("/bank-verify", asyncHandler("bank-verify", c.bankVerify));

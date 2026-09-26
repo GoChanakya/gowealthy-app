@@ -13,7 +13,7 @@ export function errorHandler(err, req, res, next) { // eslint-disable-line no-un
     }
 
     const routeName = req.routeName || req.path;
-    const status = err.response?.status || 500;
+    const status = err.statusCode || err.response?.status || 500;
     const error = err.response?.data || err.message;
 
     logActivity(routeName, "nse_error", { httpStatus: status, error });

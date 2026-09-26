@@ -11,7 +11,8 @@
 #
 # Before first deploy, create the secrets once:
 #   gcloud secrets create NSE_LOGIN_ID --data-file=- <<< "$NSE_LOGIN_ID"
-#   ... (NSE_API_SECRET, NSE_MEMBER_API_KEY, NSE_MEMBER_CODE, MAILGUN_API_KEY, MAILGUN_DOMAIN)
+#   ... (NSE_API_SECRET, NSE_MEMBER_API_KEY, NSE_MEMBER_CODE, RAZORPAY_KEY_ID,
+#        RAZORPAY_KEY_SECRET, RAZORPAYX_ACCOUNT_NUMBER, MAILGUN_API_KEY, MAILGUN_DOMAIN)
 # and grant the Cloud Run service account roles/secretmanager.secretAccessor.
 set -euo pipefail
 
@@ -36,7 +37,7 @@ case "$SERVICE" in
   nse-service)
     gcloud run services update "$SERVICE" "${COMMON_FLAGS[@]}" \
       --set-env-vars "NSE_BASE_URL=${NSE_BASE_URL:-https://nseinvestuat.nseindia.com}" \
-      --set-secrets "NSE_LOGIN_ID=NSE_LOGIN_ID:latest,NSE_API_SECRET=NSE_API_SECRET:latest,NSE_MEMBER_API_KEY=NSE_MEMBER_API_KEY:latest,NSE_MEMBER_CODE=NSE_MEMBER_CODE:latest" \
+      --set-secrets "NSE_LOGIN_ID=NSE_LOGIN_ID:latest,NSE_API_SECRET=NSE_API_SECRET:latest,NSE_MEMBER_API_KEY=NSE_MEMBER_API_KEY:latest,NSE_MEMBER_CODE=NSE_MEMBER_CODE:latest,RAZORPAY_KEY_ID=RAZORPAY_KEY_ID:latest,RAZORPAY_KEY_SECRET=RAZORPAY_KEY_SECRET:latest,RAZORPAYX_ACCOUNT_NUMBER=RAZORPAYX_ACCOUNT_NUMBER:latest" \
       --min-instances 1 --max-instances 10 --concurrency 80 --timeout 120
     ;;
   email-service)

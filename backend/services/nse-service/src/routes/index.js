@@ -51,4 +51,5 @@ export const ROUTE_TABLE = [
     ["POST", "/api/nse/cancel-cheque-upload", "CANCELCHEQUE (bank verification)"],
     ["POST", "/api/nse/bank-elog", "ELOGBANK (bank verification)"],
     ["POST", "/api/nse/bank-status", "client_master_report (bank status)"],
+    ["POST", "/api/nse/bank-verify", "RazorpayX penny-drop verification"],
 ];

@@ -35,9 +35,27 @@ const nse = Object.freeze({
     timeoutMs: Number(process.env.NSE_TIMEOUT_MS || 60000),
 });
 
+// RazorpayX is optional at service startup so the existing NSE routes keep
+// working in environments that have not enabled penny-drop verification yet.
+// The bank verification route fails with a clear configuration error until all
+// three required values are supplied.
+const razorpay = Object.freeze({
+    keyId: process.env.RAZORPAY_KEY_ID || "",
+    keySecret: process.env.RAZORPAY_KEY_SECRET || "",
+    sourceAccountNumber:
+        process.env.RAZORPAYX_ACCOUNT_NUMBER ||
+        process.env.RAZORPAYX_SOURCE_ACCOUNT_NUMBER ||
+        "",
+    baseUrl: process.env.RAZORPAY_BASE_URL || "https://api.razorpay.com",
+    timeoutMs: Number(process.env.RAZORPAY_TIMEOUT_MS || 15000),
+    pollAttempts: Number(process.env.RAZORPAY_POLL_ATTEMPTS || 8),
+    pollIntervalMs: Number(process.env.RAZORPAY_POLL_INTERVAL_MS || 1000),
+});
+
 export const config = Object.freeze({
     serviceName: "nse-service",
     port: Number(process.env.PORT || 3000),
     nse,
+    razorpay,
     nseEnvironment: nseEnvironment(nse.baseUrl),
 });

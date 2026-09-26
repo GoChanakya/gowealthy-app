@@ -16,8 +16,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db } from '../../../../src/config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { BACKEND_URL, NSE_SERVICE_URL, EMAIL_SERVICE_URL } from '../../../../src/config/services';
-import { hapticError, hapticSmall } from '../../../../src/lib/haptics';
+import { NSE_SERVICE_URL } from '../../../../src/config/services';
+import { hapticError, hapticSmall, hapticSuccess } from '../../../../src/lib/haptics';
 
 import { LogoSpinner } from '../../../../src/components/LogoLoader';
 // ── ember forge palette (matches gowealthy_redesigned.html) ──────────────
@@ -125,6 +125,8 @@ const Screen5Bank = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [verifyStep, setVerifyStep] = useState(''); // progress label during penny drop
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [pendingValidationId, setPendingValidationId] = useState(null);
+  const [verifiedBank, setVerifiedBank] = useState(null);
 
   // Account type options — NSE codes
   const accountTypes = [
@@ -155,6 +157,13 @@ const Screen5Bank = () => {
         setConfirmAccountNumber(saved.account_no || '');
         setIfscCode(saved.ifsc_code || '');
         setAccountType(saved.account_type || 'SB');
+        if (saved.penny_drop_status === 'VERIFIED') {
+          setVerifiedBank({
+            account_no: saved.account_no,
+            ifsc_code: saved.ifsc_code,
+            registered_name: saved.razorpay_registered_name || '',
+          });
+        }
       }
     } catch (e) {
       console.log('Screen 5 load error:', e.message);
@@ -165,6 +174,7 @@ const Screen5Bank = () => {
 
   const handleAccountNumberChange = (value) => {
     setAccountNumber(value.replace(/[^0-9]/g, '').slice(0, 18));
+    setPendingValidationId(null);
   };
 
   const handleConfirmAccountChange = (value) => {
@@ -173,12 +183,18 @@ const Screen5Bank = () => {
 
   const handleIfscChange = (value) => {
     setIfscCode(value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11));
+    setPendingValidationId(null);
   };
+
+  const isIfscValid = /^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode);
+  const isAlreadyVerified =
+    verifiedBank?.account_no === accountNumber &&
+    verifiedBank?.ifsc_code === ifscCode;
 
   const isFormValid =
     accountNumber.length >= 9 &&
     confirmAccountNumber === accountNumber &&
-    ifscCode.length === 11 &&
+    isIfscValid &&
     accountType;
 
   const handleContinue = async () => {
@@ -199,12 +215,73 @@ const Screen5Bank = () => {
 
       const docRef = doc(db, 'mf_onboarding', phone);
 
-      // NSE verifies the bank account itself, and it can only do that once the
-      // UCC exists and the account has been added via CLIENTBANKDTL. So nothing
-      // is verified here — we just capture the details. Verification status is
-      // read back later from /api/nse/bank-status, which reports NSE's own
-      // PENDING / ACTIVE / rejected verdict for the account.
-      setVerifyStep('Saving…');
+      if (isAlreadyVerified) {
+        hapticSmall();
+        router.push('/(gowealthy)/mf/onboarding/screen6');
+        return;
+      }
+
+      const onboardingSnap = await getDoc(docRef);
+      const onboarding = onboardingSnap.data() || {};
+      const accountHolderName = String(onboarding?.pan_data?.name || '').trim();
+      const email = String(onboarding?.email_data?.email || '').trim();
+
+      if (!accountHolderName) {
+        throw new Error('PAN name is missing. Please complete PAN verification first.');
+      }
+
+      setVerifyStep(pendingValidationId ? 'Checking verification...' : 'Running penny drop...');
+      const verifyResponse = await fetch(`${NSE_SERVICE_URL}/api/nse/bank-verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(pendingValidationId
+          ? { validation_id: pendingValidationId }
+          : {
+              account_number: accountNumber,
+              ifsc: ifscCode,
+              name: accountHolderName,
+              email,
+              contact: phone,
+            }),
+      });
+
+      const responseText = await verifyResponse.text();
+      let verification = {};
+      try {
+        verification = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error('Bank verification returned an invalid response.');
+      }
+
+      if (!verifyResponse.ok) {
+        throw new Error(
+          typeof verification.error === 'string'
+            ? verification.error
+            : 'Unable to verify this bank account right now.'
+        );
+      }
+
+      if (verification.pending) {
+        setPendingValidationId(verification.validation_id);
+        hapticSmall();
+        Alert.alert(
+          'Verification is still processing',
+          'Razorpay has started the penny drop. Tap "Check verification" in a moment; this checks the same transaction without starting another one.'
+        );
+        return;
+      }
+
+      if (!verification.verified) {
+        setPendingValidationId(null);
+        throw new Error(
+          verification.details ||
+          'Razorpay could not verify these bank details. Check the account number and IFSC and try again.'
+        );
+      }
+
+      setVerifyStep('Saving verified account...');
+      const verifiedAt = new Date().toISOString();
+
       await updateDoc(docRef, {
         bank_data: {
           account_no:       accountNumber,
@@ -212,19 +289,32 @@ const Screen5Bank = () => {
           account_type:     accountType,  // "SB", "CB", "NE", "NO"
           default_bank:     'Y',
           nse_bank_status:  'NOT_SUBMITTED', // → PENDING after bank-add, then ACTIVE
-          saved_at:         new Date().toISOString(),
+          penny_drop_status: 'VERIFIED',
+          razorpay_validation_id: verification.validation_id,
+          razorpay_account_status: verification.account_status,
+          razorpay_registered_name: verification.registered_name || null,
+          razorpay_name_match_score: verification.name_match_score,
+          razorpay_utr: verification.utr || null,
+          penny_drop_verified_at: verifiedAt,
+          saved_at: verifiedAt,
         },
         onboarding_step: 5,
       });
 
-      console.log('✅ Bank details saved to Firestore (NSE verification pending)');
-      hapticSmall();
+      console.log('Bank account verified by Razorpay and saved');
+      setVerifiedBank({
+        account_no: accountNumber,
+        ifsc_code: ifscCode,
+        registered_name: verification.registered_name || '',
+      });
+      setPendingValidationId(null);
+      hapticSuccess();
       router.push('/(gowealthy)/mf/onboarding/screen6');
 
     } catch (error) {
       hapticError();
       console.error('❌ Bank verify/save error:', error);
-      Alert.alert('Error', 'Something went wrong verifying your bank account. Please try again.');
+      Alert.alert('Bank verification failed', error.message || 'Please check your details and try again.');
     } finally {
       setIsLoading(false);
       setVerifyStep('');
@@ -363,29 +453,30 @@ const Screen5Bank = () => {
               autoCapitalize="characters"
               autoCorrect={false}
             />
-            {ifscCode.length > 0 && ifscCode.length !== 11 && (
-              <Text style={styles.inputError}>IFSC must be exactly 11 characters</Text>
+            {ifscCode.length > 0 && !isIfscValid && (
+              <Text style={styles.inputError}>Enter a valid IFSC (for example, HDFC0000053)</Text>
             )}
-            {ifscCode.length === 11 && (
+            {isIfscValid && (
               <Text style={styles.inputSuccess}>✓ Valid IFSC format</Text>
             )}
           </View>
 
-          {/* UAT test hint */}
-          <View style={styles.testCard}>
-            <Text style={styles.testCardTitle}>🧪 UAT Test Values</Text>
-            <Text style={styles.testCardText}>Account No: 311242065229</Text>
-            <Text style={styles.testCardText}>IFSC: KKBK0000872</Text>
-            <Text style={styles.testCardText}>Type: Savings (SB)</Text>
-          </View>
+          {isAlreadyVerified && (
+            <View style={styles.verifiedCard}>
+              <Text style={styles.verifiedCardTitle}>✓ Bank account verified</Text>
+              {!!verifiedBank?.registered_name && (
+                <Text style={styles.verifiedCardText}>Registered to {verifiedBank.registered_name}</Text>
+              )}
+            </View>
+          )}
 
           <View style={styles.infoCard}>
             <View style={styles.infoCardHeader}>
               <Text style={styles.infoIcon}>🏦</Text>
-              <Text style={styles.infoCardHeaderText}>Bank Account Info</Text>
+              <Text style={styles.infoCardHeaderText}>Secure penny-drop verification</Text>
             </View>
             <Text style={styles.infoText}>
-              This account will be linked to your mutual fund investments for purchases and redemptions. Make sure the account belongs to you.
+              Razorpay will make a small penny-drop transfer to confirm that this account is active. We continue only after the bank confirms it.
             </Text>
           </View>
 
@@ -410,18 +501,17 @@ const Screen5Bank = () => {
                   <Text style={[styles.continueButtonText, styles.continueButtonTextDisabled]}>{verifyStep || 'Saving...'}</Text>
                 </View>
               ) : (
-                <Text style={styles.continueButtonText}>→ Continue to Final Step</Text>
+                <Text style={styles.continueButtonText}>
+                  {isAlreadyVerified
+                    ? '→ Continue to Final Step'
+                    : pendingValidationId
+                      ? '↻ Check Verification'
+                      : '✓ Verify Bank Account'}
+                </Text>
               )}
             </LinearGradient>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => router.push('/(gowealthy)/mf/onboarding/screen6')}
-            style={styles.devButton}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.devButtonText}>Skip (Dev) →</Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -490,12 +580,12 @@ const styles = StyleSheet.create({
   accountTypeBtnText: { color: C.muted, fontSize: 13, fontWeight: '600' },
   accountTypeBtnTextActive: { color: C.o2 },
 
-  testCard: {
-    backgroundColor: 'rgba(247,200,90,0.08)', borderWidth: 1.5, borderColor: 'rgba(247,200,90,0.28)',
+  verifiedCard: {
+    backgroundColor: 'rgba(79,211,154,0.08)', borderWidth: 1.5, borderColor: 'rgba(79,211,154,0.28)',
     borderRadius: 16, padding: 14, marginBottom: 18,
   },
-  testCardTitle: { color: C.gold, fontSize: 12.5, fontWeight: '700', marginBottom: 6 },
-  testCardText: { color: C.muted, fontSize: 12.5, lineHeight: 19 },
+  verifiedCardTitle: { color: C.good, fontSize: 12.5, fontWeight: '700', marginBottom: 4 },
+  verifiedCardText: { color: C.muted, fontSize: 12.5, lineHeight: 19 },
 
   infoCard: {
     backgroundColor: 'rgba(255,106,26,0.07)', borderWidth: 1, borderColor: 'rgba(255,106,26,0.22)',
@@ -516,11 +606,6 @@ const styles = StyleSheet.create({
   continueButtonText: { color: '#1a0d04', fontSize: 15.5, fontWeight: '700' },
   continueButtonTextDisabled: { color: C.muted },
   buttonRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  devButton: {
-    backgroundColor: 'rgba(79,211,154,0.1)', borderWidth: 1, borderColor: 'rgba(79,211,154,0.3)',
-    paddingVertical: 10, borderRadius: 30, alignItems: 'center',
-  },
-  devButtonText: { color: C.good, fontSize: 13, fontWeight: '600' },
 });
 
 export default Screen5Bank;

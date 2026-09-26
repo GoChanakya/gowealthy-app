@@ -46,6 +46,7 @@ src/
 | nse-service | `POST /api/nse/cancel-cheque-upload` | `fileupload/CANCELCHEQUE` |
 | nse-service | `POST /api/nse/bank-elog` | `registration/ELOGBANK` |
 | nse-service | `POST /api/nse/bank-status` | `reports/client_master_report` |
+| nse-service | `POST /api/nse/bank-verify` | RazorpayX composite penny-drop validation |
 | nse-service | `POST /api/nse/get-link` | `reports/GET_LINK` |
 | nse-service | `POST /api/nse/resend-comm` | `registration/RESEND_COMM` |
 | nse-service | `POST /api/nse/client-auth-status` | `reports/client_authorization` |
@@ -87,7 +88,7 @@ One-time setup:
 ```bash
 gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com
 gcloud artifacts repositories create gowealthy --repository-format=docker --location=asia-south1
-for s in NSE_LOGIN_ID NSE_API_SECRET NSE_MEMBER_API_KEY NSE_MEMBER_CODE MAILGUN_API_KEY MAILGUN_DOMAIN; do
+for s in NSE_LOGIN_ID NSE_API_SECRET NSE_MEMBER_API_KEY NSE_MEMBER_CODE RAZORPAY_KEY_ID RAZORPAY_KEY_SECRET RAZORPAYX_ACCOUNT_NUMBER MAILGUN_API_KEY MAILGUN_DOMAIN; do
   printf '%s' "$VALUE" | gcloud secrets create "$s" --data-file=-
 done
 ```
