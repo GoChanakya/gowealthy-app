@@ -110,13 +110,13 @@ function AgeScreen({ age, setAge, onNext }) {
 
       <View style={styles.sliderWrap}>
         <View style={styles.sliderValRow}>
-          <Text style={styles.sliderVal}>{age >= 35 ? "35+" : age}</Text>
+          <Text style={styles.sliderVal}>{age}</Text>
           <Text style={styles.sliderValUnit}> yrs</Text>
         </View>
         <Slider
           style={{ width: "100%", height: 40 }}
           minimumValue={18}
-          maximumValue={35}
+          maximumValue={75}
           step={1}
           value={age}
           onValueChange={(value) => { if (value !== age) hapticTick(); setAge(value); }}
@@ -126,7 +126,7 @@ function AgeScreen({ age, setAge, onNext }) {
         />
         <View style={styles.sliderLabels}>
           <Text style={styles.sliderLabelText}>18</Text>
-          <Text style={styles.sliderLabelText}>35+</Text>
+          <Text style={styles.sliderLabelText}>75</Text>
         </View>
       </View>
 
@@ -153,7 +153,7 @@ function MonthlyScreen({ monthly, setMonthly, onNext }) {
       <Text style={kitStyles.h2}>
         What can you invest{"\n"}<Text style={kitStyles.gradText}>every month, stress-free?</Text>
       </Text>
-      <Text style={kitStyles.sub}>"Stress-free" is the whole trick. Starting honest beats starting ambitious.</Text>
+      <Text style={kitStyles.sub}>“Stress-free” is the whole trick. Starting honest beats starting ambitious.</Text>
 
       <View style={styles.sliderWrap}>
         <View style={styles.sliderValRow}>

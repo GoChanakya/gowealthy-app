@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback
  } from "react";
 import {
   View, Text, Pressable, ScrollView, Animated, Easing,
-  StyleSheet, PanResponder,
+  StyleSheet,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
@@ -130,7 +130,6 @@ export default function Section1() {
       {step === "reveal" && (
         <RevealScreen
           scores={state.scores}
-          answers={state.answers}
           personaCode={state.personaCode}
           onContinue={handleContinue}
         />
@@ -300,7 +299,7 @@ function BuildLoading({ onDone }) {
 /* ============================================================
    Screen — Persona Reveal (trading card + Why did I get this?)
    ============================================================ */
-function RevealScreen({ scores, answers, personaCode, onContinue }) {
+function RevealScreen({ scores, personaCode, onContinue }) {
   const { persona, code } = useMemo(() => getPersonality(scores.h, scores.c, scores.o), [scores]);
   const [opened, setOpened] = useState(false);
   const [whyOpen, setWhyOpen] = useState(false);
@@ -329,7 +328,7 @@ function RevealScreen({ scores, answers, personaCode, onContinue }) {
       </Pressable>
 
       {whyOpen && (
-        <WhyPanel scores={scores} answers={answers} persona={persona} code={code} />
+        <WhyPanel scores={scores} persona={persona} code={code} />
       )}
 
       <PrimaryButton label="Continue" onPress={onContinue} style={{ marginTop: 22 }} />
@@ -337,47 +336,23 @@ function RevealScreen({ scores, answers, personaCode, onContinue }) {
   );
 }
 
-/** Trading-card reveal. On web this tilts to pointer position on hover; touch has no
- *  hover, so this uses a drag-to-tilt gesture instead (tilts while your finger is on
- *  the card, springs back to flat on release) — same visual language, touch-appropriate
- *  interaction. Tap (no drag) opens the detail panel, matching the HTML's click-to-open. */
+/** Trading-card reveal. Tap opens the detail panel. Uses Pressable rather than a
+ *  PanResponder so drags starting on the card still scroll the parent ScrollView. */
 function TiltCard({ persona, opened, onOpen }) {
-  const tiltX = useRef(new Animated.Value(0)).current;
-  const tiltY = useRef(new Animated.Value(0)).current;
-  const cardSize = useRef({ w: 320, h: 420 });
+  const scale = useRef(new Animated.Value(1)).current;
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onPanResponderMove: (evt, gesture) => {
-        const { w, h } = cardSize.current;
-        const px = Math.max(0, Math.min(1, (gesture.moveX - gesture.x0 + w / 2) / w));
-        const py = Math.max(0, Math.min(1, (gesture.moveY - gesture.y0 + h / 2) / h));
-        tiltY.setValue((px - 0.5) * 10); // rotateY
-        tiltX.setValue((0.5 - py) * 10); // rotateX
-      },
-      onPanResponderRelease: (evt, gesture) => {
-        Animated.spring(tiltX, { toValue: 0, useNativeDriver: true }).start();
-        Animated.spring(tiltY, { toValue: 0, useNativeDriver: true }).start();
-        // treat a near-stationary press as a tap
-        if (Math.abs(gesture.dx) < 6 && Math.abs(gesture.dy) < 6 && !opened) {
-          hapticSmall();
-   
-          onOpen();
-        }
-      },
-    })
-  ).current;
+  const pressTo = (toValue) =>
+    Animated.spring(scale, { toValue, speed: 40, bounciness: 6, useNativeDriver: true }).start();
 
-  const rotateXStr = tiltX.interpolate({ inputRange: [-10, 10], outputRange: ["-10deg", "10deg"] });
-  const rotateYStr = tiltY.interpolate({ inputRange: [-10, 10], outputRange: ["-10deg", "10deg"] });
+  const handlePress = () => {
+    if (opened) return;
+    hapticSmall();
+    onOpen();
+  };
 
   return (
-    <View
-      {...panResponder.panHandlers}
-      onLayout={e => { cardSize.current = { w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height }; }}
-    >
-      <Animated.View style={[styles.tcard, { transform: [{ perspective: 900 }, { rotateX: rotateXStr }, { rotateY: rotateYStr }] }]}>
+    <Pressable onPress={handlePress} onPressIn={() => pressTo(0.98)} onPressOut={() => pressTo(1)}>
+      <Animated.View style={[styles.tcard, { transform: [{ scale }] }]}>
         <Text style={styles.tcardRank}>GoPersona</Text>
         <View style={styles.tcardIcon}><Ico name={persona.icon} size={30} /></View>
         <Text style={styles.tcardName}>{persona.name}</Text>
@@ -402,7 +377,7 @@ function TiltCard({ persona, opened, onOpen }) {
           </View>
         )}
       </Animated.View>
-    </View>
+    </Pressable>
   );
 }
 function TLine({ Icon, label, text }) {
@@ -418,35 +393,22 @@ function TLine({ Icon, label, text }) {
 }
 
 /** "Why did I get this?" — per-dimension score breakdown, ported 1:1 from renderWhy(). */
-function WhyPanel({ scores, answers, persona, code }) {
+function WhyPanel({ scores, persona, code }) {
   const dims = [
-    { name: "H · Heuristic (gut-led speed)", color: C.gd, field: "dH", score: scores.h },
-    { name: "C · Cognitive (analytical rigour)", color: C.o2, field: "dC", score: scores.c },
-    { name: "O · Orientation (risk / boldness)", color: C.gold, field: "dO", score: scores.o },
+    { name: "H · Heuristic (gut-led speed)", color: C.gd, key: "h", score: scores.h },
+    { name: "C · Cognitive (analytical rigour)", color: C.o2, key: "c", score: scores.c },
+    { name: "O · Orientation (risk / boldness)", color: C.gold, key: "o", score: scores.o },
   ];
   return (
     <View style={styles.whyBody}>
-      {dims.map(d => {
-        const rows = answers.filter(a => a[d.field] !== 0);
-        return (
-          <View key={d.field} style={styles.whyDim}>
-            <View style={styles.whyHead}>
-              <Text style={[styles.whyName, { color: d.color }]}>{d.name}</Text>
-              <Text style={[styles.whyScore, { color: d.color }]}>{d.score} / 10 · {bandLabel(d.score).toUpperCase()}</Text>
-            </View>
-            <WhyRow left="Neutral start" right="5" />
-            {rows.map((r, i) => (
-              <WhyRow
-                key={i}
-                left={`${r.tag} — "${r.label}"`}
-                right={`${r[d.field] > 0 ? "+" : ""}${r[d.field]}`}
-                positive={r[d.field] > 0}
-              />
-            ))}
-            <WhyRow left="Final" right={`${d.score} → ${bandLabel(d.score)}`} bold color={d.color} />
+      {dims.map(d => (
+        <View key={d.key} style={styles.whyDim}>
+          <View style={styles.whyHead}>
+            <Text style={[styles.whyName, { color: d.color }]}>{d.name}</Text>
+            <Text style={[styles.whyScore, { color: d.color }]}>{d.score} / 10 · {bandLabel(d.score).toUpperCase()}</Text>
           </View>
-        );
-      })}
+        </View>
+      ))}
       <View style={styles.whyFinal}>
         <Text style={styles.whyFinalText}>
           <Text style={{ fontFamily: FONT.bodyBold }}>How you were matched: </Text>
@@ -460,21 +422,6 @@ function WhyPanel({ scores, answers, persona, code }) {
           <Text style={{ fontFamily: FONT.bodyBold }}>{persona.name}</Text>.
         </Text>
       </View>
-    </View>
-  );
-}
-function WhyRow({ left, right, positive, bold, color }) {
-  return (
-    <View style={styles.whyRow}>
-      <Text style={styles.whyRowLeft} numberOfLines={2}>{left}</Text>
-      <Text style={[
-        styles.whyRowRight,
-        positive === true && { color: C.gd },
-        positive === false && { color: C.rd },
-        bold && { fontFamily: FONT.bodySemi, color: color || C.ink },
-      ]}>
-        {right}
-      </Text>
     </View>
   );
 }
@@ -561,15 +508,9 @@ const styles = StyleSheet.create({
   whyToggleText: { color: C.o2, fontSize: 13, fontFamily: FONT.bodySemi },
   whyBody: { width: "100%", maxWidth: 440, marginTop: 12 },
   whyDim: { backgroundColor: C.surface, borderWidth: 1, borderColor: C.line, borderRadius: RADIUS.md, padding: 15, marginBottom: 11 },
-  whyHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 9 },
-  whyName: { fontFamily: FONT.displaySemi, fontSize: 13.5 },
+  whyHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
+  whyName: { fontFamily: FONT.displaySemi, fontSize: 13.5, flexShrink: 1 },
   whyScore: { fontFamily: FONT.display, fontSize: 13.5 },
-  whyRow: {
-    flexDirection: "row", justifyContent: "space-between", gap: 12, paddingVertical: 6,
-    borderBottomWidth: 1, borderBottomColor: C.line,
-  },
-  whyRowLeft: { color: C.muted, fontSize: 12, flex: 1 },
-  whyRowRight: { color: C.muted, fontFamily: FONT.displaySemi, fontSize: 12 },
   whyFinal: {
     backgroundColor: "rgba(255,106,26,0.07)", borderWidth: 1, borderColor: "rgba(255,106,26,0.2)",
     borderRadius: RADIUS.md, padding: 15,

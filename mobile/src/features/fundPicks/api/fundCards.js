@@ -1,36 +1,98 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { doc, getDoc } from 'firebase/firestore';
 import { BACKEND_URL } from '../../../config/services';
+import { db } from '../../../config/firebase';
 import { fetchSchemes } from '../../../lib/schemes';
 import sample from '../contract/fund_cards.sample.json';
 
 /**
  * Every network call for fund picks lives here. Screens and hooks only ever
- * see the v1.0 contract shape (contract/fund_card.schema.json).
+ * see the backward-compatible v1.x contract shape (contract/fund_card.schema.json).
  *
  * ── Going live ─────────────────────────────────────────────────────────────
  *   1. Backend serves the two endpoints below on BACKEND_URL (port 3001).
- *   2. Set EXPO_PUBLIC_FUND_PICKS_SOURCE=api in .env (or flip USE_MOCK).
+ *   2. Set EXPO_PUBLIC_FUND_PICKS_SOURCE=mock only when sample data is wanted.
  *   Nothing else in the app changes.
  *
- *   GET /api/mf/recommendations?phone={phone}
+ *   POST /api/mf/recommendations  { profile: { persona_code, age, living, ... } }
  *       → the full response: { schema_version, as_of_date, user, funds[] }
  *
- *   GET /api/mf/fund-cards/{scheme_code}?phone={phone}
+ *   POST /api/mf/fund-cards/{scheme_code}  { profile: { persona_code, age, living, ... } }
  *       → one `fund` object (same shape as funds[i]). Used when the user
  *         switches to an alternate or swaps one in from search, since
  *         alternates[] only carries a summary. personality_match must be
- *         scored for this phone.
+ *         scored for this persona.
  *
  *   Errors: any non-2xx; a JSON body of { error: "..." } is shown in dev logs.
  */
-export const USE_MOCK = process.env.EXPO_PUBLIC_FUND_PICKS_SOURCE !== 'api';
+export const USE_MOCK = process.env.EXPO_PUBLIC_FUND_PICKS_SOURCE === 'mock';
 
 const SUPPORTED_MAJOR = '1';
 
-const getPhone = () => AsyncStorage.getItem('user_phone');
+const LIVING_CODES = ['family', 'renting', 'own_emi'];
 
-async function getJson(path) {
-  const res = await fetch(`${BACKEND_URL}${path}`, { headers: { Accept: 'application/json' } });
+function optionalNumber(value) {
+  if (value == null || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function optionalBoolean(value) {
+  if (typeof value === 'boolean') return value;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return undefined;
+}
+
+function lossReaction(answers) {
+  const crash = (answers ?? []).find((answer) => String(answer.tag).startsWith('Scenario 5'));
+  const label = String(crash?.label ?? '').toLowerCase();
+  if (label.includes('sell before')) return 'sell';
+  if (label.includes('time to value')) return 'value_it';
+  if (label.includes('buying opportunity')) return 'buy_more';
+  if (label.includes('stick to the plan')) return 'stick_to_plan';
+  return null;
+}
+
+async function getRecommendationProfile() {
+  const phone = await AsyncStorage.getItem('user_phone');
+  if (!phone) throw new Error('Please complete the questionnaire before viewing fund picks.');
+
+  const snapshot = await getDoc(doc(db, 'gowealthy-questionaire', phone));
+  const plan = snapshot.data();
+  const personaCode = plan?.persona?.code;
+  if (!personaCode) throw new Error('No GoPersona is saved for this user. Please complete the questionnaire.');
+  const livingIndex = Number(plan?.living?.index ?? plan?.living);
+  const living = LIVING_CODES[livingIndex];
+  if (!Number.isFinite(Number(plan?.age)) || !living) {
+    throw new Error('Age or living situation is missing. Please complete the questionnaire.');
+  }
+
+  return {
+    persona_code: personaCode,
+    age: Number(plan.age),
+    living,
+    monthly_amount: Number(plan.monthlyInvestment) || undefined,
+    loss_reaction: lossReaction(plan.persona?.answers),
+    emi_ratio_pct: optionalNumber(plan.emi_ratio_pct ?? plan.emiRatioPct),
+    spouse_income: optionalBoolean(plan.spouse_income ?? plan.spouseIncome),
+    dependents_non_earning: optionalNumber(
+      plan.dependents_non_earning ?? plan.dependentsNonEarning,
+    ),
+    emergency_fund: plan.emergency_fund ?? plan.emergencyFund ?? undefined,
+    health_insurance: optionalBoolean(plan.health_insurance ?? plan.healthInsurance),
+    horizon_years: optionalNumber(plan.horizon_years ?? plan.horizonYears),
+    h: Number(plan.persona?.scores?.h),
+    c: Number(plan.persona?.scores?.c),
+    o: Number(plan.persona?.scores?.o),
+  };
+}
+
+async function getJson(path, options = {}) {
+  const res = await fetch(`${BACKEND_URL}${path}`, {
+    ...options,
+    headers: { Accept: 'application/json', ...options.headers },
+  });
   let body = null;
   try { body = await res.json(); } catch { /* non-JSON error page */ }
   if (!res.ok) {
@@ -77,8 +139,12 @@ function normalizeResponse(data) {
 
 export async function fetchFundPicks() {
   if (USE_MOCK) return normalizeResponse(sample);
-  const phone = await getPhone();
-  return normalizeResponse(await getJson(`/api/mf/recommendations?phone=${encodeURIComponent(phone ?? '')}`));
+  const profile = await getRecommendationProfile();
+  return normalizeResponse(await getJson('/api/mf/recommendations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ profile }),
+  }));
 }
 
 /**
@@ -88,9 +154,13 @@ export async function fetchFundPicks() {
  */
 export async function fetchFundCard(schemeCode, hint) {
   if (USE_MOCK) return mockCardFor(schemeCode, hint);
-  const phone = await getPhone();
+  const profile = await getRecommendationProfile();
   const fund = normalizeFund(
-    await getJson(`/api/mf/fund-cards/${encodeURIComponent(schemeCode)}?phone=${encodeURIComponent(phone ?? '')}`),
+    await getJson(`/api/mf/fund-cards/${encodeURIComponent(schemeCode)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile }),
+    }),
   );
   if (!fund) throw new Error(`Fund card ${schemeCode} did not match the contract`);
   return fund;

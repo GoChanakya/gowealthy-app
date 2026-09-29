@@ -7,11 +7,13 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@google-cloud/storage": "^7.19.0",
     "cors": "^2.8.6",
+    "csv-parse": "^6.2.1",
     "dotenv": "^17.2.4",
     "express": "^5.2.1"
   }

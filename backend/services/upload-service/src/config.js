@@ -18,4 +18,12 @@ export const config = Object.freeze({
         keyFilename,
         signedPolicyTtlMs: 15 * 60 * 1000,
     }),
+    fundRecommendations: Object.freeze({
+        bucketName: process.env.FUND_DATA_BUCKET || "mf-data-public",
+        fundCardsPath: process.env.FUND_CARDS_PATH || "backend_main_kartik/fund_cards/latest/fund_cards.json",
+        schemeMasterPath: process.env.SCHEME_MASTER_PATH || "Scheme Master.csv",
+        personalityScoresPath: process.env.PERSONALITY_SCORES_PATH || "personality_match/latest/scores.json",
+        cacheTtlMs: Number(process.env.FUND_DATA_CACHE_TTL_MS || 5 * 60 * 1000),
+        topLimit: Number(process.env.FUND_RECOMMENDATION_LIMIT || 10),
+    }),
 });

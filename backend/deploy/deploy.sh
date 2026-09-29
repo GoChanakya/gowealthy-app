@@ -48,7 +48,7 @@ case "$SERVICE" in
     ;;
   upload-service)
     gcloud run services update "$SERVICE" "${COMMON_FLAGS[@]}" \
-      --set-env-vars "GCP_PROJECT_ID=${PROJECT},UPLOAD_BUCKET=${UPLOAD_BUCKET:-document-ocr203}" \
+      --set-env-vars "GCP_PROJECT_ID=${PROJECT},UPLOAD_BUCKET=${UPLOAD_BUCKET:-document-ocr203},FUND_DATA_BUCKET=${FUND_DATA_BUCKET:-mf-data-public},FUND_CARDS_PATH=${FUND_CARDS_PATH:-backend_main_kartik/fund_cards/latest/fund_cards.json},SCHEME_MASTER_PATH=${SCHEME_MASTER_PATH:-Scheme Master.csv},PERSONALITY_SCORES_PATH=${PERSONALITY_SCORES_PATH:-personality_match/latest/scores.json},FUND_DATA_CACHE_TTL_MS=${FUND_DATA_CACHE_TTL_MS:-300000},FUND_RECOMMENDATION_LIMIT=${FUND_RECOMMENDATION_LIMIT:-10}" \
       --max-instances 10
     ;;
   scheme-job)

@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gowealthy.app/schemas/fund-cards/1.0",
+  "$id": "https://gowealthy.app/schemas/fund-cards/1.1",
   "title": "GoWealthy fund card list",
   "type": "object",
   "required": ["schema_version", "as_of_date", "funds"],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "const": "1.0" },
+    "schema_version": { "enum": ["1.0", "1.1"] },
     "as_of_date": { "$ref": "#/$defs/date" },
     "user": {
       "type": "object",
@@ -70,7 +70,31 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["score"],
-          "properties": { "score": { "$ref": "#/$defs/score" } }
+          "properties": {
+            "score": { "$ref": "#/$defs/score" },
+            "band": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["code", "label"],
+              "properties": {
+                "code": { "enum": ["GREAT", "GOOD", "FAIR", "STRETCH", "NOT"] },
+                "label": { "type": "string" }
+              }
+            },
+            "reasons": {
+              "type": "array",
+              "maxItems": 2,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["code", "text"],
+                "properties": {
+                  "code": { "type": "string" },
+                  "text": { "type": "string" }
+                }
+              }
+            }
+          }
         },
         "persona": {
           "type": "object",
