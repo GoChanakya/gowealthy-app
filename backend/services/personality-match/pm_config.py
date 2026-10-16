@@ -11,7 +11,8 @@ import yaml
 
 
 DEFAULT_CONFIG = Path(__file__).with_name("scheme_config_master.yaml")
-VALID_ROLES = {"core", "growth", "satellite"}
+VALID_ROLES = {"core", "growth", "satellite", "buffer"}
+SUITABILITY_COMPONENTS = {"consistency", "rank_momentum", "resilience", "aum", "age"}
 
 
 class ConfigError(ValueError):
@@ -34,100 +35,8 @@ def load_config(uri: str | os.PathLike[str] | None = None) -> dict[str, Any]:
     cfg = yaml.safe_load(_read_text(source))
     if not isinstance(cfg, dict):
         raise ConfigError("configuration root must be a mapping")
-    _materialize_formula_constants(cfg)
     validate_config(cfg)
     return cfg
-
-
-def _capture(text: str, pattern: str, path: str, group: int = 1) -> float:
-    match = re.search(pattern, text)
-    if not match:
-        raise ConfigError(f"could not read machine constant from {path}")
-    return float(match.group(group))
-
-
-def _materialize_formula_constants(cfg: dict[str, Any]) -> None:
-    """Make constants embedded in the original master YAML formulas machine-readable.
-
-    The shipped source file documents a few values inside formula strings rather than
-    separate keys. Newer configs can provide explicit keys; this compatibility layer
-    extracts them without changing their configured values.
-    """
-    features = cfg["features"]
-    recovery = features["recovery_ratio"]
-    if "intercept" not in recovery:
-        recovery["intercept"] = _capture(
-            recovery["formula"], r"clip\(\s*([0-9.]+)\s*-\s*ratio", "features.recovery_ratio.formula"
-        )
-    batting = features["batting_average"]
-    batting_formula = batting.get("formula", "")
-    if "prior_mean" not in batting:
-        batting["prior_mean"] = _capture(batting_formula, r"prior_k\s*\*\s*([0-9.]+)", "features.batting_average.formula")
-    if "score_floor" not in batting:
-        batting["score_floor"] = _capture(batting_formula, r"\(p\s*-\s*([0-9.]+)\)\s*/", "features.batting_average.formula")
-    if "score_range" not in batting:
-        batting["score_range"] = _capture(batting_formula, r"\(p\s*-\s*[0-9.]+\)\s*/\s*([0-9.]+)", "features.batting_average.formula")
-
-    stability = features["rank_stability"]
-    if "max_mean_move" not in stability:
-        stability["max_mean_move"] = _capture(stability["formula"], r"/\s*([0-9.]+)", "features.rank_stability.formula")
-    trend = features["rank_trend"]
-    if "neutral" not in trend or "slope_scale" not in trend:
-        match = re.search(r"clip\(\s*([0-9.]+)\s*\+\s*slope\s*/\s*([0-9.]+)", trend["formula"])
-        if not match:
-            raise ConfigError("could not read machine constants from features.rank_trend.formula")
-        trend.setdefault("neutral", float(match.group(1)))
-        trend.setdefault("slope_scale", float(match.group(2)))
-    track = features["track_record"]
-    if "full_years" not in track:
-        track["full_years"] = _capture(track["formula"], r"years_since_inception\s*/\s*([0-9.]+)", "features.track_record.formula")
-    turnaround = features["turnaround"]
-    if "climb_scale" not in turnaround:
-        turnaround["climb_scale"] = _capture(turnaround["formula"], r"\(now\s*-\s*trough\)\s*/\s*([0-9.]+)", "features.turnaround.formula")
-
-    missing = cfg["missing_data"]
-    if "history_full_confidence_months" not in missing:
-        missing["history_full_confidence_months"] = int(_capture(
-            missing["history_confidence"], r"history_months\s*/\s*([0-9.]+)", "missing_data.history_confidence"
-        ))
-    persona_gates = cfg["gates"]["persona_level"]
-    if "history_under_months" not in persona_gates:
-        key = next((name for name in persona_gates if re.fullmatch(r"history_under_\d+m_cap", name)), None)
-        if key is None:
-            raise ConfigError("persona history gate threshold is missing")
-        persona_gates["history_under_months"] = int(re.search(r"(\d+)", key).group(1))
-
-    calibration = cfg["calibration"]
-    if "max_great_share" not in calibration:
-        calibration["max_great_share"] = _capture(
-            calibration["guard"], r"Great share\s*>\s*([0-9.]+)%", "calibration.guard"
-        ) / 100.0
-    composition = cfg["composition"]
-    if "style_grade_span" not in composition:
-        composition["style_grade_span"] = _capture(
-            composition["style_fit"], r"/\s*([0-9.]+)", "composition.style_fit"
-        )
-    if "score_scale" not in composition:
-        composition["score_scale"] = _capture(
-            composition["base"], r"^\s*([0-9.]+)\s*\*", "composition.base"
-        )
-
-    basket_rules = cfg["basket_rules"]
-    rising = basket_rules["rising_star"]
-    definition = rising.get("definition", "")
-    extraction = {
-        "max_aum_pct": r"aum_pct\s*<=\s*([0-9.]+)",
-        "min_track_record_years": r"track_record_years\s*>=\s*([0-9.]+)",
-        "min_rank_level": r"rank_level\s*>=\s*([0-9.]+)",
-        "min_rank_trend": r"rank_trend(?:_score)?\s*>=\s*([0-9.]+)",
-    }
-    for key, pattern in extraction.items():
-        if key not in rising:
-            rising[key] = _capture(definition, pattern, "basket_rules.rising_star.definition")
-    if "amount_rounding" not in basket_rules:
-        basket_rules["amount_rounding"] = int(_capture(
-            basket_rules["amount_split"], r"rounded to\s*[^0-9]*([0-9]+)", "basket_rules.amount_split"
-        ))
 
 
 def _require_close_one(value: float, path: str) -> None:
@@ -142,59 +51,42 @@ def _strictly_increasing(values: list[float], path: str) -> None:
 
 def validate_config(cfg: dict[str, Any]) -> None:
     required = {
-        "meta", "universe", "categories", "peer_groups", "features",
-        "pillar_features", "growth_mixes", "personas", "persona_rules",
-        "fund_persona_affinity", "composition", "calibration", "gates",
-        "user_adjustment", "bands", "amount_bands", "basket_rules", "reasons",
+        "meta", "universe", "categories", "peer_groups", "features", "pillar_features",
+        "suitability_components", "personas", "gates", "user_adjustment", "bands", "reasons",
+        "momentum_filter", "basket", "sources", "outputs",
     }
     missing = sorted(required - cfg.keys())
     if missing:
         raise ConfigError(f"missing configuration sections: {', '.join(missing)}")
 
-    floor = float(cfg["persona_rules"]["resilience_floor"])
-    mixes = cfg["growth_mixes"]
+    components = list(cfg["suitability_components"])
+    if set(components) != SUITABILITY_COMPONENTS:
+        raise ConfigError(f"suitability_components must be {sorted(SUITABILITY_COMPONENTS)}")
     for code, persona in cfg["personas"].items():
-        weights = persona["weights"]
-        _require_close_one(sum(map(float, weights.values())), f"personas.{code}.weights")
-        if float(weights.get("resilience", 0)) < floor:
-            raise ConfigError(f"personas.{code}.weights.resilience is below {floor}")
-        basket = persona["basket"]
-        _require_close_one(
-            sum(float(basket[role]) for role in VALID_ROLES),
-            f"personas.{code}.basket",
-        )
-        if persona["growth_mix"] not in mixes:
-            raise ConfigError(f"personas.{code}.growth_mix does not exist")
-        if not 4 <= float(persona["ideal_grade"]) <= 7:
-            raise ConfigError(f"personas.{code}.ideal_grade must be in [4, 7]")
+        weights = persona["suitability"]
+        if not set(weights) <= SUITABILITY_COMPONENTS:
+            raise ConfigError(f"personas.{code}.suitability uses unknown components")
+        _require_close_one(sum(map(float, weights.values())), f"personas.{code}.suitability")
         if not 4 <= int(persona["willingness_grade"]) <= 7:
             raise ConfigError(f"personas.{code}.willingness_grade must be in [4, 7]")
+    for group in ("positive", "negative"):
+        if set(cfg["reasons"][group]) != SUITABILITY_COMPONENTS:
+            raise ConfigError(f"reasons.{group} needs one reason per suitability component")
 
-    for name, weights in mixes.items():
-        _require_close_one(sum(map(float, weights.values())), f"growth_mixes.{name}")
     for name, weights in cfg["pillar_features"].items():
-        if weights != "persona_specific":
-            _require_close_one(sum(map(float, weights.values())), f"pillar_features.{name}")
+        _require_close_one(sum(map(float, weights.values())), f"pillar_features.{name}")
+    momentum = cfg["features"]["rank_momentum"]
+    _require_close_one(float(momentum["level_weight"]) + float(momentum["change_weight"]), "features.rank_momentum")
 
-    composition = cfg["composition"]
-    _require_close_one(
-        sum(float(composition[key]) for key in ("fit_weight", "affinity_weight", "style_weight")),
-        "composition",
-    )
-
-    calibration = cfg["calibration"]
-    display = list(map(float, calibration["anchors_display"]))
-    _strictly_increasing(display, "calibration.anchors_display")
-    defaults = list(map(float, calibration["default_anchors_base"]))
-    if len(defaults) != len(display):
-        raise ConfigError("default base and display anchors must have the same length")
-    _strictly_increasing(defaults, "calibration.default_anchors_base")
-    for code, anchors in calibration.get("per_persona_anchors_base", {}).items():
-        if code not in cfg["personas"] or len(anchors) != len(display):
-            raise ConfigError(f"invalid calibration anchors for {code}")
-        _strictly_increasing(list(map(float, anchors)), f"calibration.per_persona_anchors_base.{code}")
-
+    universe = cfg["universe"]
+    prefixes = tuple(universe["include_prefixes"])
+    allowed_codes = set(universe["include_codes"]) | set(universe["buffer_codes"])
+    excluded = set(universe["exclude_codes"])
     for code, category in cfg["categories"].items():
+        if code in excluded or not (code.startswith(prefixes) or code in allowed_codes):
+            raise ConfigError(f"categories.{code} is outside the configured universe")
+        if (category["role"] == "buffer") != (code in universe["buffer_codes"]):
+            raise ConfigError(f"categories.{code}: only buffer_codes may use role 'buffer'")
         if not 4 <= int(category["grade"]) <= 7:
             raise ConfigError(f"categories.{code}.grade must be in [4, 7]")
         if category["role"] not in VALID_ROLES:
@@ -208,10 +100,53 @@ def validate_config(cfg: dict[str, Any]) -> None:
     if any(int(a["min"]) <= int(b["min"]) for a, b in zip(bands, bands[1:])):
         raise ConfigError("bands must be in descending minimum-score order")
 
-    amount_bands = cfg["amount_bands"]["bands"]
-    for left, right in zip(amount_bands, amount_bands[1:]):
+    _validate_basket(cfg)
+
+
+def _validate_basket(cfg: dict[str, Any]) -> None:
+    basket = cfg["basket"]
+    categories = cfg["categories"]
+    scoreable = {code for code, item in categories.items() if item["role"] != "buffer"}
+    if set(basket["risk_order"]) != set(basket["slots"]) or len(basket["risk_order"]) != len(basket["slots"]):
+        raise ConfigError("basket.risk_order must list every slot exactly once")
+    for code, category in categories.items():
+        if category.get("min_age_months") is not None:
+            int(category["min_age_months"])
+    for name, slot in basket["slots"].items():
+        codes = set(slot.get("codes", []))
+        prefixes = slot.get("prefixes", [])
+        if not codes and not prefixes:
+            raise ConfigError(f"basket.slots.{name} needs codes or prefixes")
+        if not codes <= scoreable:
+            raise ConfigError(f"basket.slots.{name} uses codes missing from categories: {sorted(codes - scoreable)}")
+        if prefixes and not any(c == p or c.startswith(f"{p}-") for c in scoreable for p in prefixes):
+            raise ConfigError(f"basket.slots.{name} prefixes match no category")
+        for key in ("name_include", "name_exclude"):
+            if slot.get(key) is not None:
+                try:
+                    re.compile(slot[key])
+                except re.error as error:
+                    raise ConfigError(f"basket.slots.{name}.{key} is not a valid regex: {error}") from error
+
+    bands = basket["amount_bands"]
+    for left, right in zip(bands, bands[1:]):
         if int(left["max"]) + 1 != int(right["min"]):
-            raise ConfigError("amount bands must be contiguous and non-overlapping")
-    for band in amount_bands:
-        if not set(band["roles"]).issubset(VALID_ROLES):
-            raise ConfigError(f"amount band {band['code']} contains an invalid role")
+            raise ConfigError("basket amount bands must be contiguous and non-overlapping")
+    fund_counts = {int(band["funds"]) for band in bands}
+
+    if set(basket["personas"]) != set(cfg["personas"]):
+        raise ConfigError("basket.personas must define every persona")
+    for code, persona in basket["personas"].items():
+        templates = {int(size): slots for size, slots in persona["templates"].items()}
+        smallest = min(templates)
+        for size, slots in templates.items():
+            if len(slots) != size or not set(slots) <= set(basket["slots"]):
+                raise ConfigError(f"basket.personas.{code}.templates.{size} is invalid")
+        if any(count not in templates and count > smallest for count in fund_counts):
+            raise ConfigError(f"basket.personas.{code} lacks a template for a configured fund count")
+        int(persona["min_age_months"])
+
+    buffer = basket["buffer"]
+    if not set(buffer["codes"]) <= set(cfg["universe"]["buffer_codes"]) or not set(buffer["weights"]) <= {"consistency", "aum"}:
+        raise ConfigError("basket.buffer is invalid")
+    _require_close_one(sum(map(float, buffer["weights"].values())), "basket.buffer.weights")

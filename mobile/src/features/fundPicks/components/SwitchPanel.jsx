@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: 'rgba(242,181,68,0.4)',
+    borderColor: P.goldLine,
     alignItems: 'center',
     justifyContent: 'center',
   },

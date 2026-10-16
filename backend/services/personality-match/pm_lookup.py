@@ -8,6 +8,8 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
+from pm_basket import eligible_slots, persona_slots, required_age
+
 
 def round_half_up(value: float) -> int:
     return math.floor(float(value) + 0.5 + 1e-9)
@@ -117,14 +119,17 @@ def _resolved_gate(stored_gate: Any) -> str | None:
 
 
 def user_match(
-    row: Mapping[str, Any], profile: Mapping[str, Any], cfg: Mapping[str, Any]
+    row: Mapping[str, Any],
+    profile: Mapping[str, Any],
+    cfg: Mapping[str, Any],
+    context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Adjust one wide score row for a user and return the card match object."""
     status = row.get("status")
     if status != "SCORED":
         return {"score": None, "band": None, "reasons": [], "status": status, "user_gate": None}
 
-    context = capacity_context(profile, cfg)
+    context = context or capacity_context(profile, cfg)
     persona_code = context["persona_code"]
     anchor = cfg["user_adjustment"]["blend_anchor_persona"]
     persona_score = row.get(f"score_{persona_code}")
@@ -210,15 +215,34 @@ def rank_funds(
     *,
     recommended_only: bool = True,
 ) -> pd.DataFrame:
-    """Return the persona-adjusted fund listing in deterministic recommendation order."""
-    adjusted, _ = score_frame(scores_df, profile, cfg)
+    """Return the persona-adjusted fund listing in deterministic recommendation order.
+
+    Guardrails: only funds that fit one of the persona's basket slots (so a listing
+    never shows fund types the persona's baskets would not hold), in the top half of
+    their category by latest rank, and at least the persona's minimum age (months
+    since launch) are listed.
+    """
+    adjusted, context = score_frame(scores_df, profile, cfg)
+    min_age = int(cfg["basket"]["personas"][context["persona_code"]]["min_age_months"])
+    wanted = persona_slots(context["persona_code"], cfg)
+    fund_slots = adjusted["slots"] if "slots" in adjusted else pd.Series(eligible_slots(adjusted, cfg), index=adjusted.index)
+    fits_persona = fund_slots.map(lambda slots: isinstance(slots, (list, tuple, np.ndarray)) and not wanted.isdisjoint(slots))
+    momentum = (
+        adjusted["momentum_pass"].astype("boolean").fillna(False).astype(bool)
+        if "momentum_pass" in adjusted
+        else True
+    )
     listing = adjusted.loc[
-        adjusted["status"].eq("SCORED") & adjusted["user_score"].notna()
+        adjusted["status"].eq("SCORED")
+        & fits_persona
+        & adjusted["user_score"].notna()
+        & momentum
+        & pd.to_numeric(adjusted["history_months"], errors="coerce").ge(required_age(adjusted, min_age, cfg))
     ].copy()
     listing["recommended"] = listing["user_score"].ge(int(cfg["recommend_floor"]))
     if recommended_only:
         listing = listing.loc[listing["recommended"]]
-    matches = [user_match(row, profile, cfg) for _, row in listing.iterrows()]
+    matches = [user_match(row, profile, cfg, context) for row in listing.to_dict("records")]
     listing["personality_match"] = matches
     return listing.sort_values(
         ["user_score", "sip_3y_pct", "aum_pct", "scheme_code"],

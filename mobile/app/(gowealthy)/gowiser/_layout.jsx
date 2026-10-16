@@ -7,4 +7,4 @@ export default function GowiserLayout() {
       <Stack.Screen name="[articleId]" />
     </Stack>
   );
-}
+} 

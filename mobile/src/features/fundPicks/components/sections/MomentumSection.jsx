@@ -1,25 +1,14 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Polyline, Circle } from 'react-native-svg';
+import Svg, { Polyline, Circle, Line } from 'react-native-svg';
 import { P, F, TABULAR } from '../../theme';
-import { SectionLabel, Headline, Caption } from '../primitives';
-import { momentum, chipTone, rankQuality } from '../../lib/insights';
+import { SectionHeader, Headline, Caption } from '../primitives';
+import { momentum } from '../../lib/insights';
 
-const CHIP = 42;
-const CHIP_NOW = 54;
-const TREND_H = 30;
-
-const TAG_COLORS = {
-  up: { bg: 'rgba(242,181,68,0.14)', fg: P.gold },
-  flat: { bg: 'rgba(255,255,255,0.06)', fg: P.textSoft },
-  down: { bg: 'rgba(232,137,124,0.14)', fg: P.loss },
-};
-
-const CHIP_COLORS = {
-  strong: { bg: P.gold, fg: P.onOrange },
-  good: { bg: P.goldLight, fg: P.goldPale },
-  neutral: { bg: 'rgba(255,255,255,0.06)', fg: P.textSoft },
-};
+const CHART_H = 56;
+const PAD_Y = 9;
+const TAG_TONE = { up: 'good', flat: 'neutral', down: 'bad' };
+const CHANGE_COLOR = { up: P.gain, flat: P.textSecondary, down: P.loss };
 
 export default function MomentumSection({ fund }) {
   const m = momentum(fund.rank_momentum);
@@ -28,112 +17,90 @@ export default function MomentumSection({ fund }) {
   if (!m) {
     return (
       <View>
-        <SectionLabel>Momentum</SectionLabel>
+        <SectionHeader title="Rank among similar funds" />
         <Headline>Not enough ranking history yet.</Headline>
       </View>
     );
   }
 
-  const { chips } = m;
-  const last = chips.length - 1;
-  const sizes = chips.map((_, i) => (i === last ? CHIP_NOW : CHIP));
-  const centres = chipCentres(sizes, width);
-  const trend = centres.map((x, i) => {
-    const q = rankQuality(chips[i].rank, chips[i].total);
-    return { x, y: 5 + (1 - q) * (TREND_H - 10) };
-  });
+  const { points } = m;
+  const last = points.length - 1;
+  const xy = chartPoints(points, width);
 
-  const tag = m.tag && TAG_COLORS[m.tone];
   return (
     <View>
-      <SectionLabel>Momentum</SectionLabel>
-      {tag && (
-        <View style={[styles.tag, { backgroundColor: tag.bg }]}>
-          <Text style={[styles.tagText, { color: tag.fg }]}>{m.tag}</Text>
-        </View>
-      )}
-      <Headline>{m.headline}</Headline>
+      <SectionHeader title="Rank among similar funds" tag={m.tag} tone={TAG_TONE[m.tone]} />
 
-      <View
-        style={[styles.chips, chips.length > 1 && { justifyContent: 'space-between' }]}
-        onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-      >
-        {chips.map((c, i) => {
-          const size = sizes[i];
-          const col = CHIP_COLORS[chipTone(c.rank, c.total)];
-          const isNow = i === last;
-          return (
-            <View
-              key={c.date}
-              accessibilityLabel={`Rank ${c.rank} of ${c.total}`}
-              style={[
-                styles.chip,
-                { width: size, height: size, borderRadius: size / 2, backgroundColor: col.bg },
-                isNow && styles.chipNow,
-              ]}
-            >
-              <Text
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                style={[styles.chipText, { color: col.fg, fontSize: isNow ? 14 : 11.5 }]}
-              >
-                {c.rank}/{c.total}
-              </Text>
-            </View>
-          );
-        })}
+      <View style={styles.statRow}>
+        <Text style={styles.stat}>
+          #{m.now.rank}<Text style={styles.statOf}> of {m.now.total}</Text>
+        </Text>
+        <Text style={[styles.change, { color: CHANGE_COLOR[m.tone] }]}>{m.change}</Text>
       </View>
 
-      {width > 0 && chips.length > 1 && (
-        <Svg width={width} height={TREND_H} style={{ marginTop: 6 }}>
-          <Polyline
-            points={trend.map((p) => `${p.x},${p.y}`).join(' ')}
-            fill="none"
-            stroke={P.gold}
-            strokeOpacity={0.35}
-            strokeWidth={1.5}
-            strokeLinejoin="round"
-          />
-          <Circle cx={trend[last].x} cy={trend[last].y} r={3.5} fill={P.gold} />
-        </Svg>
-      )}
+      {points.length > 1 && (
+        <View style={styles.chart}>
+          <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} style={{ height: CHART_H }}>
+            {width > 0 && (
+              <Svg width={width} height={CHART_H}>
+                {/* Top guide = best rank in view. */}
+                <Line x1={0} x2={width} y1={PAD_Y} y2={PAD_Y} stroke={P.divider} strokeWidth={1} strokeDasharray="3 4" />
+                <Line x1={0} x2={width} y1={CHART_H - PAD_Y} y2={CHART_H - PAD_Y} stroke={P.divider} strokeWidth={1} strokeDasharray="3 4" />
+                <Polyline
+                  points={xy.map((p) => `${p.x},${p.y}`).join(' ')}
+                  fill="none"
+                  stroke={P.textDim}
+                  strokeWidth={1.5}
+                  strokeLinejoin="round"
+                />
+                {xy.map((p, i) => (i === last
+                  ? <Circle key={i} cx={p.x} cy={p.y} r={4.5} fill={P.gold} />
+                  : <Circle key={i} cx={p.x} cy={p.y} r={3} fill={P.card} stroke={P.textSecondary} strokeWidth={1.5} />))}
+              </Svg>
+            )}
+          </View>
 
-      {chips.length > 1 && (
-        <View style={styles.ends}>
-          <Text style={styles.endText}>{m.spanMonths} {m.spanMonths === 1 ? 'month' : 'months'} ago</Text>
-          <Text style={styles.endText}>Now</Text>
+          {/* Month + rank under each point, so nothing has to be guessed from the line. */}
+          <View style={styles.cols}>
+            {points.map((p, i) => (
+              <View key={p.date} style={styles.col} accessible accessibilityLabel={`${p.month}: rank ${p.rank} of ${p.total}`}>
+                <Text style={[styles.colRank, i === last && styles.colRankNow]}>#{p.rank}</Text>
+                <Text style={[styles.colMonth, i === last && styles.colMonthNow]}>{i === last ? 'Now' : p.month}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       )}
+
       <Caption>{m.caption}</Caption>
     </View>
   );
 }
 
-/** x-centre of each chip in a space-between row of the given width. */
-function chipCentres(sizes, width) {
-  if (sizes.length === 1) return [sizes[0] / 2];
-  const gap = (width - sizes.reduce((a, b) => a + b, 0)) / (sizes.length - 1);
-  let x = 0;
-  return sizes.map((s) => {
-    const c = x + s / 2;
-    x += s + gap;
-    return c;
-  });
+/** One point per column centre; best rank in view at the top. */
+function chartPoints(points, width) {
+  const n = points.length;
+  const ranks = points.map((p) => p.rank);
+  const best = Math.min(...ranks);
+  const worst = Math.max(...ranks);
+  const span = worst - best;
+  return points.map((p, i) => ({
+    x: ((i + 0.5) * width) / n,
+    y: span === 0 ? CHART_H / 2 : PAD_Y + ((p.rank - best) / span) * (CHART_H - PAD_Y * 2),
+  }));
 }
 
 const styles = StyleSheet.create({
-  tag: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginBottom: 8 },
-  tagText: { fontFamily: F.bodySemi, fontSize: 12 },
-  chips: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
-  chip: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-  chipNow: {
-    shadowColor: P.gold,
-    shadowOpacity: 0.55,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 8,
-  },
-  chipText: { fontFamily: F.bodyBold, ...TABULAR },
-  ends: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
-  endText: { fontFamily: F.bodyMed, fontSize: 11.5, color: P.textDim },
+  statRow: { flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 12, rowGap: 2 },
+  stat: { fontFamily: F.display, fontSize: 30, lineHeight: 34, color: P.text, letterSpacing: -0.5, ...TABULAR },
+  statOf: { fontFamily: F.displaySemi, fontSize: 16, color: P.textDim, letterSpacing: 0 },
+  change: { fontFamily: F.bodySemi, fontSize: 13.5 },
+
+  chart: { backgroundColor: P.panel, borderRadius: 14, paddingTop: 10, paddingBottom: 10, marginTop: 14 },
+  cols: { flexDirection: 'row', marginTop: 6 },
+  col: { flex: 1, alignItems: 'center' },
+  colRank: { fontFamily: F.bodySemi, fontSize: 12.5, color: P.textSoft, ...TABULAR },
+  colRankNow: { color: P.goldPale },
+  colMonth: { fontFamily: F.body, fontSize: 11, color: P.textDim, marginTop: 2 },
+  colMonthNow: { fontFamily: F.bodySemi, color: P.gold },
 });

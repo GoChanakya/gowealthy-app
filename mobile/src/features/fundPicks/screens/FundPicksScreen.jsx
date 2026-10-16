@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
   errorText: { fontFamily: F.bodyMed, fontSize: 14, color: P.textSoft },
   retry: {
     minHeight: MIN_TOUCH, paddingHorizontal: 22, borderRadius: 999,
-    borderWidth: 1, borderColor: 'rgba(242,181,68,0.4)', justifyContent: 'center',
+    borderWidth: 1, borderColor: P.goldLine, justifyContent: 'center',
   },
   retryText: { fontFamily: F.bodySemi, fontSize: 14, color: P.gold },
 

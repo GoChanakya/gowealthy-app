@@ -51,6 +51,7 @@ async function loadFromGcs() {
             methodVersion: scorePayload.method_version,
             calibrationVersion: scorePayload.calibration_version,
             userAdjustment: scorePayload.user_adjustment,
+            positions: scorePayload.positions ?? null,
         },
         loadedAt: new Date().toISOString(),
     };

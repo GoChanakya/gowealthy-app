@@ -421,6 +421,16 @@ function adaptCard(raw, schemeRow, persona) {
     };
 }
 
+function toAlternate(card) {
+    return {
+        scheme_code: card.scheme_code,
+        name: card.name,
+        amc_short_name: card.amc.short_name,
+        personality_match: card.personality_match.score,
+        returns_1y_pct: card.returns_pct.y1,
+    };
+}
+
 function addAlternates(cards) {
     return cards.map((card) => ({
         ...card,
@@ -430,14 +440,49 @@ function addAlternates(cards) {
                 && candidate.category.goc_short_code === card.category.goc_short_code
             ))
             .slice(0, 5)
-            .map((candidate) => ({
-                scheme_code: candidate.scheme_code,
-                name: candidate.name,
-                amc_short_name: candidate.amc.short_name,
-                personality_match: candidate.personality_match.score,
-                returns_1y_pct: candidate.returns_pct.y1,
-            })),
+            .map(toAlternate),
     }));
+}
+
+/**
+ * The engine's fixed positions for this persona at the user's monthly SIP:
+ * one per basket slot, filled by the best fund of that slot's own category.
+ * Unknown amounts get the largest basket, so every position is shown.
+ */
+export function positionsFor(positions, basket, personaCode, monthlyAmount) {
+    const byBand = positions?.[personaCode];
+    if (!byBand) return null;
+    const bands = basket?.amount_bands ?? [];
+    const amount = number(monthlyAmount);
+    const band = (amount != null && bands.find((row) => amount >= Number(row.min) && amount <= Number(row.max)))
+        || bands.at(-1);
+    return byBand[band?.code] ?? null;
+}
+
+/**
+ * The persona's basket slots and minimum fund age from the engine's published
+ * rules, or null for score files that predate slot-based baskets.
+ */
+function personaBasketRules(basket, personaCode) {
+    const persona = basket?.personas?.[personaCode];
+    if (!persona?.templates) return null;
+    return {
+        slots: new Set(Object.values(persona.templates).flat()),
+        minAgeMonths: number(persona.min_age_months),
+    };
+}
+
+/**
+ * Listings show only fund types the persona's baskets would hold (so a Bold
+ * Pioneer never sees an arbitrage fund), in the top half of their category and
+ * old enough for the persona. Rows without `slots` (older score files) pass.
+ */
+export function fitsPersonaBasket(engine, rules) {
+    if (!rules || !Array.isArray(engine?.slots)) return true;
+    if (!engine.slots.some((slot) => rules.slots.has(slot))) return false;
+    if (engine.momentum_pass === false) return false;
+    const age = number(engine.history_months);
+    return rules.minAgeMonths == null || (age != null && age >= rules.minAgeMonths);
 }
 
 export function buildRankedCatalogue({
@@ -454,35 +499,67 @@ export function buildRankedCatalogue({
         (scoreRows ?? []).map((row) => [text(row.scheme_code), row]).filter(([code]) => code),
     );
     const engineAvailable = engineByCode.size > 0;
-    const scoredCards = cards
-        .map((card) => {
-            const engine = engineByCode.get(text(card.scheme_code));
-            const calibrated = number(engine?.[`score_${persona.code}`]);
-            const adjusted = userProfile && scoreMetadata.userAdjustment
-                ? adjustEngineMatch(engine, { ...userProfile, persona_code: persona.code }, scoreMetadata.userAdjustment)
-                : null;
+    const personaBasket = personaBasketRules(scoreMetadata.userAdjustment?.basket, persona.code);
+    const scoredAll = cards.map((card) => {
+        const engine = engineByCode.get(text(card.scheme_code));
+        const calibrated = number(engine?.[`score_${persona.code}`]);
+        const adjusted = userProfile && scoreMetadata.userAdjustment
+            ? adjustEngineMatch(engine, { ...userProfile, persona_code: persona.code }, scoreMetadata.userAdjustment)
+            : null;
+        return {
+            ...card,
+            __matchScore: adjusted?.score ?? (calibrated == null
+                ? cardScore(card, persona.label)
+                : Math.min(100, Math.max(0, integer(calibrated, 0)))),
+            __matchBand: adjusted?.band,
+            __matchReasons: adjusted?.reasons,
+            __recommended: adjusted?.recommended,
+            __engineStatus: engine?.status,
+            __autoRecommend: engine?.auto_recommend,
+        };
+    });
+
+    // Fixed positions (v2 engine): each card is one slot of the persona's basket.
+    const positions = positionsFor(
+        scoreMetadata.positions, scoreMetadata.userAdjustment?.basket, persona.code, userProfile?.monthly_amount,
+    );
+    if (positions?.length) {
+        const scoredByCode = new Map(scoredAll.map((card) => [text(card.scheme_code), card]));
+        const adaptCode = (code) => {
+            const raw = scoredByCode.get(code);
+            return raw ? adaptCard(raw, rowsByCode.get(code), persona) : null;
+        };
+        const groups = positions.map((row) => ({
+            ...row,
+            codes: [row.scheme_code, ...(row.alternates ?? [])].map((code) => text(code)),
+        }));
+        // A position's funds switch among themselves; a fund swapped in from search has none.
+        const cardFor = (code) => {
+            const card = adaptCode(code);
+            const group = groups.find((row) => row.codes.includes(code));
+            if (!card || !group) return card;
             return {
                 ...card,
-                __matchScore: adjusted?.score ?? (calibrated == null
-                    ? cardScore(card, persona.label)
-                    : Math.min(100, Math.max(0, integer(calibrated, 0)))),
-                __matchBand: adjusted?.band,
-                __matchReasons: adjusted?.reasons,
-                __recommended: adjusted?.recommended,
-                __engineStatus: engine?.status,
-                __autoRecommend: engine?.auto_recommend,
+                position: { number: group.position, slot: group.slot, label: group.label },
+                alternates: group.codes.filter((other) => other !== code).map(adaptCode).filter(Boolean).map(toAlternate),
             };
-        })
+        };
+        const positioned = groups.map((row) => cardFor(text(row.scheme_code))).filter(Boolean);
+        if (positioned.length) return { persona, cards: positioned, cardFor };
+    }
+
+    const rankedRaw = scoredAll
         .filter((card) => !engineAvailable || (
             card.__engineStatus === "SCORED"
             && card.__autoRecommend !== false
             && card.__recommended !== false
-        ));
-    const rankedRaw = scoredCards.sort((a, b) => compareCards(a, b, persona.label));
-    const adapted = rankedRaw
-        .map((card) => adaptCard(card, rowsByCode.get(text(card.scheme_code)), persona))
-        .filter(Boolean);
-    return { persona, cards: addAlternates(adapted) };
+            && fitsPersonaBasket(engineByCode.get(text(card.scheme_code)), personaBasket)
+        ))
+        .sort((a, b) => compareCards(a, b, persona.label));
+    const ranked = addAlternates(
+        rankedRaw.map((card) => adaptCard(card, rowsByCode.get(text(card.scheme_code)), persona)).filter(Boolean),
+    );
+    return { persona, cards: ranked, cardFor: (code) => ranked.find((card) => card.scheme_code === code) ?? null };
 }
 
 export async function getFundRecommendations({
@@ -507,7 +584,7 @@ export async function getFundRecommendations({
 export async function getFundCard({ schemeCode, personaCode, userProfile = null }) {
     const data = await loadFundData();
     const catalogue = buildRankedCatalogue({ ...data, personaCode, userProfile });
-    const fund = catalogue.cards.find((card) => card.scheme_code === String(schemeCode));
+    const fund = catalogue.cardFor(String(schemeCode));
     if (!fund) throw new RecommendationError(`Fund card ${schemeCode} was not found`, 404);
     return fund;
 }

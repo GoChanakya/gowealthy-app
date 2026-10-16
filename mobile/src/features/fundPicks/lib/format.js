@@ -55,6 +55,24 @@ export function shortDate(iso) {
   return `${d} ${MONTHS[m - 1]} ${y}`;
 }
 
+/** "2026-09-24" or "2026-09" → "Sep". */
+export function monthShort(iso) {
+  if (!iso) return '';
+  return MONTHS[Number(iso.split('-')[1]) - 1] ?? '';
+}
+
+/** "2023-09-25" → "Sep 2023". */
+export function monthYear(iso) {
+  if (!iso) return '';
+  return `${monthShort(iso)} ${iso.split('-')[0]}`;
+}
+
+/** "2025-10" → "Oct ’25". */
+export function monthYearShort(iso) {
+  if (!iso) return '';
+  return `${monthShort(iso)} ’${iso.split('-')[0].slice(-2)}`;
+}
+
 /** Whole months between two ISO dates, rounded to the nearest month. */
 export function monthsBetween(fromIso, toIso) {
   const [y1, m1, d1] = fromIso.split('-').map(Number);

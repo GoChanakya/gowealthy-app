@@ -4,14 +4,49 @@
  * Pure functions only — no React — so the rules (thresholds, honest momentum
  * wording, stress-test copy) can be checked in isolation and reused on web.
  */
-import { ordinal, monthsText, monthsBetween, rupees, pct } from './format';
+import {
+  monthsText, monthsBetween, rupees, pct, signedPct, monthShort, monthYear, monthYearShort,
+} from './format';
+
+/* ── Identity ────────────────────────────────────────────────────────────── */
+
+/**
+ * Plan / option words not already in the scheme name, e.g. name
+ * "HSBC Midcap Fund" + plan "Direct - Growth" → ["Direct", "Growth"].
+ * If the name already reads "… Direct Plan - Growth", nothing is repeated.
+ */
+export function planTags(fund) {
+  if (!fund.plan) return [];
+  const name = fund.name.toLowerCase();
+  return fund.plan
+    .split(/\s*[-–—·|,/]\s*/)
+    .map((p) => p.replace(/\b(plan|option)\b/gi, '').replace(/\s+/g, ' ').trim())
+    .filter((p) => p && !name.includes(p.toLowerCase()));
+}
+
+const squash = (s) => String(s ?? '')
+  .toLowerCase()
+  .replace(/\b(the|fund|plan|direct|regular|growth|idcw)\b/g, '')
+  .replace(/[^a-z0-9]/g, '');
+
+/**
+ * The fund's personality name, or null when it would only repeat the fund
+ * name (some backend rows fall back to the scheme name) or is a placeholder.
+ */
+export function personaTitle(fund) {
+  const label = fund.persona?.label;
+  const p = squash(label);
+  const n = squash(fund.name);
+  if (!p || p.includes(n) || n.includes(p) || label === 'Data-backed fund profile') return null;
+  return label;
+}
 
 /* ── Returns ─────────────────────────────────────────────────────────────── */
 
-/** "₹10,000 a year ago is ₹11,420 today", or null when there's no 1y return. */
-export function tenKLine(y1) {
+/** { from: "₹10,000", to: "₹11,420", gained } or null when there's no 1y return. */
+export function tenK(y1) {
   if (y1 == null) return null;
-  return `₹10,000 a year ago is ${rupees(10000 * (1 + y1 / 100))} today`;
+  return { from: rupees(10000), to: rupees(10000 * (1 + y1 / 100)), gained: y1 >= 0 };
 }
 
 /* ── Consistency ─────────────────────────────────────────────────────────── */
@@ -22,11 +57,15 @@ export function consistency(ba) {
   const beat = ba.months_beat;
   const high = Math.round((win * 8) / 12);
   const mid = Math.round((win * 6) / 12);
-  const label = beat >= high ? 'Very consistent' : beat >= mid ? 'Fairly consistent' : 'Mixed record';
+  const months = ba.monthly.slice(-win);
   return {
-    headline: `Beat similar funds in ${beat} of the last ${win} months`,
-    caption: `${label} · each dot is a month`,
-    dots: ba.monthly.slice(-win).map((m) => m.beat),
+    beat,
+    win,
+    tone: beat >= high ? 'good' : beat >= mid ? 'mid' : 'low',
+    label: beat >= high ? 'Very consistent' : beat >= mid ? 'Fairly consistent' : 'Mixed record',
+    months,
+    first: monthYearShort(months[0]?.month),
+    last: monthYearShort(months[months.length - 1]?.month),
   };
 }
 
@@ -35,14 +74,19 @@ export function consistency(ba) {
 export function sip(s) {
   const growth = s.current_value - s.invested;
   const years = Math.round(s.installments / 12);
+  const gained = growth >= 0;
   return {
-    label: `${rupees(s.monthly_amount)} a month for ${years} ${years === 1 ? 'year' : 'years'}`,
+    headline: `${rupees(s.monthly_amount)} every month for the last ${years} ${years === 1 ? 'year' : 'years'}`,
+    started: s.start_date
+      ? `Started ${monthYear(s.start_date)} · ${s.installments} monthly instalments`
+      : `${s.installments} monthly instalments`,
+    invested: rupees(s.invested),
     value: rupees(s.current_value),
-    putIn: `${rupees(s.invested)} put in`,
-    growthText: growth >= 0 ? `+${rupees(growth)} growth` : `${rupees(Math.abs(growth))} below what was put in`,
-    gained: growth >= 0,
+    growth: `${gained ? '+' : '−'}${rupees(Math.abs(growth))}`,
+    growthPct: s.invested > 0 ? signedPct((growth / s.invested) * 100) : null,
+    gained,
     // Bar split. On a loss the bar shows what's left of the money put in.
-    investedShare: growth >= 0 ? s.invested / s.current_value : s.current_value / s.invested,
+    investedShare: gained ? s.invested / s.current_value : s.current_value / s.invested,
   };
 }
 
@@ -50,17 +94,6 @@ export function sip(s) {
 
 const SHOWN = 6;
 const LOOKBACK = 3;
-
-/** q = 1 − (rank−1)/(total−1): 1 is top of the category, 0 is bottom. */
-export function rankQuality(rank, total) {
-  if (total <= 1) return 1;
-  return 1 - (rank - 1) / (total - 1);
-}
-
-export function chipTone(rank, total) {
-  const q = rankQuality(rank, total);
-  return q >= 0.85 ? 'strong' : q >= 0.6 ? 'good' : 'neutral';
-}
 
 /**
  * Compares the latest rank with the one LOOKBACK snapshots earlier.
@@ -71,40 +104,32 @@ export function momentum(rm) {
   const all = rm?.snapshots ?? [];
   if (all.length === 0) return null;
 
-  const chips = all.slice(-SHOWN);
+  const points = all.slice(-SHOWN).map((s) => ({ ...s, month: monthShort(s.date) }));
   const now = all[all.length - 1];
-  const spanMonths = monthsBetween(chips[0].date, now.date);
-  const caption = `Rank among ${now.total} similar funds by 6-month returns. 1st is best.`;
+  const caption = `Ranked by 6-month returns among ${now.total} similar funds. #1 is the best — higher on the chart means a better rank.`;
 
   if (all.length === 1) {
-    return {
-      tone: 'flat', tag: null, caption, chips, spanMonths,
-      headline: `Ranked ${ordinal(now.rank)} among ${now.total} similar funds right now`,
-    };
+    return { tone: 'flat', tag: null, now, change: 'Not enough history to show a trend yet.', caption, points };
   }
 
   const then = all[Math.max(0, all.length - 1 - LOOKBACK)];
   const d = then.rank - now.rank;
-  const m = monthsBetween(then.date, now.date) || 1;
-  const among = `among ${now.total} similar funds`;
+  const ago = `${monthsText(monthsBetween(then.date, now.date) || 1)} ago`;
 
-  let tone, headline;
-  if (d >= 4) {
+  let tone, change;
+  if (d >= 2) {
     tone = 'up';
-    headline = `Jumped from ${ordinal(then.rank)} to ${ordinal(now.rank)} ${among} in ${monthsText(m)}`;
-  } else if (d >= 2) {
-    tone = 'up';
-    headline = `Climbed from ${ordinal(then.rank)} to ${ordinal(now.rank)} ${among} in ${monthsText(m)}`;
+    change = `Up from #${then.rank} ${ago}`;
   } else if (d <= -2) {
     tone = 'down';
-    headline = `Slipped from ${ordinal(then.rank)} to ${ordinal(now.rank)} ${among} in ${monthsText(m)}`;
+    change = `Down from #${then.rank} ${ago}`;
   } else {
     tone = 'flat';
-    headline = `Held steady around ${ordinal(now.rank)} ${among} for ${monthsText(m)}`;
+    change = d === 0 ? `Same rank as ${ago}` : `Was #${then.rank} ${ago}`;
   }
 
-  const tag = { up: '↑ Gaining ground', flat: '→ Holding steady', down: '↓ Losing ground lately' }[tone];
-  return { tone, tag, headline, caption, chips, spanMonths };
+  const tag = { up: 'Moving up', flat: 'Steady', down: 'Slipping' }[tone];
+  return { tone, tag, now, change, caption, points };
 }
 
 /* ── Bounce-back ─────────────────────────────────────────────────────────── */
@@ -126,7 +151,7 @@ export function bounceBack(rec) {
   const max = Math.max(t, c ?? 0) || 1;
 
   return {
-    headline: `After past market falls, it usually bounced back ${within}${tail}`,
+    headline: `After past market falls, it usually recovered ${within}${tail}.`,
     bars: [
       { label: 'This fund', value: `~${Math.round(t)} mo`, share: t / max, highlight: true },
       ...(c != null ? [{ label: 'Similar funds', value: `~${Math.round(c)} mo`, share: c / max, highlight: false }] : []),
@@ -139,12 +164,13 @@ export function stressRow(ev) {
   switch (ev.status) {
     case 'recovered':
       return {
-        main: Math.round(ev.recovery_months) < 1 ? 'Back within a month' : `Back in ${monthsText(ev.recovery_months)}`,
-        sub: `Fell ${pct(ev.fall_pct)}`,
+        fell: `Fell ${pct(ev.fall_pct)}`,
+        outcome: Math.round(ev.recovery_months) < 1 ? 'Recovered within a month' : `Recovered in ${monthsText(ev.recovery_months)}`,
+        done: true,
       };
     case 'recovering':
-      return { main: `${Math.round(ev.recovered_pct)}% recovered`, sub: `Fell ${pct(ev.fall_pct)}` };
+      return { fell: `Fell ${pct(ev.fall_pct)}`, outcome: `${Math.round(ev.recovered_pct)}% recovered so far`, done: false };
     default:
-      return { main: null, sub: null, na: 'Not applicable — fund launched after this period' };
+      return { na: 'Fund launched after this event' };
   }
 }

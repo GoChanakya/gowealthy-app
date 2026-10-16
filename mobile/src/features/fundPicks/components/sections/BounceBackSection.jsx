@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, LayoutAnimation } from 'react-native';
 import { ChevronDown } from 'lucide-react-native';
 import { P, F, TABULAR, MIN_TOUCH } from '../../theme';
-import { SectionLabel, Headline, ThinBar } from '../primitives';
+import { SectionHeader, Headline, ThinBar } from '../primitives';
 import { bounceBack, stressRow } from '../../lib/insights';
 import { shortDate } from '../../lib/format';
 import { hapticSmall } from '../../../../lib/haptics';
@@ -20,22 +20,24 @@ export default function BounceBackSection({ fund, stressInitiallyOpen = false })
 
   return (
     <View>
-      <SectionLabel>Bounce-back</SectionLabel>
+      <SectionHeader title="Recovery after market falls" />
       <Headline>{b.headline}</Headline>
 
       {b.bars && (
-        <View style={{ marginTop: 14, gap: 10 }}>
+        <View style={styles.bars}>
+          <Text style={styles.barsTitle}>Typical time to recover</Text>
           {b.bars.map((bar) => (
             <View key={bar.label} style={styles.barRow}>
-              <Text style={styles.barLabel}>{bar.label}</Text>
+              <Text style={[styles.barLabel, bar.highlight && { color: P.text }]}>{bar.label}</Text>
               <ThinBar
                 share={bar.share}
                 color={bar.highlight ? P.gold : P.textDim}
                 style={{ flex: 1 }}
               />
-              <Text style={[styles.barValue, { color: bar.highlight ? P.gold : P.textSecondary }]}>{bar.value}</Text>
+              <Text style={[styles.barValue, { color: bar.highlight ? P.goldPale : P.textSecondary }]}>{bar.value}</Text>
             </View>
           ))}
+          <Text style={styles.barsHint}>Shorter is better</Text>
         </View>
       )}
 
@@ -47,7 +49,9 @@ export default function BounceBackSection({ fund, stressInitiallyOpen = false })
             accessibilityRole="button"
             accessibilityState={{ expanded: stressOpen }}
           >
-            <Text style={styles.stressToggleText}>Stress test · {events.length} past market shocks</Text>
+            <Text style={styles.stressToggleText}>
+              How it handled {events.length} past market crashes
+            </Text>
             <ChevronDown
               size={16}
               color={P.textSecondary}
@@ -57,7 +61,7 @@ export default function BounceBackSection({ fund, stressInitiallyOpen = false })
           </Pressable>
 
           {stressOpen && (
-            <View>
+            <View style={styles.stressList}>
               {events.map((ev, i) => (
                 <StressRow key={ev.event_code} ev={ev} first={i === 0} />
               ))}
@@ -81,8 +85,8 @@ function StressRow({ ev, first }) {
         <Text style={styles.na}>{r.na}</Text>
       ) : (
         <View style={{ alignItems: 'flex-end' }}>
-          <Text style={styles.main}>{r.main}</Text>
-          <Text style={styles.sub}>{r.sub}</Text>
+          <Text style={styles.fell}>{r.fell}</Text>
+          <Text style={[styles.outcome, { color: r.done ? P.gain : P.textSoft }]}>{r.outcome}</Text>
         </View>
       )}
     </View>
@@ -90,24 +94,28 @@ function StressRow({ ev, first }) {
 }
 
 const styles = StyleSheet.create({
+  bars: { backgroundColor: P.panel, borderRadius: 14, padding: 14, marginTop: 14, gap: 10 },
+  barsTitle: { fontFamily: F.bodyMed, fontSize: 12, color: P.textSecondary },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   barLabel: { width: 92, fontFamily: F.bodyMed, fontSize: 12.5, color: P.textSecondary },
   barValue: { width: 48, textAlign: 'right', fontFamily: F.bodySemi, fontSize: 12.5, ...TABULAR },
+  barsHint: { fontFamily: F.body, fontSize: 11, color: P.textDim },
 
   stressToggle: {
     minHeight: MIN_TOUCH,
-    marginTop: 14,
+    marginTop: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   stressToggleText: { fontFamily: F.bodySemi, fontSize: 13.5, color: P.textSoft },
+  stressList: { marginTop: 2 },
 
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
   rowBorder: { borderTopWidth: 1, borderTopColor: P.divider },
-  evName: { fontFamily: F.bodyBold, fontSize: 13.5, color: P.text },
+  evName: { fontFamily: F.bodySemi, fontSize: 13.5, color: P.text },
   evDates: { fontFamily: F.body, fontSize: 11.5, color: P.textDim, marginTop: 2, ...TABULAR },
-  main: { fontFamily: F.bodySemi, fontSize: 13.5, color: P.gold, ...TABULAR },
-  sub: { fontFamily: F.bodyMed, fontSize: 12, color: P.loss, marginTop: 2, ...TABULAR },
-  na: { maxWidth: '48%', textAlign: 'right', fontFamily: F.body, fontSize: 12, lineHeight: 16, color: P.textDim },
+  fell: { fontFamily: F.bodySemi, fontSize: 13, color: P.loss, ...TABULAR },
+  outcome: { fontFamily: F.bodyMed, fontSize: 12, marginTop: 2, ...TABULAR },
+  na: { maxWidth: '45%', textAlign: 'right', fontFamily: F.body, fontSize: 12, lineHeight: 16, color: P.textDim },
 });

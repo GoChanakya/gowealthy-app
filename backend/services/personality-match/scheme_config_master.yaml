@@ -1,51 +1,43 @@
 meta:
-  config_version: "1.0.0"
-  method_version: "personality-match-v1"
-  calibration_version: "precal-0"
-  as_of: "2026-09-26"
+  config_version: "3.0.0"
+  method_version: "personality-match-v3-suitability"
+  as_of: "2026-10-03"
   schema_target: "fund-cards 1.1"
 
+# Guardrails: only EQS* and HYB* schemes, plus Index (OTH-EQS) and Gold FoF
+# (COM-FFD) for basket slots and DES-LIQ for the buffer. ELSS and ETFs are never
+# considered. A category is in the universe only when it is listed under
+# `categories`; validation rejects any listed code that breaks these rules.
 universe:
-  scored_categories: all_listed_in_categories
   plan_rule: primary_only
   min_history_months: 6
+  require_latest_aum: true        # owner, 2026-10-10: score only funds with latest-month AUM
   out_of_universe_policy: no_score
+  include_prefixes: [EQS-, HYB-]
+  include_codes: [OTH-EQS, COM-FFD]
+  buffer_codes: [DES-LIQ]
+  exclude_codes: [EQS-ELS, ELS, EQS-OTH]   # ELSS never; EQS-OTH = equity ETFs (no SIP)
 
 categories:
-  EQ-LC: { label: Large Cap, grade: 4, role: core, complex: false, parent: EQ-LARGE }
-  EQ-IDX-LC: { label: Large Cap Index, grade: 4, role: core, complex: false, parent: EQ-LARGE }
-  HY-MAA: { label: Multi Asset Allocation, grade: 4, role: core, complex: false, parent: EQ-DIVERSIFIED }
-  EQ-FC: { label: Flexi Cap, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED }
-  EQ-MLC: { label: Multi Cap, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED }
-  EQ-LMC: { label: Large & Mid Cap, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED }
-  EQ-FOC: { label: Focused, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED }
-  EQ-VAL: { label: Value, grade: 5, role: core, complex: false, parent: EQ-STYLE }
-  EQ-CON: { label: Contra, grade: 5, role: core, complex: false, parent: EQ-STYLE }
-  EQ-DIV: { label: Dividend Yield, grade: 5, role: core, complex: false, parent: EQ-STYLE }
-  EQ-IDX-BR: { label: Broad Market Index, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED }
-  EQ-ELSS: { label: ELSS (Tax Saver), grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED, auto_recommend: false }
-  EQ-MC: { label: Mid Cap, grade: 6, role: growth, complex: false, parent: EQ-MIDSMALL }
-  EQ-IDX-MC: { label: Mid Cap Index, grade: 6, role: growth, complex: false, parent: EQ-MIDSMALL }
-  EQ-SC: { label: Small Cap, grade: 7, role: growth, complex: false, parent: EQ-MIDSMALL }
-  EQ-IDX-SC: { label: Small Cap Index, grade: 7, role: growth, complex: false, parent: EQ-MIDSMALL }
-  EQ-INTL: { label: International / Global, grade: 6, role: satellite, complex: true, parent: EQ-SATELLITE }
-  EQ-SEC: { label: Sectoral, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
-  EQ-THM: { label: Thematic, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
-
-  # Live Scheme Master codes. The older EQ-* entries above remain supported
-  # for backward-compatible fixtures and historical output.
-  EQS-LRG: { label: Large Cap, grade: 4, role: core, complex: false, parent: EQ-LARGE }
-  EQS-FLX: { label: Flexi Cap, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED }
+  # Equity - diversified
+  EQS-LRG: { label: Large Cap, grade: 4, role: core, complex: false, parent: EQ-LARGE, min_age_months: 24 }
+  EQS-FLX: { label: Flexi Cap, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED, min_age_months: 24 }
   EQS-MUC: { label: Multi Cap, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED }
-  EQS-LMF: { label: Large & Mid Cap, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED }
+  EQS-LMF: { label: Large & Mid Cap, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED, min_age_months: 24 }
   EQS-FOC: { label: Focused, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED }
   EQS-VAL: { label: Value, grade: 5, role: core, complex: false, parent: EQ-STYLE }
   EQS-CTR: { label: Contra, grade: 5, role: core, complex: false, parent: EQ-STYLE }
   EQS-DYF: { label: Dividend Yield, grade: 5, role: core, complex: false, parent: EQ-STYLE }
-  EQS-ELS: { label: ELSS (Tax Saver), grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED, auto_recommend: false }
+  EQS-FFD: { label: Equity FoF Domestic, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED }
   EQS-MID: { label: Mid Cap, grade: 6, role: growth, complex: false, parent: EQ-MIDSMALL }
-  EQS-SMC: { label: Small Cap, grade: 7, role: growth, complex: false, parent: EQ-MIDSMALL }
-  OTH-EQS: { label: Equity Index, grade: 5, role: core, complex: false, parent: EQ-DIVERSIFIED }
+  EQS-SMC: { label: Small Cap, grade: 7, role: growth, complex: false, parent: EQ-MIDSMALL, min_age_months: 36 }
+  EQS-FFO: { label: Equity FoF Overseas, grade: 6, role: satellite, complex: true, parent: EQ-SATELLITE }
+  # Index funds
+  EQS-IXF: { label: Index Fund, grade: 5, role: core, complex: false, parent: EQ-INDEX }
+  OTH-EQS: { label: Index Fund (Equity), grade: 5, role: core, complex: false, parent: EQ-INDEX }
+  EQS-IXF-BFI: { label: Banking Index Fund, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
+  # Sectoral / thematic (every EQS-SCT* code)
+  EQS-SCT: { label: Sectoral / Thematic, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
   EQS-SCT-BFI: { label: Banking and Financial Services, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
   EQS-SCT-CON: { label: Consumption, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
   EQS-SCT-INF: { label: Infrastructure, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
@@ -56,163 +48,166 @@ categories:
   EQS-SCT-MNF: { label: Manufacturing, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
   EQS-SCT-INN: { label: Innovation, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
   EQS-SCT-ESG: { label: ESG, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
-  EQS-SCT-SBT: { label: Special Situations, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
+  EQS-SCT-SBT: { label: Smart Beta, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
+  EQS-SCT-SSC: { label: Special Situations, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
   EQS-SCT-ENR: { label: Energy, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
-  EQS-SCT-SSC: { label: Services, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
   EQS-SCT-PSU: { label: PSU, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
-  EQS-SCT-COM: { label: Commodities, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
+  EQS-SCT-COM: { label: Commodities (Equity), grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
   EQS-SCT-ETH: { label: Ethical, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
+  EQS-SCT-CGL: { label: Conglomerate, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
+  EQS-SCT-MNC: { label: MNC, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
+  EQS-SCT-TRN: { label: Transportation, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
+  EQS-SCT-ROT: { label: Sector Rotation, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
+  EQS-SCT-DEF: { label: Defence, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
+  EQS-SCT-HSG: { label: Housing, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
+  EQS-SCT-IPO: { label: IPO, grade: 7, role: satellite, complex: true, parent: EQ-SATELLITE }
+  # Hybrid
+  HYB-AHF: { label: Aggressive Hybrid, grade: 5, role: core, complex: false, parent: HYBRID }
+  HYB-MAA: { label: Multi Asset Allocation, grade: 4, role: core, complex: false, parent: HYBRID }
+  HYB-BAF: { label: Balanced Advantage, grade: 4, role: core, complex: false, parent: HYBRID }
+  HYB-BHF: { label: Balanced Hybrid, grade: 4, role: core, complex: false, parent: HYBRID }
+  HYB-EQS: { label: Equity Savings, grade: 4, role: core, complex: false, parent: HYBRID }
+  HYB-CHB: { label: Conservative Hybrid, grade: 4, role: core, complex: false, parent: HYBRID }
+  HYB-ARB: { label: Arbitrage, grade: 4, role: core, complex: false, parent: HYBRID }
+  HYB-FFD: { label: Hybrid FoF Domestic, grade: 4, role: core, complex: false, parent: HYBRID }
+  # Gold / commodity FoF (basket GOLD slot)
+  COM-FFD: { label: Gold / Silver FoF, grade: 5, role: satellite, complex: false, parent: COMMODITY }
+  # Buffer / emergency SIP only - never a basket slot, never persona-scored
+  DES-LIQ: { label: Liquid, grade: 4, role: buffer, complex: false, parent: DEBT-LIQUID }
 
-source_adapter:
-  fund_persona_map:
-    "The Steady Compounder": STEADY_CLIMBER
-    "The Sprinter": SPRINTER
-    "The Daredevil": EXPLORER
-    "All-Weather Champion": CUSHION
-    "The Defender": CUSHION
+# Latest snapshots in mf-data-public/backend_main_kartik. fund_cards is the master
+# list (one row per scheme); the others enrich the shortlist. Override any URI with
+# env PM_SRC_<NAME> or --source NAME=URI. Optional sources degrade with a warning.
+sources:
+  fund_cards:
+    uri: gs://mf-data-public/backend_main_kartik/fund_cards/latest/fund_cards.parquet
+    required: true
+    # Minimum investment checked against each fund's equal SIP share (first non-null).
+    min_investment_columns: [nse_additional_purchase_min_amount, nse_new_purchase_min_amount]
+  rank_momentum:
+    uri: gs://mf-data-public/backend_main_kartik/rank_momentum/latest/rank_momentum.parquet
+  batting_average:
+    uri: gs://mf-data-public/backend_main_kartik/batting_average/latest/batting_average.parquet
+    months: 36
+  stress_events:
+    uri: gs://mf-data-public/backend_main_kartik/stress_events/latest/stress_events.parquet
+  recovery_speed:
+    uri: gs://mf-data-public/backend_main_kartik/recovery_speed/latest/recovery_speed.parquet
+    columns:
+      typical_recovery_months: [typical_months]
+      category_typical_recovery_months: [category_typical_months]
+  aum:
+    uri: gs://mf-data-public/backend_main_kartik/aum/latest/aum.parquet
+    columns:
+      aum_lakhs: [aum_lakhs]
+      start_date: [start_date]
+      fund_age_years: [fund_age_years]
+  returns:
+    uri: gs://mf-data-public/backend_main_kartik/returns/latest/returns.parquet
+    columns:
+      ret_1y_pct: [ret_1y_pct, y1, return_1y_pct, ret_1y]
+  sip_3y:
+    uri: gs://mf-data-public/backend_main_kartik/sip_3y/latest/sip_3y.parquet
+    columns:
+      sip_invested: [sip_invested, invested]
+      sip_value: [sip_value, current_value, value]
+  scheme_master:
+    uri: "gs://mf-data-public/Scheme Master.csv"   # launch-date fallback for fund age
+
+outputs:
+  prefix: shortlisted_schemes
+  legacy_scores_prefix: personality_match   # set to null once Node reads shortlisted_schemes
 
 peer_groups:
   percentile_group: category
   min_peers: 8
-  reference_fall_group: [EQ-LC, EQ-IDX-LC, EQS-LRG]
+  reference_fall_group: [EQS-LRG]
+
+# Guardrail: keep only schemes in the top half of their category by the latest
+# month's rank momentum (fund cards rank on rolling 6-month return, rank 1 = best).
+# Categories with no rank data at all are not filtered.
+momentum_filter:
+  basis: latest_month
+  top_fraction: 0.5
+  skip_categories_without_ranks: true
 
 features:
-  downside_participation: { k: 6, min_events_full_confidence: 3 }
+  downside_participation: { k: 6, min_events_full_confidence: 3, tau: 1.0 }
   recovery_ratio: { intercept: 1.5 }
   unrecovered_penalty: { max_penalty: 0.20 }
   batting_average: { prior_k: 6, prior_mean: 0.5, score_floor: 0.35, score_range: 0.40 }
   rank_stability: { max_mean_move: 0.15 }
-  rank_trend: { neutral: 0.5, slope_scale: 0.06 }
-  track_record: { full_years: 10 }
-  turnaround: { never_bottom_half_score: 0.25, climb_scale: 0.40 }
+  # Owner formula (2026-10-10) on the last 3 monthly ranks by 6-month return (rank 1 = best):
+  #   level 50% x (1 - average rank / total) + change 50% x (oldest rank - latest rank) / total
+  # A climb adds, a fall subtracts. Example 11 -> 4 -> 3 of 20: 0.5 x (1 - 6/20) + 0.5 x 8/20 = 0.55
+  rank_momentum: { observations: 3, level_weight: 0.5, change_weight: 0.5 }
 
 percentile_method:
   formula: "(average_rank - 0.5) / n"
-  population: primary schemes in peer group with a non-null value
+  population: shortlisted schemes in the same GOC short code with a non-null value
 
 pillar_features:
   resilience: { downside_participation: 0.60, recovery_ratio: 0.40 }
   consistency: { batting_average: 0.60, rank_stability: 0.40 }
-  stature: { aum: 0.60, track_record: 0.40 }
-  turnaround: { turnaround: 1.00 }
-  growth: persona_specific
-
-growth_mixes:
-  compounding: { sip_3y: 0.40, alpha_3y: 0.25, rank_level: 0.20, return_1y: 0.15, rank_trend: 0.00 }
-  balanced: { sip_3y: 0.25, alpha_3y: 0.25, rank_level: 0.20, return_1y: 0.15, rank_trend: 0.15 }
-  momentum: { sip_3y: 0.10, alpha_3y: 0.15, rank_level: 0.30, return_1y: 0.20, rank_trend: 0.25 }
 
 missing_data:
   feature_null: drop_and_renormalise
   pillar_all_null: 0.5
-  history_full_confidence_months: 36
   not_applicable_events: excluded
+
+# Persona suitability (owner, 2026-10-10). Every shortlisted fund gets 8 scores, one per
+# persona: 100 x sum(weight x component), each component a 0-1 percentile within the
+# fund's own GOC short code. A missing component (e.g. AUM for AMCs absent from the AUM
+# table) is dropped and the other weights renormalised. The same score picks the fund
+# for each basket slot and is the match % shown on fund cards.
+#   consistency   = batting average (60%) + rank stability (40%)
+#   rank_momentum = owner formula above
+#   resilience    = smaller falls in past crashes (60%) + faster recovery (40%)
+#   aum           = latest AUM
+#   age           = months since launch
+suitability_components: [consistency, rank_momentum, resilience, aum, age]
 
 personas:
   LLL:
     name: Realistic Guardian
-    ideal_grade: 4.0
-    weights: { resilience: 0.45, consistency: 0.25, growth: 0.10, stature: 0.20, turnaround: 0.00 }
-    growth_mix: compounding
-    tau: 0.95
+    suitability: { consistency: 0.30, rank_momentum: 0.15, resilience: 0.30, aum: 0.15, age: 0.10 }
     willingness_grade: 6
     complex_access: false
-    basket: { core: 0.80, growth: 0.20, satellite: 0.00, core_min_aum_pct: 0.50, rising_star_slots: [] }
   LHL:
     name: Prudent Treasurer
-    ideal_grade: 4.25
-    weights: { resilience: 0.35, consistency: 0.35, growth: 0.10, stature: 0.20, turnaround: 0.00 }
-    growth_mix: compounding
-    tau: 0.97
+    suitability: { consistency: 0.30, rank_momentum: 0.25, resilience: 0.30, aum: 0.15, age: 0.00 }
     willingness_grade: 6
     complex_access: true
-    basket: { core: 0.75, growth: 0.25, satellite: 0.00, core_min_aum_pct: 0.50, rising_star_slots: [] }
   HLL:
     name: Inspiring Storyteller
-    ideal_grade: 4.5
-    weights: { resilience: 0.35, consistency: 0.25, growth: 0.15, stature: 0.25, turnaround: 0.00 }
-    growth_mix: compounding
-    tau: 1.00
+    suitability: { consistency: 0.30, rank_momentum: 0.20, resilience: 0.20, aum: 0.30, age: 0.00 }
     willingness_grade: 6
     complex_access: false
-    basket: { core: 0.70, growth: 0.30, satellite: 0.00, core_min_aum_pct: 0.50, rising_star_slots: [] }
   HHL:
     name: Noble Diplomat
-    ideal_grade: 5.0
-    weights: { resilience: 0.30, consistency: 0.25, growth: 0.25, stature: 0.20, turnaround: 0.00 }
-    growth_mix: balanced
-    tau: 1.05
+    suitability: { consistency: 0.20, rank_momentum: 0.20, resilience: 0.20, aum: 0.20, age: 0.20 }
     willingness_grade: 6
     complex_access: true
-    basket: { core: 0.60, growth: 0.30, satellite: 0.10, core_min_aum_pct: 0.40, rising_star_slots: [{ min_funds: 5, slots: 1 }] }
   LHH:
     name: Masterful Strategist
-    ideal_grade: 5.5
-    weights: { resilience: 0.20, consistency: 0.30, growth: 0.35, stature: 0.15, turnaround: 0.00 }
-    growth_mix: balanced
-    tau: 1.10
+    suitability: { consistency: 0.35, rank_momentum: 0.30, resilience: 0.20, aum: 0.10, age: 0.05 }
     willingness_grade: 7
     complex_access: true
-    basket: { core: 0.50, growth: 0.35, satellite: 0.15, core_min_aum_pct: null, rising_star_slots: [{ min_funds: 3, slots: 1 }, { min_funds: 7, slots: 2 }] }
   LLH:
     name: Enigmatic Sage
-    ideal_grade: 5.5
-    weights: { resilience: 0.20, consistency: 0.15, growth: 0.20, stature: 0.10, turnaround: 0.35 }
-    growth_mix: compounding
-    tau: 1.15
+    suitability: { consistency: 0.20, rank_momentum: 0.40, resilience: 0.20, aum: 0.10, age: 0.10 }
     willingness_grade: 7
     complex_access: false
-    basket: { core: 0.45, growth: 0.40, satellite: 0.15, core_min_aum_pct: null, rising_star_slots: [], turnaround_slots: [{ min_funds: 2, slots: 1, min_turnaround: 0.50 }] }
   HLH:
     name: Supreme Ruler
-    ideal_grade: 6.0
-    weights: { resilience: 0.15, consistency: 0.30, growth: 0.45, stature: 0.10, turnaround: 0.00 }
-    growth_mix: momentum
-    tau: 1.20
+    suitability: { consistency: 0.40, rank_momentum: 0.20, resilience: 0.20, aum: 0.20, age: 0.00 }
     willingness_grade: 7
     complex_access: false
-    basket: { core: 0.40, growth: 0.45, satellite: 0.15, core_min_aum_pct: null, rising_star_slots: [] }
   HHH:
     name: Bold Pioneer
-    ideal_grade: 6.5
-    weights: { resilience: 0.15, consistency: 0.20, growth: 0.55, stature: 0.10, turnaround: 0.00 }
-    growth_mix: momentum
-    tau: 1.25
+    suitability: { consistency: 0.35, rank_momentum: 0.25, resilience: 0.10, aum: 0.20, age: 0.10 }
     willingness_grade: 7
     complex_access: true
-    basket: { core: 0.35, growth: 0.40, satellite: 0.25, core_min_aum_pct: null, rising_star_slots: [] }
-
-persona_rules:
-  resilience_floor: 0.15
-  dial_threshold: 6
-  store_raw_dials: true
-  satellite_blocked_redirect: growth
-
-fund_persona_affinity:
-  default: 0.50
-  LLL: { STEADY_CLIMBER: 0.8, SPRINTER: 0.2, CUSHION: 1.0, EXPLORER: 0.1 }
-  LHL: { STEADY_CLIMBER: 0.9, SPRINTER: 0.3, CUSHION: 0.9, EXPLORER: 0.2 }
-  HLL: { STEADY_CLIMBER: 0.9, SPRINTER: 0.4, CUSHION: 0.8, EXPLORER: 0.3 }
-  HHL: { STEADY_CLIMBER: 1.0, SPRINTER: 0.5, CUSHION: 0.7, EXPLORER: 0.4 }
-  LHH: { STEADY_CLIMBER: 0.8, SPRINTER: 0.8, CUSHION: 0.4, EXPLORER: 0.7 }
-  LLH: { STEADY_CLIMBER: 0.6, SPRINTER: 0.5, CUSHION: 0.4, EXPLORER: 1.0 }
-  HLH: { STEADY_CLIMBER: 0.6, SPRINTER: 1.0, CUSHION: 0.2, EXPLORER: 0.7 }
-  HHH: { STEADY_CLIMBER: 0.5, SPRINTER: 1.0, CUSHION: 0.2, EXPLORER: 0.9 }
-
-composition:
-  fit_weight: 0.80
-  affinity_weight: 0.10
-  style_weight: 0.10
-  style_grade_span: 3
-  score_scale: 100
-
-calibration:
-  method: piecewise_linear_fixed_anchors
-  anchors_display: [0, 40, 62, 78, 88, 97]
-  anchor_quantiles: [min, 0.10, 0.50, 0.85, 0.97, max]
-  default_anchors_base: [0, 35, 50, 62, 70, 85]
-  per_persona_anchors_base: {}
-  max_great_share: 0.10
 
 gates:
   persona_level:
@@ -269,64 +264,129 @@ bands:
   - { code: STRETCH, min: 40, label: "A stretch for you" }
   - { code: NOT, min: 0, label: "Not suited to you" }
 recommend_floor: 40
-basket_min_score: 55
+basket_min_score: 55   # reason polarity on fund cards (positive vs negative reasons)
 
-amount_bands:
-  applies_to: monthly_sip
+basket:
   min_per_fund: 500
-  bands:
-    - { code: A0, min: 500, max: 999, funds: 1, satellite_cap: 0.00, roles: [core] }
-    - { code: A1, min: 1000, max: 4999, funds: 2, satellite_cap: 0.00, roles: [core, growth] }
-    - { code: A2, min: 5000, max: 9999, funds: 3, satellite_cap: 0.10, roles: [core, growth, satellite] }
-    - { code: A3, min: 10000, max: 19999, funds: 5, satellite_cap: 0.15, roles: [core, growth, satellite] }
-    - { code: A4, min: 20000, max: 34999, funds: 7, satellite_cap: 0.20, roles: [core, growth, satellite] }
-    - { code: A5, min: 35000, max: 99999999, funds: 9, satellite_cap: 0.25, roles: [core, growth, satellite] }
-
-basket_rules:
-  diversification:
-    max_per_category_first_pass: 1
-    max_per_category: 2
-    max_per_amc: 2
-    one_index_per_index_family: true
-    max_holdings_overlap_pct: 60
-  rising_star:
-    max_aum_pct: 0.40
-    min_track_record_years: 2
-    min_rank_level: 0.70
-    min_rank_trend: 0.60
-    excluded_from_core_for: [LLL, LHL, HLL]
   amount_rounding: 100
+  split: equal
+  require_sip_allowed: true      # fund card nse_sip_allowed = Y (purchase = Y is a screening rule)
+  # The owner's "tiers": monthly SIP sets the number of schemes.
+  amount_bands:
+    - { code: A0, min: 500, max: 999, funds: 1 }
+    - { code: A1, min: 1000, max: 4999, funds: 2 }
+    - { code: A2, min: 5000, max: 9999, funds: 3 }
+    - { code: A3, min: 10000, max: 19999, funds: 5 }
+    - { code: A4, min: 20000, max: 34999, funds: 6 }
+    - { code: A5, min: 35000, max: 99999999, funds: 7 }
+  # Owner's risk ladder, lowest risk first (EQS-LMC -> EQS-LMF, EQS-MLT -> EQS-MUC,
+  # COM-GLD -> COM-FFD gold FoF; OTH-OTH dropped: ETFs cannot take a SIP; Focused, which
+  # the owner's lists use but the ladder omits, sits between Flexi and Multi).
+  # Every basket is shown lowest risk first, and smaller tiers keep the lowest-risk slots.
+  risk_order: [AHF, MAA, INDEX, LARGE, LARGE_MID, FLEXI, FOCUSED, MULTI, MID, SMALL, SECTORAL, GOLD]
+  diversification:
+    small_basket_max_funds: 4
+    max_per_amc_small: 1
+    max_per_amc: 1                 # owner, 2026-10-10: never the same AMC twice in a basket
+    distinct_amc_for_repeated_slot: true
+    max_holdings_overlap_pct: 60
+  # A slot's funds are ranked by the persona's suitability score. Category minimum ages
+  # (categories.*.min_age_months) apply on top of the persona minimum below.
+  slots:
+    AHF: { label: Aggressive Hybrid, codes: [HYB-AHF] }
+    MAA: { label: Multi Asset Allocation, codes: [HYB-MAA] }
+    # Broad-market indices only (Nifty 50 / Next 50 / 100 / 200 / 500, Sensex, BSE 100-1000,
+    # Total Market). Size, factor and sector indices are not a "safe" index slot.
+    INDEX:
+      label: Index Fund
+      codes: [EQS-IXF, OTH-EQS]
+      name_include: '(?:nifty\s*(?:50|next\s*50|100|200|500)|nifty(?:100|200|500)|sensex|bse\s*(?:100|200|500|1000)\b|total\s*market)'
+      name_exclude: '(?:momentum|quality|alpha|value|low\s*vol|small|mid|micro|multicap|manufacturing|consumption)'
+    LARGE: { label: Large Cap, codes: [EQS-LRG] }
+    LARGE_MID: { label: Large & Mid Cap, codes: [EQS-LMF] }
+    FLEXI: { label: Flexi Cap, codes: [EQS-FLX] }
+    FOCUSED: { label: Focused, codes: [EQS-FOC] }
+    MULTI: { label: Multi Cap, codes: [EQS-MUC] }
+    MID: { label: Mid Cap, codes: [EQS-MID] }
+    SMALL: { label: Small Cap, codes: [EQS-SMC] }
+    SECTORAL: { label: Sectoral / Thematic, prefixes: [EQS-SCT], distinct_category: true }
+    GOLD: { label: Gold FoF, codes: [COM-FFD] }
+  # Emergency / buffer SIP, on top of the basket: one liquid fund ranked on consistency
+  # and AUM, then the lowest minimum investment.
+  buffer:
+    codes: [DES-LIQ]
+    weights: { consistency: 0.50, aum: 0.50 }
+    min_age_months: 24
+  # Templates by number of schemes, written lowest risk first. Smaller tiers (1-3
+  # schemes) take the first N slots of the 5-scheme template.
+  personas:
+    LLL:
+      min_age_months: 24
+      templates:
+        5: [AHF, MAA, LARGE, FLEXI, MULTI]
+        6: [AHF, MAA, LARGE, FLEXI, MULTI, MID]
+        7: [AHF, MAA, LARGE, FLEXI, FLEXI, MULTI, MID]
+    LHL:
+      min_age_months: 24
+      templates:
+        5: [MAA, INDEX, FLEXI, MULTI, MID]
+        6: [MAA, INDEX, FLEXI, MULTI, MID, SMALL]
+        7: [MAA, INDEX, LARGE, FLEXI, MULTI, MID, SMALL]
+    HLL:
+      min_age_months: 18
+      templates:
+        5: [INDEX, LARGE, MULTI, SMALL, SECTORAL]
+        6: [INDEX, LARGE, MULTI, MULTI, SMALL, SECTORAL]
+        7: [INDEX, INDEX, LARGE, MULTI, MULTI, SMALL, SECTORAL]
+    LLH:
+      min_age_months: 18
+      templates:
+        5: [INDEX, LARGE, MULTI, SMALL, SECTORAL]
+        6: [INDEX, LARGE, MULTI, MULTI, SMALL, SECTORAL]
+        7: [INDEX, INDEX, LARGE, MULTI, MULTI, SMALL, SECTORAL]
+    HHL:
+      min_age_months: 18
+      templates:
+        5: [LARGE, FLEXI, MULTI, SMALL, SECTORAL]
+        6: [LARGE, FLEXI, MULTI, MID, SMALL, SECTORAL]
+        7: [LARGE, FLEXI, MULTI, MID, SMALL, SECTORAL, GOLD]
+    LHH:
+      min_age_months: 18
+      templates:
+        5: [FLEXI, MULTI, MID, SMALL, GOLD]
+        6: [FLEXI, MULTI, MID, SMALL, SMALL, GOLD]
+        7: [FLEXI, MULTI, MID, SMALL, SMALL, SECTORAL, GOLD]
+    HLH:
+      min_age_months: 18
+      templates:
+        5: [FOCUSED, MULTI, MULTI, SMALL, SECTORAL]
+        6: [FOCUSED, MULTI, MULTI, SMALL, SECTORAL, SECTORAL]
+        7: [FOCUSED, MULTI, MULTI, SMALL, SECTORAL, SECTORAL, SECTORAL]
+    HHH:
+      min_age_months: 18
+      templates:
+        5: [FOCUSED, MULTI, MULTI, SMALL, SECTORAL]
+        6: [FOCUSED, MULTI, MULTI, SMALL, SECTORAL, SECTORAL]
+        7: [FOCUSED, MULTI, MULTI, SMALL, SECTORAL, SECTORAL, SECTORAL]
 
+# Fund-card reasons: the components that lift or drag a fund's score for the persona.
 reasons:
   max: 2
   min_contribution: 0.02
   positive:
-    resilience: { code: SMALLER_FALLS, text: "Fell less than most funds in past crashes" }
     consistency: { code: STEADY_BEATS, text: "Beats its category month after month" }
-    growth: { code: STRONG_CLIMB, text: "Climbing its category ranks with strong returns" }
-    stature: { code: TRUSTED_SIZE, text: "Large, long-running fund many investors trust" }
-    turnaround: { code: COMEBACK, text: "Climbing back from the bottom of its category" }
-    style: { code: YOUR_STYLE, text: "The kind of fund your persona leans toward" }
+    rank_momentum: { code: STRONG_CLIMB, text: "Ranked high and climbing in its category lately" }
+    resilience: { code: SMALLER_FALLS, text: "Fell less than most funds in past crashes" }
+    aum: { code: TRUSTED_SIZE, text: "One of the larger funds in its category" }
+    age: { code: LONG_RECORD, text: "Longer track record than most of its category" }
   negative:
-    resilience: { code: BIGGER_FALLS, text: "Fell more than most funds in past crashes" }
     consistency: { code: PATCHY, text: "Beats its category only some months" }
-    growth: { code: LAGGING, text: "Trailing its category on returns" }
-    stature: { code: SMALL_OR_NEW, text: "Smaller or newer than its peers" }
-    turnaround: { code: NO_COMEBACK, text: "No sign of a turnaround yet" }
-    style_tame: { code: TAMER_THAN_YOU, text: "Steadier than your usual style" }
-    style_wild: { code: WILDER_THAN_YOU, text: "Swings harder than your usual style" }
+    rank_momentum: { code: LAGGING, text: "Slipping in its category ranks lately" }
+    resilience: { code: BIGGER_FALLS, text: "Fell more than most funds in past crashes" }
+    aum: { code: SMALLER_FUND, text: "Smaller than most funds in its category" }
+    age: { code: NEWER_FUND, text: "Newer than most funds in its category" }
   gate:
     grade_over: { code: RISKIER_THAN_YOU, text: "Riskier than your comfort zone" }
     complex: { code: NICHE_BET, text: "A concentrated bet that needs close tracking" }
     history: { code: TOO_NEW, text: "Too new to judge fully" }
     capacity: { code: SAFETY_FIRST, text: "Your current commitments call for steadier funds" }
-
-field_aliases:
-  is_primary: [isprimary_v1, is_primary]
-  primary_scheme_code: [primary_scheme_code]
-  aum_cr: [aum_cr, aum]
-  inception_date: [inception_date]
-  alpha_3y_pct: [alpha_3y_pct, alpha_3y]
-  min_sip_amount: [min_sip_amount]
-  batting_36m: [batting_36m]
-  holdings: [holdings]

@@ -1,4 +1,4 @@
-"""Monthly vectorised scoring job for GoWealthy's personality match engine."""
+"""Monthly job: screen the latest fund cards, persona-score the shortlist, publish shortlisted_schemes."""
 
 from __future__ import annotations
 
@@ -7,263 +7,22 @@ import io
 import json
 import logging
 import os
-import re
 import tempfile
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, Mapping
 
 import numpy as np
 import pandas as pd
-import yaml
 
+from pm_basket import eligible_slots, persona_positions
 from pm_config import DEFAULT_CONFIG, load_config, validate_config
+from pm_sources import build_inputs, load_sources, screen
 
 
 LOGGER = logging.getLogger("personality_match")
-DEFAULT_LIVE_CALIBRATION = Path(__file__).with_name("live_calibration.yaml")
 PERSONA_GATE_ORDER = ("GRADE_OVER", "COMPLEX", "HISTORY")
-PILLARS = ("resilience", "consistency", "growth", "stature", "turnaround")
-
-
-def _nested(obj: Mapping[str, Any], path: str, default: Any = None) -> Any:
-    value: Any = obj
-    for part in path.split("."):
-        if not isinstance(value, Mapping) or part not in value:
-            return default
-        value = value[part]
-    return value
-
-
-def _alias(obj: Mapping[str, Any], aliases: Iterable[str], default: Any = None) -> Any:
-    for path in aliases:
-        value = _nested(obj, path)
-        if value is not None:
-            return value
-    return default
-
-
-def _documents(payload: Any) -> list[dict[str, Any]]:
-    if isinstance(payload, list):
-        return payload
-    if isinstance(payload, dict) and isinstance(payload.get("funds"), list):
-        return payload["funds"]
-    if isinstance(payload, dict):
-        return [payload]
-    raise ValueError("fund input JSON must be an object, an array, or an object containing funds[]")
-
-
-def _load_local_file(path: Path) -> list[dict[str, Any]]:
-    return _documents(json.loads(path.read_text(encoding="utf-8")))
-
-
-def load_documents(uri: str) -> list[dict[str, Any]]:
-    """Load a local JSON file/directory or all JSON objects below a GCS prefix."""
-    if uri.startswith("gs://"):
-        from google.cloud import storage
-
-        bucket_name, prefix = uri[5:].split("/", 1)
-        bucket = storage.Client().bucket(bucket_name)
-        blobs = sorted(
-            (blob for blob in bucket.list_blobs(prefix=prefix) if blob.name.endswith(".json")),
-            key=lambda blob: blob.name,
-        )
-        with ThreadPoolExecutor(max_workers=min(12, max(1, len(blobs)))) as pool:
-            chunks = list(pool.map(lambda blob: _documents(json.loads(blob.download_as_text())), blobs))
-        return [document for chunk in chunks for document in chunk]
-
-    path = Path(uri)
-    files = [path] if path.is_file() else sorted(path.rglob("*.json"))
-    if not files:
-        raise FileNotFoundError(f"no JSON inputs found at {uri}")
-    with ThreadPoolExecutor(max_workers=min(32, len(files))) as pool:
-        chunks = list(pool.map(_load_local_file, files))
-    return [document for chunk in chunks for document in chunk]
-
-
-def _read_uri_bytes(uri: str) -> bytes:
-    if uri.startswith("gs://"):
-        from google.cloud import storage
-
-        bucket_name, blob_name = uri[5:].split("/", 1)
-        return storage.Client().bucket(bucket_name).blob(blob_name).download_as_bytes()
-    return Path(uri).read_bytes()
-
-
-def load_scheme_master(uri: str) -> pd.DataFrame:
-    """Load Scheme Master from local disk or GCS with codes kept as strings."""
-    frame = pd.read_csv(io.BytesIO(_read_uri_bytes(uri)), dtype=str, keep_default_na=False)
-    frame.columns = frame.columns.str.strip()
-    frame["Code"] = frame["Code"].str.strip()
-    return frame
-
-
-def apply_calibration(cfg: dict[str, Any], uri: str | None) -> dict[str, Any]:
-    if not uri:
-        return cfg
-    override = yaml.safe_load(_read_uri_bytes(uri))
-    if not isinstance(override, dict) or not isinstance(override.get("per_persona_anchors_base"), dict):
-        raise ValueError("calibration override must contain per_persona_anchors_base")
-    cfg["calibration"]["per_persona_anchors_base"] = override["per_persona_anchors_base"]
-    cfg["meta"]["calibration_version"] = str(override.get("calibration_version", "unknown"))
-    validate_config(cfg)
-    return cfg
-
-
-def _source_slug(value: Any) -> str:
-    return re.sub(r"[^A-Z0-9]+", "_", str(value or "").upper()).strip("_")
-
-
-def _source_monthly_snapshots(document: Mapping[str, Any]) -> list[dict[str, Any]]:
-    trail = _nested(document, "rank_momentum.trail", []) or []
-    total = _nested(document, "rank_momentum.total_funds")
-    anchor = pd.to_datetime(
-        _nested(document, "meta.nav_date") or document.get("updated_at"), errors="coerce"
-    )
-    if not trail or pd.isna(anchor) or total is None:
-        return []
-    dates = pd.date_range(end=anchor.to_period("M").to_timestamp(), periods=len(trail), freq="MS")
-    return [
-        {"date": date.strftime("%Y-%m-%d"), "rank": rank, "total": total}
-        for date, rank in zip(dates, trail)
-    ]
-
-
-def adapt_source_documents(
-    documents: list[dict[str, Any]], scheme_master: pd.DataFrame, cfg: Mapping[str, Any]
-) -> list[dict[str, Any]]:
-    """Convert the live fund-card JSON shape into the scoring contract.
-
-    The adapter only maps fields already present in a card or Scheme Master.
-    Missing optional analytics remain null and are handled by the configured
-    neutral/renormalisation rules in the scoring engine.
-    """
-    master = {
-        str(row["Code"]).strip(): row
-        for row in scheme_master.to_dict(orient="records")
-        if str(row.get("Code", "")).strip()
-    }
-    persona_map = cfg.get("source_adapter", {}).get("fund_persona_map", {})
-
-    category_recoveries: dict[str, list[float]] = {}
-    for document in documents:
-        row = master.get(str(document.get("scheme_code", "")).strip(), {})
-        category = str(row.get("GoChanakya Short Code", "")).strip()
-        months = pd.to_numeric(_nested(document, "recovery.months_to_recover"), errors="coerce")
-        if category and pd.notna(months) and bool(_nested(document, "recovery.recovered", False)):
-            category_recoveries.setdefault(category, []).append(float(months))
-    category_typical = {
-        code: float(np.median(values)) for code, values in category_recoveries.items() if values
-    }
-
-    adapted: list[dict[str, Any]] = []
-    for document in documents:
-        scheme_code = str(document.get("scheme_code", "")).strip()
-        row = master.get(scheme_code, {})
-        if "category" in document and "returns_pct" in document:
-            last_36 = _nested(document, "batting_average.last_36", {}) or {}
-            adapted.append({
-                **document,
-                "isprimary_v1": row.get("isprimary_v1"),
-                "primary_scheme_code": row.get("rootPrimary_v1") or None,
-                "inception_date": row.get("Launch Date") or None,
-                "min_sip_amount": row.get("MinAmount") or row.get("Scheme Minimum Amount") or None,
-                "batting_36m": {
-                    "window_months": last_36.get("comparable_months") or last_36.get("months_available"),
-                    "months_beat": last_36.get("months_beat"),
-                },
-            })
-            continue
-        if "meta" not in document:
-            adapted.append(document)
-            continue
-        category_code = str(row.get("GoChanakya Short Code", "")).strip()
-        archetype = str(_nested(document, "persona.archetype", "")).strip()
-        recovery_months = _nested(document, "recovery.months_to_recover")
-        recovered = bool(_nested(document, "recovery.recovered", False))
-        amc = row.get("AMC") or _nested(document, "meta.amc")
-        adapted.append({
-            "scheme_code": scheme_code,
-            "isprimary_v1": row.get("isprimary_v1"),
-            "primary_scheme_code": row.get("rootPrimary_v1") or None,
-            "amc": {"code": _source_slug(amc)},
-            "category": {"goc_short_code": category_code},
-            "persona": {"code": persona_map.get(archetype, _source_slug(archetype))},
-            "returns_pct": {"y1": _nested(document, "persona.ret_1y")},
-            "sip_3y": {
-                "invested": _nested(document, "wealth_3y.invested"),
-                "current_value": _nested(document, "wealth_3y.value"),
-            },
-            "batting_average": {
-                "window_months": _nested(document, "batting.total"),
-                "months_beat": _nested(document, "batting.wins"),
-            },
-            "rank_momentum": {"snapshots": _source_monthly_snapshots(document)},
-            "recovery": {
-                "typical_months": recovery_months if recovered else None,
-                "category_typical_months": category_typical.get(category_code),
-                "events": [],
-            },
-            "inception_date": row.get("Launch Date") or None,
-            "min_sip_amount": row.get("MinAmount") or row.get("Scheme Minimum Amount") or None,
-            "holdings": document.get("holdings"),
-        })
-    return adapted
-
-
-def flatten_documents(
-    documents: list[dict[str, Any]], cfg: Mapping[str, Any]
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Flatten each input exactly once into scheme, event, and snapshot frames."""
-    aliases = cfg.get("field_aliases", {})
-    assume_primary = os.getenv("PM_ASSUME_PRIMARY")
-    rows: list[dict[str, Any]] = []
-    events: list[dict[str, Any]] = []
-    snapshots: list[dict[str, Any]] = []
-    placeholder_hits: set[str] = set()
-
-    for document in documents:
-        scheme_code = str(document.get("scheme_code", ""))
-        primary = _alias(document, aliases.get("is_primary", ["isprimary_v1"]))
-        if primary is None:
-            placeholder_hits.add("isprimary_v1")
-            primary = assume_primary
-        row = {
-            "scheme_code": scheme_code,
-            "primary_scheme_code": _alias(document, aliases.get("primary_scheme_code", ["primary_scheme_code"])),
-            "isprimary_v1": primary,
-            "amc_code": _nested(document, "amc.code"),
-            "goc_short_code": _nested(document, "category.goc_short_code"),
-            "fund_persona_code": _nested(document, "persona.code"),
-            "return_1y_raw": _nested(document, "returns_pct.y1"),
-            "sip_invested": _nested(document, "sip_3y.invested"),
-            "sip_current_value": _nested(document, "sip_3y.current_value"),
-            "recovery_typical_months": _nested(document, "recovery.typical_months"),
-            "recovery_category_typical_months": _nested(document, "recovery.category_typical_months"),
-            "aum_raw": _alias(document, aliases.get("aum_cr", ["aum_cr"])),
-            "inception_date": _alias(document, aliases.get("inception_date", ["inception_date"])),
-            "alpha_3y_raw": _alias(document, aliases.get("alpha_3y_pct", ["alpha_3y_pct"])),
-            "min_sip_amount": _alias(document, aliases.get("min_sip_amount", ["min_sip_amount"])),
-            "holdings": _alias(document, aliases.get("holdings", ["holdings"])),
-            "batting_window": _nested(document, "batting_average.window_months"),
-            "batting_beats": _nested(document, "batting_average.months_beat"),
-            "batting_36_window": _nested(document, "batting_36m.window_months"),
-            "batting_36_beats": _nested(document, "batting_36m.months_beat"),
-        }
-        for field in ("aum_raw", "inception_date", "alpha_3y_raw", "min_sip_amount"):
-            if row[field] is None:
-                placeholder_hits.add(field)
-        rows.append(row)
-        for event in _nested(document, "recovery.events", []) or []:
-            events.append({"scheme_code": scheme_code, **event})
-        for snapshot in _nested(document, "rank_momentum.snapshots", []) or []:
-            snapshots.append({"scheme_code": scheme_code, **snapshot})
-
-    if placeholder_hits:
-        LOGGER.warning("TODO(confirm) fields absent: %s", ", ".join(sorted(placeholder_hits)))
-    return pd.DataFrame(rows), pd.DataFrame(events), pd.DataFrame(snapshots)
 
 
 def _whole_months(dates: pd.Series, as_of: pd.Timestamp) -> pd.Series:
@@ -278,7 +37,7 @@ def _peer_percentile(
 ) -> pd.Series:
     """Category percentile with the configured parent fallback for small groups."""
     values = pd.to_numeric(frame[value_column], errors="coerce")
-    valid = frame["status"].eq("SCORED") & values.notna()
+    valid = frame["status"].isin(("SCORED", "BUFFER")) & values.notna()
     work = frame.loc[valid, ["goc_short_code", "parent"]].copy()
     work["value"] = values[valid].astype("float64")
 
@@ -298,7 +57,12 @@ def _peer_percentile(
 def _snapshot_features(
     snapshots: pd.DataFrame, cfg: Mapping[str, Any]
 ) -> pd.DataFrame:
-    columns = ["rank_stability", "rank_level", "rank_trend", "turnaround"]
+    """Rank stability, the owner's rank-momentum score and the latest rank per scheme.
+
+    Rank momentum on the last N monthly ranks by 6-month return (rank 1 = best):
+    level_weight x (1 - average rank / total) + change_weight x (oldest - latest rank) / total.
+    """
+    columns = ["rank_stability", "rank_momentum_raw", "rank_latest", "rank_total_latest"]
     if snapshots.empty:
         return pd.DataFrame(columns=columns, dtype="float32")
     snap = snapshots.copy()
@@ -321,38 +85,37 @@ def _snapshot_features(
     mean_move = move.groupby(snap["scheme_code"]).mean()
     stability_scale = float(cfg["features"]["rank_stability"]["max_mean_move"])
     stability = (1.0 - mean_move / stability_scale).clip(0, 1).where(count >= 6)
-    level = groups.tail(3).groupby("scheme_code", sort=False)["pct_t"].mean()
 
-    last6 = groups.tail(6).copy()
-    last6["x"] = last6.groupby("scheme_code", sort=False).cumcount().astype("float64")
-    last6["xy"] = last6["x"] * last6["pct_t"]
-    last6["x2"] = last6["x"] ** 2
-    sums = last6.groupby("scheme_code", sort=False).agg(
-        n=("pct_t", "count"), sx=("x", "sum"), sy=("pct_t", "sum"),
-        sxy=("xy", "sum"), sx2=("x2", "sum"),
+    rules = cfg["features"]["rank_momentum"]
+    recent = groups.tail(int(rules["observations"])).groupby("scheme_code", sort=False)["rank"]
+    latest = groups.tail(1).set_index("scheme_code")
+    momentum = (
+        float(rules["level_weight"]) * (1.0 - recent.mean() / latest["total"])
+        + float(rules["change_weight"]) * (recent.first() - latest["rank"]) / latest["total"]
     )
-    denom = sums["n"] * sums["sx2"] - sums["sx"] ** 2
-    slope = (sums["n"] * sums["sxy"] - sums["sx"] * sums["sy"]) / denom
-    trend_cfg = cfg["features"]["rank_trend"]
-    trend = (
-        float(trend_cfg["neutral"]) + slope / float(trend_cfg["slope_scale"])
-    ).clip(0, 1).where(sums["n"] >= 6)
-
-    snap["n"] = groups["pct_t"].transform("count")
-    snap["position"] = groups.cumcount()
-    trough = snap.loc[snap["position"] < snap["n"] - 3].groupby("scheme_code")["pct_t"].min()
-    turnaround_cfg = cfg["features"]["turnaround"]
-    turnaround = ((level - trough) / float(turnaround_cfg["climb_scale"])).clip(0, 1)
-    turnaround = turnaround.where(
-        trough < 0.5, float(turnaround_cfg["never_bottom_half_score"])
-    ).where(count >= 6)
 
     return pd.DataFrame({
         "rank_stability": stability,
-        "rank_level": level,
-        "rank_trend": trend,
-        "turnaround": turnaround,
+        "rank_momentum_raw": momentum,
+        "rank_latest": latest["rank"],
+        "rank_total_latest": latest["total"],
     }).astype("float32")
+
+
+def _momentum_pass(frame: pd.DataFrame, cfg: Mapping[str, Any]) -> pd.Series:
+    """Top-half-of-category filter on the latest month's rank (rank 1 = best)."""
+    rules = cfg["momentum_filter"]
+    rank = pd.to_numeric(frame["rank_latest"], errors="coerce")
+    total = pd.to_numeric(frame["rank_total_latest"], errors="coerce")
+    has_rank = rank.notna() & total.gt(0)
+    in_top = rank.le(total * float(rules["top_fraction"])) & has_rank
+    category_has_ranks = has_rank.groupby(frame["goc_short_code"].fillna("")).transform("any")
+    unranked_default = ~category_has_ranks if rules["skip_categories_without_ranks"] else False
+    in_universe = frame["status"].isin(("SCORED", "BUFFER"))
+    unranked_categories = sorted(frame.loc[in_universe & ~category_has_ranks, "goc_short_code"].dropna().unique())
+    if unranked_categories:
+        LOGGER.warning("momentum filter skipped (no rank data) for: %s", ", ".join(unranked_categories))
+    return in_top.where(has_rank, unranked_default).astype(bool)
 
 
 def build_feature_frame(
@@ -368,22 +131,34 @@ def build_feature_frame(
     category_meta = pd.DataFrame.from_dict(cfg["categories"], orient="index")
     category_meta.index.name = "goc_short_code"
     frame = frame.join(category_meta, on="goc_short_code", rsuffix="_category")
-    frame["auto_recommend"] = frame["auto_recommend"].astype("boolean").fillna(True).astype(bool)
+    frame["auto_recommend"] = frame.reindex(columns=["auto_recommend"])["auto_recommend"].astype("boolean").fillna(True).astype(bool)
     frame["history_months"] = _whole_months(frame["inception_date"], as_of)
 
     known_category = frame["goc_short_code"].isin(cfg["categories"])
     is_primary = frame["isprimary_v1"].astype("string").str.upper().eq("Y").fillna(False)
     enough_history = frame["history_months"].ge(int(cfg["universe"]["min_history_months"])).fillna(False)
+    is_buffer = frame["role"].eq("buffer").fillna(False)
     frame["status"] = np.select(
-        [known_category & is_primary & enough_history, known_category & is_primary & ~enough_history],
-        ["SCORED", "TOO_NEW"],
+        [
+            known_category & is_primary & enough_history & ~is_buffer,
+            known_category & is_primary & enough_history & is_buffer,
+            known_category & is_primary & frame["history_months"].isna(),
+            known_category & is_primary & ~enough_history,
+        ],
+        ["SCORED", "BUFFER", "AGE_UNKNOWN", "TOO_NEW"],
         default="OUT_OF_UNIVERSE",
     )
     non_primary = known_category & ~is_primary & frame["primary_scheme_code"].notna()
     frame.loc[non_primary, "status"] = "INHERIT"
+    if cfg["universe"].get("require_latest_aum"):
+        # Owner rule: suitability is scored only where the latest month's AUM is present.
+        no_aum = frame["status"].isin(("SCORED", "BUFFER")) & pd.to_numeric(frame["aum_raw"], errors="coerce").isna()
+        frame.loc[no_aum, "status"] = "NO_AUM"
+        if no_aum.any():
+            LOGGER.warning("%d shortlisted schemes have no latest-month AUM and are not scored", int(no_aum.sum()))
     unknown_count = int((~known_category).sum())
     if unknown_count:
-        LOGGER.warning("%d schemes use unknown category codes", unknown_count)
+        LOGGER.info("%d schemes outside the configured universe (ELSS, ETFs, debt, etc.)", unknown_count)
 
     applicable = pd.DataFrame()
     if not events.empty:
@@ -440,21 +215,18 @@ def build_feature_frame(
     ).clip(0, 1)
 
     snap_features = _snapshot_features(snapshots, cfg)
-    frame = frame.join(snap_features, on="scheme_code")
+    frame = frame.join(snap_features.drop(columns=snap_features.columns.intersection(frame.columns)), on="scheme_code")
+    if "momentum_pass" not in frame:
+        frame["momentum_pass"] = _momentum_pass(frame, cfg)
+    rank = pd.to_numeric(frame["rank_latest"], errors="coerce")
+    total = pd.to_numeric(frame["rank_total_latest"], errors="coerce")
+    frame["rank_now_pct"] = np.where(total.eq(1), 0.5, 1.0 - (rank - 1.0) / (total - 1.0)).clip(0, 1)
     invested = pd.to_numeric(frame["sip_invested"], errors="coerce")
     current = pd.to_numeric(frame["sip_current_value"], errors="coerce")
     frame["sip_3y_raw"] = (current / invested).where(invested > 0)
     aum = pd.to_numeric(frame["aum_raw"], errors="coerce")
     frame["aum_log_raw"] = np.log(aum.where(aum > 0))
-    frame["track_record_years"] = (frame["history_months"] / 12.0).astype("Float64")
-    frame["track_record"] = (
-        frame["track_record_years"] / float(cfg["features"]["track_record"]["full_years"])
-    ).clip(lower=0, upper=1)
-
-    for output, source in (
-        ("return_1y", "return_1y_raw"), ("sip_3y", "sip_3y_raw"),
-        ("alpha_3y", "alpha_3y_raw"), ("aum", "aum_log_raw"),
-    ):
+    for output, source in (("sip_3y", "sip_3y_raw"), ("aum", "aum_log_raw")):
         frame[output] = _peer_percentile(frame, source, cfg)
     return frame
 
@@ -465,6 +237,65 @@ def _weighted_average(values: np.ndarray, weights: np.ndarray, neutral: float) -
     numerator = np.nan_to_num(values, nan=0.0) @ weights
     missing = denominator == 0
     return np.divide(numerator, denominator, out=np.full(values.shape[0], neutral), where=~missing), missing
+
+
+def _resilience_consistency(frame: pd.DataFrame, cfg: Mapping[str, Any]) -> tuple[np.ndarray, np.ndarray]:
+    """Raw 0-1 resilience and consistency pillars (persona-independent)."""
+    neutral = float(cfg["missing_data"]["pillar_all_null"])
+    numbers = frame.reindex(columns=[
+        "DP", "dp_conf", "recovery_ratio", "unrecovered_penalty", "batting", "rank_stability",
+    ]).apply(pd.to_numeric, errors="coerce").to_numpy(dtype=np.float64)
+    dp, dp_conf, recovery, penalty, batting, stability = numbers.T
+    dp_cfg = cfg["features"]["downside_participation"]
+    conf = np.nan_to_num(dp_conf, nan=0.0)
+    dp_score = conf / (1.0 + np.exp(np.clip(float(dp_cfg["k"]) * (dp - float(dp_cfg["tau"])), -80, 80))) + (1.0 - conf) * 0.5
+    dp_score[np.isnan(dp)] = np.nan
+
+    def pillar(columns: tuple[np.ndarray, ...], weights: Mapping[str, Any]) -> np.ndarray:
+        value, missing = _weighted_average(np.column_stack(columns), np.array(list(map(float, weights.values()))), neutral)
+        return np.where(missing, np.nan, value)
+
+    features = cfg["pillar_features"]
+    resilience = np.clip(pillar((dp_score, recovery), features["resilience"]) - np.nan_to_num(penalty, nan=0.0), 0, 1)
+    return resilience, pillar((batting, stability), features["consistency"])
+
+
+def _category_percentile(frame: pd.DataFrame, values: np.ndarray) -> np.ndarray:
+    """0-1 percentile within the fund's own GOC short code (never across categories)."""
+    series = pd.Series(values, index=frame.index, dtype="float64")
+    valid = frame["status"].isin(("SCORED", "BUFFER")) & series.notna()
+    groups = series[valid].groupby(frame.loc[valid, "goc_short_code"])
+    n = groups.transform("count")
+    percentile = ((groups.rank(method="average") - 0.5) / n).where(n.ne(1), 0.5)
+    result = np.full(len(frame), np.nan)
+    result[valid.to_numpy()] = percentile.to_numpy()
+    return result
+
+
+def suitability_components(frame: pd.DataFrame, cfg: Mapping[str, Any]) -> pd.DataFrame:
+    """The five owner components as within-category percentiles (`comp_*`, 0-1)."""
+    resilience, consistency = _resilience_consistency(frame, cfg)
+    raw = frame.reindex(columns=["rank_momentum_raw", "aum_log_raw", "history_months"]).apply(
+        pd.to_numeric, errors="coerce"
+    ).to_numpy(dtype=np.float64)
+    values = {
+        "consistency": consistency, "rank_momentum": raw[:, 0], "resilience": resilience,
+        "aum": raw[:, 1], "age": raw[:, 2],
+    }
+    return pd.DataFrame(
+        {f"comp_{name}": _category_percentile(frame, values[name]) for name in cfg["suitability_components"]},
+        index=frame.index,
+    ).astype("float32")
+
+
+def buffer_scores(scores: pd.DataFrame, cfg: Mapping[str, Any]) -> pd.Series:
+    """Liquid buffer ranking score: weighted within-category components."""
+    weights = cfg["basket"]["buffer"]["weights"]
+    values = scores.reindex(columns=[f"comp_{name}" for name in weights]).to_numpy(dtype=np.float64)
+    score, _ = _weighted_average(
+        values, np.array(list(map(float, weights.values()))), float(cfg["missing_data"]["pillar_all_null"])
+    )
+    return pd.Series(score, index=scores.index, name="buffer_score", dtype="float32")
 
 
 def _reason_lists(
@@ -484,129 +315,31 @@ def _reason_lists(
 def score_features(
     features: pd.DataFrame, cfg: Mapping[str, Any]
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """Score a prepared feature frame for all personas with broadcast NumPy maths."""
+    """Eight persona suitability scores per fund with broadcast NumPy maths.
+
+    suitability = 100 x weighted average of the within-category components, using each
+    persona's owner weights; a missing component is dropped and the rest renormalised.
+    The fund-card match score is the suitability capped by the persona-level gates.
+    """
     frame = features.copy().reset_index(drop=True)
     personas = list(cfg["personas"])
+    names = list(cfg["suitability_components"])
     n, p = len(frame), len(personas)
     neutral = float(cfg["missing_data"]["pillar_all_null"])
 
-    def matrix(columns: list[str]) -> np.ndarray:
-        return frame.reindex(columns=columns).apply(pd.to_numeric, errors="coerce").to_numpy(dtype=np.float64)
-
-    def numeric_series(primary: str, fallback: str | None = None, default: float = np.nan) -> pd.Series:
-        if primary in frame:
-            source = frame[primary]
-        elif fallback and fallback in frame:
-            source = frame[fallback]
-        else:
-            source = pd.Series(default, index=frame.index)
-        return pd.to_numeric(source, errors="coerce")
-
-    dp = numeric_series("DP").to_numpy(dtype=np.float64)[:, None]
-    dp_conf = numeric_series("dp_conf", default=1.0).fillna(0).to_numpy(dtype=np.float64)[:, None]
-    tau = np.array([float(cfg["personas"][code]["tau"]) for code in personas])[None, :]
-    k = float(cfg["features"]["downside_participation"]["k"])
-    dp_score = dp_conf / (1.0 + np.exp(np.clip(k * (dp - tau), -80, 80))) + (1.0 - dp_conf) * 0.5
-    dp_score[np.isnan(dp).repeat(p, axis=1)] = np.nan
-
-    recovery = numeric_series("recovery_ratio", "rec_score").to_numpy(dtype=np.float64)[:, None]
-    recovery = np.repeat(recovery, p, axis=1)
-    resilience_weights = cfg["pillar_features"]["resilience"]
-    res_values = np.stack((dp_score, recovery), axis=2)
-    res_weights = np.array([
-        float(resilience_weights["downside_participation"]),
-        float(resilience_weights["recovery_ratio"]),
+    components = suitability_components(frame, cfg)
+    values = components[[f"comp_{name}" for name in names]].to_numpy(dtype=np.float64)
+    weights = np.array([
+        [float(cfg["personas"][code]["suitability"].get(name, 0.0)) for name in names] for code in personas
     ])
-    present = ~np.isnan(res_values)
-    res_den = np.sum(present * res_weights, axis=2)
-    resilience = np.divide(
-        np.sum(np.nan_to_num(res_values, nan=0.0) * res_weights, axis=2),
-        res_den,
-        out=np.full((n, p), neutral), where=res_den != 0,
-    )
-    penalty = numeric_series("unrecovered_penalty", "pen", 0.0).fillna(0).to_numpy(dtype=np.float64)[:, None]
-    resilience = np.clip(resilience - penalty, 0, 1)
-    low_confidence = res_den == 0
+    present = ~np.isnan(values)
+    denominator = present.astype(np.float64) @ weights.T
+    numerator = np.nan_to_num(values, nan=0.0) @ weights.T
+    suitability = 100.0 * np.divide(numerator, denominator, out=np.full((n, p), neutral), where=denominator > 0)
+    low_confidence = ~present.all(axis=1)
 
-    consistency_values = matrix(["batting", "rank_stability"])
-    if "rank_stability" not in frame and "stability" in frame:
-        consistency_values[:, 1] = pd.to_numeric(frame["stability"], errors="coerce")
-    consistency, consistency_missing = _weighted_average(
-        consistency_values,
-        np.array(list(map(float, cfg["pillar_features"]["consistency"].values()))),
-        neutral,
-    )
-    consistency = np.repeat(consistency[:, None], p, axis=1)
-    low_confidence |= consistency_missing[:, None]
-
-    growth_columns = ["sip_3y", "alpha_3y", "rank_level", "return_1y", "rank_trend"]
-    growth_values = matrix(growth_columns)
-    growth = np.empty((n, p), dtype=np.float64)
-    growth_missing = np.empty((n, p), dtype=bool)
-    for index, code in enumerate(personas):
-        mix = cfg["growth_mixes"][cfg["personas"][code]["growth_mix"]]
-        growth[:, index], growth_missing[:, index] = _weighted_average(
-            growth_values, np.array([float(mix[column]) for column in growth_columns]), neutral
-        )
-    low_confidence |= growth_missing
-
-    stature_values = matrix(["aum", "track_record"])
-    stature, stature_missing = _weighted_average(
-        stature_values,
-        np.array(list(map(float, cfg["pillar_features"]["stature"].values()))),
-        neutral,
-    )
-    stature = np.repeat(stature[:, None], p, axis=1)
-    low_confidence |= stature_missing[:, None]
-    turnaround_raw = pd.to_numeric(frame.get("turnaround"), errors="coerce").to_numpy(dtype=np.float64)
-    turnaround_missing = np.isnan(turnaround_raw)
-    turnaround = np.repeat(np.where(turnaround_missing, neutral, turnaround_raw)[:, None], p, axis=1)
-    low_confidence |= turnaround_missing[:, None]
-
-    pillars = np.stack((resilience, consistency, growth, stature, turnaround), axis=2)
-    persona_weights = np.array([
-        [float(cfg["personas"][code]["weights"][pillar]) for pillar in PILLARS]
-        for code in personas
-    ])
-    fit = np.sum(pillars * persona_weights[None, :, :], axis=2)
     history = pd.to_numeric(frame["history_months"], errors="coerce").fillna(0).to_numpy(dtype=np.float64)[:, None]
-    history_confidence = np.minimum(
-        1.0, history / float(cfg["missing_data"]["history_full_confidence_months"])
-    )
-    fit = history_confidence * fit + (1.0 - history_confidence) * neutral
-
-    fund_personas = frame["fund_persona_code"].fillna("").astype(str)
-    default_affinity = float(cfg["fund_persona_affinity"]["default"])
-    affinity = np.column_stack([
-        fund_personas.map(cfg["fund_persona_affinity"].get(code, {})).fillna(default_affinity).to_numpy(dtype=float)
-        for code in personas
-    ])
     grades = pd.to_numeric(frame["grade"], errors="coerce").to_numpy(dtype=np.float64)[:, None]
-    ideals = np.array([float(cfg["personas"][code]["ideal_grade"]) for code in personas])[None, :]
-    composition = cfg["composition"]
-    style_fit = np.clip(
-        1.0 - np.abs(grades - ideals) / float(composition["style_grade_span"]), 0, 1
-    )
-    base = float(composition["score_scale"]) * (
-        float(composition["fit_weight"]) * fit
-        + float(composition["affinity_weight"]) * affinity
-        + float(composition["style_weight"]) * style_fit
-    )
-    display_anchors = np.array(cfg["calibration"]["anchors_display"], dtype=np.float64)
-    display = np.column_stack([
-        np.interp(
-            base[:, index],
-            np.array(
-                cfg["calibration"].get("per_persona_anchors_base", {}).get(
-                    code, cfg["calibration"]["default_anchors_base"]
-                ),
-                dtype=np.float64,
-            ),
-            display_anchors,
-        )
-        for index, code in enumerate(personas)
-    ])
-
     persona_gates = cfg["gates"]["persona_level"]
     willing = np.array([int(cfg["personas"][code]["willingness_grade"]) for code in personas])[None, :]
     grade_over = grades - willing
@@ -618,60 +351,42 @@ def score_features(
     access = np.array([bool(cfg["personas"][code]["complex_access"]) for code in personas])[None, :]
     complex_mask = frame["complex"].eq(True).to_numpy(dtype=bool)[:, None] & ~access
     complex_caps = np.where(complex_mask, int(persona_gates["complex_without_access_cap"]), 100)
-    history_mask = history < int(persona_gates["history_under_months"])
-    history_caps = np.where(history_mask, int(persona_gates["history_under_12m_cap"]), 100)
+    history_caps = np.where(
+        history < int(persona_gates["history_under_months"]), int(persona_gates["history_under_12m_cap"]), 100
+    )
     cap = np.minimum(np.minimum(grade_caps, complex_caps), history_caps)
-    capped_display = np.minimum(display, cap)
-    scores = np.floor(np.where(np.isfinite(capped_display), capped_display, 0) + 0.5 + 1e-9).astype(np.int16)
-    status_scored = frame["status"].eq("SCORED").to_numpy()[:, None]
+    scores = np.floor(np.minimum(suitability, cap) + 0.5 + 1e-9).astype(np.int16)
+    status_scored = frame["status"].eq("SCORED").to_numpy()
 
     gates = np.full((n, p), None, dtype=object)
-    gate_candidates = (
-        ("GRADE_OVER", grade_caps), ("COMPLEX", complex_caps), ("HISTORY", history_caps),
-    )
-    for gate_code, candidate in reversed(gate_candidates):
+    for gate_code, candidate in reversed((("GRADE_OVER", grade_caps), ("COMPLEX", complex_caps), ("HISTORY", history_caps))):
         gates[(candidate == cap) & (candidate < 100)] = gate_code
 
-    positive_codes = np.array([cfg["reasons"]["positive"][pillar]["code"] for pillar in PILLARS] + [cfg["reasons"]["positive"]["style"]["code"]])
+    positive_codes = np.array([cfg["reasons"]["positive"][name]["code"] for name in names])
+    negative_codes = np.array([cfg["reasons"]["negative"][name]["code"] for name in names])
     threshold = float(cfg["reasons"]["min_contribution"])
-    output = frame.copy()
+    centred = np.nan_to_num(values, nan=0.5) - 0.5
+    output = pd.concat([frame, components], axis=1)
     audit_parts: list[pd.DataFrame] = []
     for index, code in enumerate(personas):
-        contribution = np.column_stack([
-            float(composition["fit_weight"]) * persona_weights[index] * (pillars[:, index, :] - 0.5),
-            float(composition["style_weight"]) * (style_fit[:, index] - 0.5),
-        ])
-        # Style is row-dependent for negative reasons, so substitute it after ranking.
-        neg_labels = np.tile(positive_codes, (n, 1)).astype(object)
-        neg_labels[:, :5] = np.array([cfg["reasons"]["negative"][pillar]["code"] for pillar in PILLARS])
-        neg_labels[:, 5] = np.where(
-            grades[:, 0] < ideals[0, index],
-            cfg["reasons"]["negative"]["style_tame"]["code"],
-            cfg["reasons"]["negative"]["style_wild"]["code"],
-        )
-        pos_labels = np.tile(positive_codes, (n, 1))
-        output[f"score_{code}"] = pd.array(np.where(status_scored[:, 0], scores[:, index], np.nan), dtype="Int8")
-        output[f"gate_{code}"] = np.where(status_scored[:, 0], gates[:, index], None)
-        output[f"pos_reasons_{code}"] = _reason_lists(contribution, pos_labels, True, threshold)
-        output[f"neg_reasons_{code}"] = _reason_lists(contribution, neg_labels, False, threshold)
+        contribution = weights[index] * centred
+        output[f"suit_{code}"] = np.where(status_scored, suitability[:, index], np.nan).astype("float32")
+        output[f"score_{code}"] = pd.array(np.where(status_scored, scores[:, index], np.nan), dtype="Int8")
+        output[f"gate_{code}"] = np.where(status_scored, gates[:, index], None)
+        output[f"pos_reasons_{code}"] = _reason_lists(contribution, positive_codes, True, threshold)
+        output[f"neg_reasons_{code}"] = _reason_lists(contribution, negative_codes, False, threshold)
         audit_parts.append(pd.DataFrame({
             "scheme_code": output["scheme_code"], "persona_code": code,
-            "dp_score": dp_score[:, index], "resilience": resilience[:, index],
-            "consistency": consistency[:, index], "growth": growth[:, index],
-            "stature": stature[:, index], "turnaround_pillar": turnaround[:, index],
-            "fit": fit[:, index], "affinity": affinity[:, index],
-            "style_fit": style_fit[:, index], "base": base[:, index],
-            "display": display[:, index], "cap": cap[:, index],
-            "score": np.where(status_scored[:, 0], scores[:, index], np.nan),
-            "persona_gate": gates[:, index], "low_confidence": low_confidence[:, index],
+            **{f"comp_{name}": values[:, j] for j, name in enumerate(names)},
+            "suitability": suitability[:, index], "cap": cap[:, index],
+            "score": np.where(status_scored, scores[:, index], np.nan),
+            "persona_gate": gates[:, index], "low_confidence": low_confidence,
             "history_months": history[:, 0], "status": frame["status"],
         }))
 
-    output["low_confidence"] = low_confidence.any(axis=1)
+    output["low_confidence"] = low_confidence
     output["aum_pct"] = pd.to_numeric(output.get("aum"), errors="coerce").astype("float32")
     output["sip_3y_pct"] = pd.to_numeric(output.get("sip_3y"), errors="coerce").astype("float32")
-    for column in ("rank_level", "rank_trend", "turnaround", "track_record_years"):
-        output[column] = pd.to_numeric(output.get(column), errors="coerce").astype("float32")
     return output, pd.concat(audit_parts, ignore_index=True)
 
 
@@ -682,7 +397,7 @@ def _inherit_primary_scores(scores: pd.DataFrame, cfg: Mapping[str, Any]) -> pd.
         return result
     columns = [
         column for column in result.columns
-        if column.startswith(("score_", "gate_", "pos_reasons_", "neg_reasons_"))
+        if column.startswith(("score_", "suit_", "gate_", "pos_reasons_", "neg_reasons_"))
     ] + ["low_confidence"]
     primary = result.set_index(result["scheme_code"].astype(str))[columns]
     mapped = primary.reindex(result.loc[inheriting, "primary_scheme_code"].astype(str)).set_axis(result.index[inheriting])
@@ -691,51 +406,26 @@ def _inherit_primary_scores(scores: pd.DataFrame, cfg: Mapping[str, Any]) -> pd.
     return result
 
 
-def score_documents(
-    documents: list[dict[str, Any]], as_of_date: str, cfg: Mapping[str, Any]
+def score_frames(
+    schemes: pd.DataFrame,
+    events: pd.DataFrame,
+    snapshots: pd.DataFrame,
+    as_of_date: str,
+    cfg: Mapping[str, Any],
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    schemes, events, snapshots = flatten_documents(documents, cfg)
+    """Persona suitability scores, buffer score and audit rows for an already-screened scheme frame."""
     features = build_feature_frame(schemes, events, snapshots, as_of_date, cfg)
     scores, audit = score_features(features, cfg)
+    scores["buffer_score"] = buffer_scores(scores, cfg)
     scores = _inherit_primary_scores(scores, cfg)
     meta = cfg["meta"]
     for frame in (scores, audit):
         frame["config_version"] = meta["config_version"]
         frame["method_version"] = meta["method_version"]
-        frame["calibration_version"] = meta["calibration_version"]
         frame["as_of_date"] = str(as_of_date)
     return scores.sort_values("scheme_code", kind="mergesort").reset_index(drop=True), audit.sort_values(
         ["scheme_code", "persona_code"], kind="mergesort"
     ).reset_index(drop=True)
-
-
-def calibration_proposal(audit: pd.DataFrame, cfg: Mapping[str, Any]) -> dict[str, Any]:
-    eligible = audit.loc[
-        audit["status"].eq("SCORED")
-        & audit["history_months"].ge(float(cfg["missing_data"]["history_full_confidence_months"]))
-    ]
-    quantiles = [0.0, 0.10, 0.50, 0.85, 0.97, 1.0]
-    display = np.asarray(cfg["calibration"]["anchors_display"], dtype=float)
-    anchors: dict[str, list[float]] = {}
-    mixes: dict[str, dict[str, float]] = {}
-    for code in cfg["personas"]:
-        base = eligible.loc[eligible["persona_code"].eq(code), "base"].dropna().to_numpy()
-        values = np.quantile(base, quantiles).tolist()
-        if any(right <= left for left, right in zip(values, values[1:])):
-            raise ValueError(f"calibration anchors are not strictly increasing for {code}")
-        displayed = np.interp(base, values, display)
-        if float(np.mean(displayed >= 85)) > float(cfg["calibration"]["max_great_share"]):
-            raise ValueError(f"calibration Great share exceeds guard for {code}")
-        anchors[code] = [round(float(value), 6) for value in values]
-        mixes[code] = {
-            band["code"]: round(float(np.mean(displayed >= int(band["min"]))), 6)
-            for band in cfg["bands"]
-        }
-    return {
-        "calibration_version": date.today().isoformat(),
-        "per_persona_anchors_base": anchors,
-        "cumulative_band_shares": mixes,
-    }
 
 
 def _parquet_bytes(frame: pd.DataFrame) -> bytes:
@@ -765,63 +455,84 @@ def _write_bytes(destination: str, relative: str, content: bytes) -> None:
     Path(temp_name).replace(target)
 
 
-def run(args: argparse.Namespace) -> None:
-    cfg = apply_calibration(load_config(args.config), args.calibration)
-    documents = load_documents(args.input)
-    LOGGER.info("loaded %d scheme documents", len(documents))
-    if any(
-        ("meta" in document and "category" not in document)
-        or ("category" in document and "returns_pct" in document)
-        for document in documents
-    ):
-        LOGGER.info("adapting live fund-card documents with %s", args.scheme_master)
-        documents = adapt_source_documents(documents, load_scheme_master(args.scheme_master), cfg)
-    scores, audit = score_documents(documents, args.as_of, cfg)
-    counts = scores["status"].value_counts(dropna=False).to_dict()
-    LOGGER.info("status counts: %s", counts)
+SCREENING_COLUMNS = [
+    "scheme_code", "name", "amc", "goc_short_code", "rank_now", "rank_total_now",
+    "nse_purchase_allowed", "nse_sip_allowed", "screen_reason", "shortlisted",
+]
 
-    if args.mode == "calibrate":
-        proposal = yaml.safe_dump(calibration_proposal(audit, cfg), sort_keys=False).encode("utf-8")
-        _write_bytes(args.output, "calibration_proposal.yaml", proposal)
-        return
 
-    output_columns = [
-        "scheme_code", "primary_scheme_code", "amc_code", "goc_short_code", "grade", "role",
-        "complex", "auto_recommend", "history_months", "status",
-    ] + [column for column in scores.columns if column.startswith(("score_", "gate_", "pos_reasons_", "neg_reasons_"))] + [
-        "aum_pct", "sip_3y_pct", "rank_level", "rank_trend", "turnaround", "track_record_years",
-        "min_sip_amount", "holdings", "low_confidence", "config_version", "method_version",
-        "calibration_version", "as_of_date",
+def _output_columns(scores: pd.DataFrame) -> list[str]:
+    def starting(*prefixes: str) -> list[str]:
+        return [column for column in scores.columns if column.startswith(prefixes)]
+
+    return [
+        "scheme_code", "name", "amc_code", "goc_short_code", "slots", "grade", "role", "complex",
+        "history_months", "status",
+        *starting("score_", "suit_", "gate_", "pos_reasons_", "neg_reasons_"),
+        *starting("comp_"), "rank_momentum_raw",
+        "aum_pct", "sip_3y_pct", "rank_latest", "rank_total_latest", "rank_now_pct", "momentum_pass",
+        "buffer_score", "min_sip_amount", "sip_allowed", "holdings", "low_confidence",
+        "config_version", "method_version", "as_of_date",
     ]
-    output = scores.reindex(columns=output_columns)
-    scores_bytes = _parquet_bytes(output)
-    audit_bytes = _parquet_bytes(audit)
-    json_bytes = json.dumps({
-        "schema_version": "1.0",
-        "as_of_date": str(args.as_of),
+
+
+def _payload(output: pd.DataFrame, as_of: str, cfg: Mapping[str, Any]) -> bytes:
+    """Node-readable JSON: shortlisted rows, fixed listing positions and the user-adjustment rules."""
+    return json.dumps({
+        "schema_version": "2.0",
+        "as_of_date": str(as_of),
         "config_version": cfg["meta"]["config_version"],
         "method_version": cfg["meta"]["method_version"],
-        "calibration_version": cfg["meta"]["calibration_version"],
         "user_adjustment": {
             **cfg["user_adjustment"],
             "gates": cfg["gates"]["user_level"],
             "bands": cfg["bands"],
             "recommend_floor": cfg["recommend_floor"],
             "basket_min_score": cfg["basket_min_score"],
-            "amount_bands": cfg["amount_bands"],
+            "momentum_filter": cfg["momentum_filter"],
+            "basket": cfg["basket"],
             "reasons": cfg["reasons"],
             "willingness_by_persona": {
                 code: persona["willingness_grade"] for code, persona in cfg["personas"].items()
             },
         },
-        "rows": json.loads(output.to_json(orient="records")),
+        # Fixed listing positions: persona -> amount band -> best fund per slot category.
+        "positions": persona_positions(output, cfg),
+        "rows": json.loads(output.to_json(orient="records", date_format="iso")),
     }, separators=(",", ":"), sort_keys=True).encode("utf-8")
-    dated = f"personality_match/as_of={args.as_of}"
-    _write_bytes(args.output, f"{dated}/scores.parquet", scores_bytes)
-    _write_bytes(args.output, f"{dated}/audit.parquet", audit_bytes)
-    _write_bytes(args.output, f"{dated}/scores.json", json_bytes)
-    _write_bytes(args.output, "personality_match/latest/scores.parquet", scores_bytes)
-    _write_bytes(args.output, "personality_match/latest/scores.json", json_bytes)
+
+
+def run(args: argparse.Namespace) -> None:
+    cfg = load_config(args.config)
+    sources = load_sources(cfg, dict(item.split("=", 1) for item in args.source or []))
+    screened = screen(sources["fund_cards"], cfg)
+    scores, audit = score_frames(*build_inputs(screened, sources, args.as_of, cfg), args.as_of, cfg)
+    LOGGER.info("persona-scored %d shortlisted schemes: %s", len(scores), scores["status"].value_counts().to_dict())
+    LOGGER.info(
+        "shortlist coverage: AUM %d, fund age %d, 36m batting %d, stress events %d, SIP allowed %d",
+        int(scores["aum"].notna().sum()), int(scores["history_months"].notna().sum()),
+        int(pd.to_numeric(scores["batting_36_window"], errors="coerce").gt(0).sum()),
+        int(scores["dp_events"].fillna(0).gt(0).sum()), int(scores["sip_allowed"].sum()),
+    )
+
+    outputs = cfg["outputs"]
+
+    # Basket slots each fund can fill; listings only show funds from the persona's slots.
+    scores["slots"] = eligible_slots(scores, cfg)
+    output = scores.reindex(columns=_output_columns(scores))
+    files = {
+        "shortlisted_schemes.parquet": _parquet_bytes(output),
+        "shortlisted_schemes.json": _payload(output, args.as_of, cfg),
+        "screening.parquet": _parquet_bytes(screened.reindex(columns=SCREENING_COLUMNS).assign(as_of_date=str(args.as_of))),
+    }
+    for folder in (f"{outputs['prefix']}/as_of={args.as_of}", f"{outputs['prefix']}/latest"):
+        for name, content in files.items():
+            _write_bytes(args.output, f"{folder}/{name}", content)
+    _write_bytes(args.output, f"{outputs['prefix']}/as_of={args.as_of}/audit.parquet", _parquet_bytes(audit))
+    legacy = outputs.get("legacy_scores_prefix")
+    if legacy:  # the upload service still reads personality_match/latest/scores.json
+        _write_bytes(args.output, f"{legacy}/latest/scores.json", files["shortlisted_schemes.json"])
+        _write_bytes(args.output, f"{legacy}/latest/scores.parquet", files["shortlisted_schemes.parquet"])
 
 
 def parser() -> argparse.ArgumentParser:
@@ -831,30 +542,20 @@ def parser() -> argparse.ArgumentParser:
         default=os.getenv("PM_AS_OF", date.today().isoformat()),
         help="scoring date in YYYY-MM-DD format; defaults to today's UTC job date",
     )
-    result.add_argument("--mode", choices=("score", "calibrate"), default="score")
-    result.add_argument("--input", default=os.getenv("PM_INPUT_URI"), help="JSON file/directory or gs:// prefix")
     result.add_argument(
-        "--scheme-master",
-        default=os.getenv("PM_SCHEME_MASTER_URI", "gs://mf-data-public/Scheme Master.csv"),
-        help="Scheme Master CSV used to enrich the live fund-card JSON shape",
+        "--source", action="append", metavar="NAME=URI",
+        help="override a configured source, e.g. fund_cards=./fund_cards.parquet (repeatable); "
+             "env PM_SRC_<NAME> works too",
     )
     result.add_argument(
         "--output",
-        default=(f"gs://{os.getenv('PM_OUTPUT_BUCKET', 'mf-data-public')}"),
-        help="local output directory or gs:// prefix",
+        default=f"gs://{os.getenv('PM_OUTPUT_BUCKET', 'mf-data-public')}",
+        help="local output directory or gs:// bucket/prefix",
     )
     result.add_argument("--config", default=os.getenv("PM_CONFIG_URI", str(DEFAULT_CONFIG)))
-    result.add_argument(
-        "--calibration",
-        default=os.getenv("PM_CALIBRATION_URI", str(DEFAULT_LIVE_CALIBRATION)),
-        help="persona calibration override generated from the live universe",
-    )
     return result
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"), format="%(levelname)s %(message)s")
-    arguments = parser().parse_args()
-    if not arguments.input:
-        parser().error("--input or PM_INPUT_URI is required")
-    run(arguments)
+    run(parser().parse_args())

@@ -4,6 +4,8 @@ import {
     adjustEngineMatch,
     buildRankedCatalogue,
     buildUserCapacityContext,
+    fitsPersonaBasket,
+    positionsFor,
     parseSchemeMaster,
     RecommendationError,
     resolveUserPersona,
@@ -297,4 +299,57 @@ test("personalized catalogue uses adjusted scores and removes low-fit funds", ()
 
     assert.deepEqual(result.cards.map((card) => card.scheme_code), ["100002", "100001"]);
     assert.deepEqual(result.cards.map((card) => card.personality_match.score), [73, 54]);
+});
+
+test("listings keep only fund types from the persona's basket slots", () => {
+    const rules = { slots: new Set(["FOCUSED", "MULTI", "SMALL", "SECTORAL"]), minAgeMonths: 18 };
+    const row = (slots, extra = {}) => ({ slots, momentum_pass: true, history_months: 60, ...extra });
+
+    assert.equal(fitsPersonaBasket(row(["MULTI"]), rules), true);
+    assert.equal(fitsPersonaBasket(row([]), rules), false, "arbitrage fills no slot");
+    assert.equal(fitsPersonaBasket(row(["LARGE"]), rules), false, "not a Bold Pioneer slot");
+    assert.equal(fitsPersonaBasket(row(["SMALL"], { momentum_pass: false }), rules), false);
+    assert.equal(fitsPersonaBasket(row(["SMALL"], { history_months: 12 }), rules), false);
+    assert.equal(fitsPersonaBasket({ status: "SCORED" }, rules), true, "older score files without slots");
+    assert.equal(fitsPersonaBasket(row([]), null), true, "no basket rules published");
+});
+
+test("listing shows the engine's fixed positions, best of each category first", () => {
+    const cards = [100001, 100002, 100003].map((code) => sourceCard(code, { "Noble Diplomat": 80 }));
+    const scoreRows = cards.map((card) => ({
+        scheme_code: String(card.scheme_code), status: "SCORED", grade: 5, score_HHL: 80, score_LLL: 80,
+    }));
+    const basket = {
+        amount_bands: [
+            { code: "A1", min: 1000, max: 4999, funds: 2 },
+            { code: "A3", min: 10000, max: 19999, funds: 5 },
+        ],
+    };
+    const positions = {
+        HHL: {
+            A1: [{ position: 1, slot: "FLEXI", label: "Flexi Cap", scheme_code: "100003", alternates: [] }],
+            A3: [
+                { position: 1, slot: "FLEXI", label: "Flexi Cap", scheme_code: "100003", alternates: [] },
+                { position: 2, slot: "LARGE", label: "Large Cap", scheme_code: "100002", alternates: ["100001"] },
+            ],
+        },
+    };
+    const build = (monthly_amount) => buildRankedCatalogue({
+        cards, schemeMasterCsv, scoreRows,
+        scoreMetadata: { userAdjustment: { ...userAdjustment, basket }, positions },
+        personaCode: "HHL",
+        userProfile: { persona_code: "HHL", age: 30, living: "family", monthly_amount },
+    });
+
+    const result = build(15000);
+    assert.deepEqual(result.cards.map((card) => [card.position.label, card.scheme_code]), [
+        ["Flexi Cap", "100003"], ["Large Cap", "100002"],
+    ]);
+    assert.deepEqual(result.cards[1].alternates.map((alt) => alt.scheme_code), ["100001"]);
+    // Switching to the alternate keeps the position and offers the original back.
+    assert.equal(result.cardFor("100001").position.label, "Large Cap");
+    assert.deepEqual(result.cardFor("100001").alternates.map((alt) => alt.scheme_code), ["100002"]);
+
+    assert.equal(build(2000).cards.length, 1, "smaller SIP, fewer positions");
+    assert.equal(positionsFor(positions, basket, "HHL", undefined).length, 2, "unknown amount: largest basket");
 });
