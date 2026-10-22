@@ -121,7 +121,6 @@ outputs:
 peer_groups:
   percentile_group: category
   min_peers: 8
-  reference_fall_group: [EQS-LRG]
 
 # Guardrail: keep only schemes in the top half of their category by the latest
 # month's rank momentum (fund cards rank on rolling 6-month return, rank 1 = best).
@@ -132,39 +131,45 @@ momentum_filter:
   skip_categories_without_ranks: true
 
 features:
-  downside_participation: { k: 6, min_events_full_confidence: 3, tau: 1.0 }
-  recovery_ratio: { intercept: 1.5 }
-  unrecovered_penalty: { max_penalty: 0.20 }
-  batting_average: { prior_k: 6, prior_mean: 0.5, score_floor: 0.35, score_range: 0.40 }
-  rank_stability: { max_mean_move: 0.15 }
-  # Owner formula (2026-10-10) on the last 3 monthly ranks by 6-month return (rank 1 = best):
-  #   level 50% x (1 - average rank / total) + change 50% x (oldest rank - latest rank) / total
-  # A climb adds, a fall subtracts. Example 11 -> 4 -> 3 of 20: 0.5 x (1 - 6/20) + 0.5 x 8/20 = 0.55
-  rank_momentum: { observations: 3, level_weight: 0.5, change_weight: 0.5 }
+  # Owner formula (2026-10-16) on the monthly ranks by 6-month return (rank 1 = best):
+  #   65% x (total - latest rank) / total + 35% x max(oldest - latest rank, 0) / total
+  # over the last 3 ranks; a fall in rank adds nothing. Example: now 3 of 20, three months
+  # ago 11 of 20 -> 0.65 x 17/20 + 0.35 x 8/20 = 0.5525 + 0.14 = 0.6925.
+  rank_momentum: { observations: 3, level_weight: 0.65, change_weight: 0.35 }
+
+# Owner resilience (2026-10-16): within each GOC short code, every stress event ranks funds
+# on fall (smallest = best) and recovery (fastest = best), each scored (n - rank + 1) / n.
+# Fall and recovery count equally (owner did not split them); events are weighted below.
+resilience:
+  fall_weight: 0.5
+  recovery_weight: 0.5
+  event_weights:
+    IRAN_2026: 0.30     # US and Israel Attack on Iran
+    FII_2021: 0.25      # Massive FII Selloff
+    COVID_2020: 0.25    # Covid-19 Crisis & Lockdown
+    ILFS_2018: 0.10     # IL&FS Liquidity Crisis
+    DEMO_2016: 0.05     # Demonetization in India
+    YUAN_2015: 0.05     # Chinese Yuan Devaluation
 
 percentile_method:
   formula: "(average_rank - 0.5) / n"
-  population: shortlisted schemes in the same GOC short code with a non-null value
+  population: shortlisted schemes in the same GOC short code with a non-null value (AUM and age)
 
-pillar_features:
-  resilience: { downside_participation: 0.60, recovery_ratio: 0.40 }
-  consistency: { batting_average: 0.60, rank_stability: 0.40 }
 
 missing_data:
   feature_null: drop_and_renormalise
   pillar_all_null: 0.5
   not_applicable_events: excluded
 
-# Persona suitability (owner, 2026-10-10). Every shortlisted fund gets 8 scores, one per
-# persona: 100 x sum(weight x component), each component a 0-1 percentile within the
-# fund's own GOC short code. A missing component (e.g. AUM for AMCs absent from the AUM
-# table) is dropped and the other weights renormalised. The same score picks the fund
-# for each basket slot and is the match % shown on fund cards.
-#   consistency   = batting average (60%) + rank stability (40%)
-#   rank_momentum = owner formula above
-#   resilience    = smaller falls in past crashes (60%) + faster recovery (40%)
-#   aum           = latest AUM
-#   age           = months since launch
+# Persona suitability (owner, 2026-10-10; components recalculated 2026-10-16). Every
+# shortlisted fund gets 8 scores, one per persona: 100 x sum(weight x component), each
+# component 0-1. A missing component is dropped and the other weights renormalised. The
+# same score picks the fund for each basket slot and is the match % shown on fund cards.
+#   consistency   = "Score 36M (%)": months beating the category / months counted (36M)
+#   rank_momentum = owner formula under features.rank_momentum
+#   resilience    = owner event ranking under resilience
+#   aum           = latest AUM, percentile within the GOC short code
+#   age           = months since launch, percentile within the GOC short code
 suitability_components: [consistency, rank_momentum, resilience, aum, age]
 
 personas:

@@ -7,12 +7,13 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from pm_batch import _snapshot_features, score_features
+from pm_batch import _snapshot_features, event_resilience, score_features
 from pm_basket import basket_plan
 from pm_config import load_config
 from pm_lookup import capacity_context, rank_funds, user_match
 
 PERSONAS = ["LLL", "LHL", "HLL", "HHL", "LHH", "LLH", "HLH", "HHH"]
+COMPONENTS = ["consistency", "rank_momentum", "resilience", "aum", "age"]
 
 
 @pytest.fixture(scope="module")
@@ -20,97 +21,125 @@ def cfg():
     return load_config()
 
 
-def feature_row(code, category, *, batting, stability, dp, recovery, momentum, aum, history, grade=5):
+def feature_row(code, category, *, consistency, momentum, resilience, aum, history, grade=5):
     return {
         "scheme_code": code, "goc_short_code": category, "status": "SCORED", "grade": grade, "complex": False,
-        "history_months": history, "DP": dp, "dp_conf": 1.0, "recovery_ratio": recovery,
-        "unrecovered_penalty": 0.0, "batting": batting, "rank_stability": stability,
-        "rank_momentum_raw": momentum, "aum_log_raw": aum,
+        "history_months": history, "consistency_36m": consistency, "rank_momentum_raw": momentum,
+        "resilience_score": resilience, "aum_log_raw": aum,
     }
+
+
+def expected_score(cfg, persona, components):
+    weights = cfg["personas"][persona]["suitability"]
+    return 100 * sum(float(weights.get(name, 0)) * value for name, value in zip(COMPONENTS, components))
 
 
 @pytest.fixture(scope="module")
 def scored(cfg):
-    # Flexi: F1 best on every component, F2 middle, F3 worst -> percentiles 5/6, 1/2, 1/6.
-    # Multi: G1 better only on rank momentum; G2 better on everything else -> 3/4 vs 1/4.
-    # Large: L1 alone in its category -> every component 0.5.
+    # Flexi: three funds, so AUM / age percentiles are 5/6, 1/2, 1/6.
+    # Multi: G1 strong only on rank momentum, G2 strong on everything else.
+    # Large: L1 alone in its category -> AUM and age percentiles 0.5.
     features = pd.DataFrame([
-        feature_row("F1", "EQS-FLX", batting=0.9, stability=0.9, dp=0.6, recovery=0.9, momentum=0.6, aum=10, history=120),
-        feature_row("F2", "EQS-FLX", batting=0.6, stability=0.6, dp=1.0, recovery=0.5, momentum=0.4, aum=9, history=60),
-        feature_row("F3", "EQS-FLX", batting=0.3, stability=0.3, dp=1.4, recovery=0.2, momentum=0.2, aum=8, history=30),
-        feature_row("G1", "EQS-MUC", batting=0.3, stability=0.3, dp=1.4, recovery=0.2, momentum=0.6, aum=8, history=30),
-        feature_row("G2", "EQS-MUC", batting=0.9, stability=0.9, dp=0.6, recovery=0.9, momentum=0.2, aum=10, history=120),
-        feature_row("L1", "EQS-LRG", batting=0.5, stability=0.5, dp=1.0, recovery=0.5, momentum=0.4, aum=9, history=60),
+        feature_row("F1", "EQS-FLX", consistency=0.8, momentum=0.6, resilience=0.9, aum=10, history=120),
+        feature_row("F2", "EQS-FLX", consistency=0.5, momentum=0.4, resilience=0.5, aum=9, history=60),
+        feature_row("F3", "EQS-FLX", consistency=0.2, momentum=0.2, resilience=0.1, aum=8, history=30),
+        feature_row("G1", "EQS-MUC", consistency=0.3, momentum=0.8, resilience=0.3, aum=8, history=30),
+        feature_row("G2", "EQS-MUC", consistency=0.8, momentum=0.2, resilience=0.8, aum=10, history=120),
+        feature_row("L1", "EQS-LRG", consistency=0.5, momentum=0.5, resilience=0.5, aum=9, history=60),
     ])
     return score_features(features, cfg)
 
 
-def test_owner_rank_momentum_example(cfg):
-    # Owner's example: last three 6M ranks 11 -> 4 -> 3 of 20.
-    # 50% x (1 - average 6 / 20) + 50% x climb (11 - 3) / 20 = 0.35 + 0.20 = 0.55
+def test_owner_rank_momentum_formula(cfg):
+    # Now 3 of 20, three months ago 11 of 20: 65% x (20 - 3)/20 + 35% x (11 - 3)/20 = 0.6925
     snapshots = pd.DataFrame({
         "scheme_code": ["A"] * 3, "date": pd.to_datetime(["2026-07-31", "2026-08-31", "2026-09-30"]),
         "rank": [11, 4, 3], "total": [20, 20, 20],
     })
-    assert _snapshot_features(snapshots, cfg).at["A", "rank_momentum_raw"] == pytest.approx(0.55)
-    slipping = snapshots.assign(rank=[3, 4, 11])          # a fall counts against the fund
-    assert _snapshot_features(slipping, cfg).at["A", "rank_momentum_raw"] == pytest.approx(0.35 - 0.20)
+    assert _snapshot_features(snapshots, cfg).at["A", "rank_momentum_raw"] == pytest.approx(0.65 * 17 / 20 + 0.35 * 8 / 20)
+    slipping = snapshots.assign(rank=[3, 4, 11])          # a fall in rank adds nothing
+    assert _snapshot_features(slipping, cfg).at["A", "rank_momentum_raw"] == pytest.approx(0.65 * 9 / 20)
 
 
-def test_components_are_percentiles_within_each_category(scored):
+def test_owner_event_resilience(cfg):
+    frame = pd.DataFrame({
+        "scheme_code": ["A", "B", "C", "D"], "goc_short_code": ["EQS-FLX"] * 3 + ["EQS-LRG"],
+        "status": ["SCORED"] * 4,
+    })
+    events = pd.DataFrame([
+        # Iran (30%): falls 5 / 10 / 15; recoveries 1 month, 2 months, still recovering
+        ("A", "IRAN_2026", "recovered", 5.0, 1.0, 100.0), ("B", "IRAN_2026", "recovered", 10.0, 2.0, 100.0),
+        ("C", "IRAN_2026", "recovering", 15.0, None, 50.0), ("D", "IRAN_2026", "recovered", 9.0, 1.0, 100.0),
+        # FII (25%): C launched later; B fell less, A recovered faster
+        ("A", "FII_2021", "recovered", 8.0, 1.0, 100.0), ("B", "FII_2021", "recovered", 4.0, 3.0, 100.0),
+        ("C", "FII_2021", "not_applicable", None, None, None),
+    ], columns=["scheme_code", "event_code", "status", "fall_pct", "recovery_months", "recovered_pct"])
+    result = event_resilience(frame, events, cfg)["resilience_score"]
+    iran = {"A": 1.0, "B": 2 / 3, "C": 1 / 3}                 # 0.5 x fall + 0.5 x recovery, (n - rank + 1) / n
+    fii = {"A": 0.5 * 0.5 + 0.5 * 1.0, "B": 0.5 * 1.0 + 0.5 * 0.5}
+    assert result["A"] == pytest.approx((0.30 * iran["A"] + 0.25 * fii["A"]) / 0.55)
+    assert result["B"] == pytest.approx((0.30 * iran["B"] + 0.25 * fii["B"]) / 0.55)
+    assert result["C"] == pytest.approx(iran["C"])            # missing event skipped, weights renormalised
+    assert result["D"] == pytest.approx(0.5)                  # alone in its category
+
+
+def test_components_use_owner_scores_and_category_percentiles(scored):
     scores, _ = scored
     rows = scores.set_index("scheme_code")
-    components = ["comp_consistency", "comp_rank_momentum", "comp_resilience", "comp_aum", "comp_age"]
-    assert rows.loc["F1", components].tolist() == pytest.approx([5 / 6] * 5)
-    assert rows.loc["F3", components].tolist() == pytest.approx([1 / 6] * 5)
-    assert rows.loc["L1", components].tolist() == pytest.approx([0.5] * 5)    # alone in its category
-    assert rows.loc["G1", components].tolist() == pytest.approx([0.25, 0.75, 0.25, 0.25, 0.25])
+    components = [f"comp_{name}" for name in COMPONENTS]
+    assert rows.loc["F1", components].tolist() == pytest.approx([0.8, 0.6, 0.9, 5 / 6, 5 / 6])
+    assert rows.loc["F3", components].tolist() == pytest.approx([0.2, 0.2, 0.1, 1 / 6, 1 / 6])
+    assert rows.loc["L1", components].tolist() == pytest.approx([0.5] * 5)
 
 
-def test_eight_suitability_scores_use_the_owner_weights(scored):
+def test_eight_suitability_scores_use_the_owner_weights(scored, cfg):
     scores, _ = scored
     rows = scores.set_index("scheme_code")
-    assert [int(rows.at["F1", f"score_{code}"]) for code in PERSONAS] == [83] * 8
-    assert [int(rows.at["F3", f"score_{code}"]) for code in PERSONAS] == [17] * 8
+    for code in PERSONAS:
+        assert rows.at["F1", f"suit_{code}"] == pytest.approx(expected_score(cfg, code, [0.8, 0.6, 0.9, 5 / 6, 5 / 6]), abs=1e-4)
     # G1 wins only on momentum: Enigmatic Sage (40% momentum) rates it above Supreme Ruler (20%).
-    assert rows.at["G1", "suit_LLH"] == pytest.approx(100 * (0.2 * 0.25 + 0.4 * 0.75 + 0.2 * 0.25 + 0.1 * 0.25 + 0.1 * 0.25))
-    assert rows.at["G1", "suit_HLH"] == pytest.approx(100 * (0.4 * 0.25 + 0.2 * 0.75 + 0.2 * 0.25 + 0.2 * 0.25))
-    assert int(rows.at["G1", "score_LLH"]) == 45 and int(rows.at["G1", "score_HLH"]) == 35
+    assert int(rows.at["G1", "score_LLH"]) == 49 and int(rows.at["G1", "score_HLH"]) == 39
 
 
 def test_missing_component_is_dropped_and_reweighted(cfg):
     features = pd.DataFrame([
-        feature_row("A", "EQS-FLX", batting=0.9, stability=0.9, dp=0.6, recovery=0.9, momentum=0.6, aum=np.nan, history=120),
-        feature_row("B", "EQS-FLX", batting=0.3, stability=0.3, dp=1.4, recovery=0.2, momentum=0.2, aum=8, history=30),
+        feature_row("A", "EQS-FLX", consistency=0.6, momentum=0.6, resilience=np.nan, aum=10, history=120),
+        feature_row("B", "EQS-FLX", consistency=0.6, momentum=0.6, resilience=0.6, aum=8, history=30),
     ])
     scores, _ = score_features(features, cfg)
     a = scores.set_index("scheme_code").loc["A"]
-    assert np.isnan(a["comp_aum"]) and bool(a["low_confidence"])
-    assert int(a["score_LLL"]) == 75                    # every remaining component is 0.75
+    assert np.isnan(a["comp_resilience"]) and bool(a["low_confidence"])
+    weights = cfg["personas"]["LLL"]["suitability"]
+    kept = {"consistency": 0.6, "rank_momentum": 0.6, "aum": 0.75, "age": 0.75}
+    assert a["suit_LLL"] == pytest.approx(
+        100 * sum(float(weights[k]) * v for k, v in kept.items()) / sum(float(weights[k]) for k in kept), abs=1e-4
+    )
 
 
 def test_reasons_follow_the_weighted_components(scored):
     scores, _ = scored
     rows = scores.set_index("scheme_code")
-    assert rows.at["F1", "pos_reasons_LLL"] == ["STEADY_BEATS", "SMALLER_FALLS"]
-    assert rows.at["F3", "neg_reasons_LLL"] == ["PATCHY", "BIGGER_FALLS"]
+    assert rows.at["F1", "pos_reasons_LLL"] == ["SMALLER_FALLS", "STEADY_BEATS"]
+    assert rows.at["F3", "neg_reasons_LLL"] == ["BIGGER_FALLS", "PATCHY"]
     assert rows.at["G1", "pos_reasons_LLH"] == ["STRONG_CLIMB"]
 
 
 @pytest.mark.parametrize(
-    "profile,expected_context",
+    "profile,expected_context,beta",
     [
-        ({"age": 24, "living": "family", "persona_code": "HHH"}, (3, 4, 7)),
-        ({"age": 62, "living": "renting", "persona_code": "HHH", "health_insurance": False}, (-2, 1, 5)),
-        ({"age": 42, "living": "own_emi", "persona_code": "HHL"}, (0, 2, 6)),
+        ({"age": 24, "living": "family", "persona_code": "HHH"}, (3, 4, 7), 0.0),
+        ({"age": 62, "living": "renting", "persona_code": "HHH", "health_insurance": False}, (-2, 1, 5), 0.55),
+        ({"age": 42, "living": "own_emi", "persona_code": "HHL"}, (0, 2, 6), 0.35),
     ],
 )
-def test_user_capacity_context_and_match(scored, cfg, profile, expected_context):
+def test_user_capacity_context_and_match(scored, cfg, profile, expected_context, beta):
     scores, _ = scored
     context = capacity_context(profile, cfg)
     assert (context["points"], context["tier"], context["allowed_grade"]) == expected_context
-    rows = scores.set_index("scheme_code")
-    assert user_match(rows.loc["F1"], profile, cfg)["score"] == 83     # equal persona scores: blend keeps 83
+    f1 = scores.set_index("scheme_code").loc["F1"]
+    persona = profile["persona_code"]
+    blended = (1 - beta) * int(f1[f"score_{persona}"]) + beta * int(f1["score_LLL"])
+    assert user_match(f1, profile, cfg)["score"] == int(np.floor(blended + 0.5 + 1e-9))
 
 
 def test_ranked_listing_includes_v11_match(scored, cfg):

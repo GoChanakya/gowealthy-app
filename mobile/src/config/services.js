@@ -50,6 +50,8 @@ function resolveBaseIp() {
 export const BASE_IP = resolveBaseIp();
 
 export const BACKEND_URL       = `http://${BASE_IP}:3001`;
+// Fund picks. Release builds set EXPO_PUBLIC_RECOMMENDATION_URL (eas.json) to the Cloud Run URL.
+export const RECOMMENDATION_URL = process.env.EXPO_PUBLIC_RECOMMENDATION_URL || `http://${BASE_IP}:3002`;
 export const NSE_SERVICE_URL   = `http://${BASE_IP}:3000`;
 export const EMAIL_SERVICE_URL = `http://${BASE_IP}:5000`;
 

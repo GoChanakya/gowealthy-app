@@ -57,12 +57,13 @@ def _peer_percentile(
 def _snapshot_features(
     snapshots: pd.DataFrame, cfg: Mapping[str, Any]
 ) -> pd.DataFrame:
-    """Rank stability, the owner's rank-momentum score and the latest rank per scheme.
+    """The owner's rank-momentum score and the latest rank per scheme.
 
-    Rank momentum on the last N monthly ranks by 6-month return (rank 1 = best):
-    level_weight x (1 - average rank / total) + change_weight x (oldest - latest rank) / total.
+    On the monthly ranks by 6-month return within the category (rank 1 = best):
+    level_weight x (total - latest rank) / total
+    + change_weight x max(oldest - latest rank over the last N ranks, 0) / total.
     """
-    columns = ["rank_stability", "rank_momentum_raw", "rank_latest", "rank_total_latest"]
+    columns = ["rank_momentum_raw", "rank_latest", "rank_total_latest"]
     if snapshots.empty:
         return pd.DataFrame(columns=columns, dtype="float32")
     snap = snapshots.copy()
@@ -72,33 +73,19 @@ def _snapshot_features(
     snap = snap.dropna(subset=["scheme_code", "date", "rank", "total"]).sort_values(
         ["scheme_code", "date"], kind="mergesort"
     )
-    snap["pct_t"] = np.where(
-        snap["total"].eq(1),
-        0.5,
-        1.0 - (snap["rank"] - 1.0) / (snap["total"] - 1.0),
-    )
-    snap["pct_t"] = snap["pct_t"].clip(0, 1)
     groups = snap.groupby("scheme_code", sort=False)
-    count = groups["pct_t"].count()
-
-    move = groups["pct_t"].diff().abs()
-    mean_move = move.groupby(snap["scheme_code"]).mean()
-    stability_scale = float(cfg["features"]["rank_stability"]["max_mean_move"])
-    stability = (1.0 - mean_move / stability_scale).clip(0, 1).where(count >= 6)
-
     rules = cfg["features"]["rank_momentum"]
-    recent = groups.tail(int(rules["observations"])).groupby("scheme_code", sort=False)["rank"]
+    oldest = groups.tail(int(rules["observations"])).groupby("scheme_code", sort=False)["rank"].first()
     latest = groups.tail(1).set_index("scheme_code")
+    total = latest["total"]
     momentum = (
-        float(rules["level_weight"]) * (1.0 - recent.mean() / latest["total"])
-        + float(rules["change_weight"]) * (recent.first() - latest["rank"]) / latest["total"]
+        float(rules["level_weight"]) * (total - latest["rank"]) / total
+        + float(rules["change_weight"]) * (oldest - latest["rank"]).clip(lower=0) / total
     )
-
     return pd.DataFrame({
-        "rank_stability": stability,
         "rank_momentum_raw": momentum,
         "rank_latest": latest["rank"],
-        "rank_total_latest": latest["total"],
+        "rank_total_latest": total,
     }).astype("float32")
 
 
@@ -116,6 +103,50 @@ def _momentum_pass(frame: pd.DataFrame, cfg: Mapping[str, Any]) -> pd.Series:
     if unranked_categories:
         LOGGER.warning("momentum filter skipped (no rank data) for: %s", ", ".join(unranked_categories))
     return in_top.where(has_rank, unranked_default).astype(bool)
+
+
+def event_resilience(frame: pd.DataFrame, events: pd.DataFrame, cfg: Mapping[str, Any]) -> pd.DataFrame:
+    """Owner resilience: rank funds within their GOC short code on every stress event.
+
+    Per event: fall score and recovery score, each (n - rank + 1) / n with rank 1 = the
+    smallest fall / the fastest recovery (funds still recovering rank after every recovered
+    fund, the more recovered first; a fund alone in its category scores 0.5). The event score
+    blends the two, and events are weighted by the owner's event weights; events a fund did
+    not live through are skipped and the remaining weights renormalised.
+    """
+    rules = cfg["resilience"]
+    columns = ["resilience_score", "resilience_events"]
+    population = frame.loc[frame["status"].isin(("SCORED", "BUFFER")), ["scheme_code", "goc_short_code"]]
+    if events.empty or population.empty:
+        return pd.DataFrame(columns=columns, dtype="float64")
+    weights = {code: float(weight) for code, weight in rules["event_weights"].items()}
+    ev = events.loc[events["event_code"].isin(weights) & events["status"].isin(("recovered", "recovering"))]
+    ev = ev.merge(population, on="scheme_code")
+    for column in ("fall_pct", "recovery_months", "recovered_pct"):
+        ev[column] = pd.to_numeric(ev[column], errors="coerce")
+    ev = ev.dropna(subset=["fall_pct"])
+    if ev.empty:
+        return pd.DataFrame(columns=columns, dtype="float64")
+
+    keys = [ev["event_code"], ev["goc_short_code"]]
+    n = ev.groupby(keys)["fall_pct"].transform("count")
+    fall_rank = ev["fall_pct"].groupby(keys).rank(method="average")
+    recovered = ev["status"].eq("recovered") & ev["recovery_months"].notna()
+    order = pd.Series(
+        np.where(recovered, ev["recovery_months"], 1e6 + 100.0 - ev["recovered_pct"].fillna(0.0)), index=ev.index
+    )
+    recovery_rank = order.groupby(keys).rank(method="average")
+    score = lambda rank: ((n - rank + 1) / n).where(n.gt(1), 0.5)
+    ev["event_score"] = float(rules["fall_weight"]) * score(fall_rank) + float(rules["recovery_weight"]) * score(recovery_rank)
+    ev["weight"] = ev["event_code"].map(weights)
+    ev["weighted"] = ev["event_score"] * ev["weight"]
+    per_fund = ev.groupby("scheme_code").agg(
+        weighted=("weighted", "sum"), weight=("weight", "sum"), resilience_events=("event_code", "count")
+    )
+    return pd.DataFrame({
+        "resilience_score": per_fund["weighted"] / per_fund["weight"],
+        "resilience_events": per_fund["resilience_events"],
+    })
 
 
 def build_feature_frame(
@@ -160,59 +191,17 @@ def build_feature_frame(
     if unknown_count:
         LOGGER.info("%d schemes outside the configured universe (ELSS, ETFs, debt, etc.)", unknown_count)
 
-    applicable = pd.DataFrame()
-    if not events.empty:
-        applicable = events.copy()
-        applicable["fall_pct"] = pd.to_numeric(applicable["fall_pct"], errors="coerce")
-        applicable["recovered_pct"] = pd.to_numeric(applicable.get("recovered_pct"), errors="coerce")
-        applicable = applicable.loc[
-            applicable["status"].ne("not_applicable") & applicable["fall_pct"].notna()
-        ]
-        scheme_categories = frame.set_index("scheme_code")["goc_short_code"]
-        applicable["goc_short_code"] = applicable["scheme_code"].map(scheme_categories)
-        refs = applicable.loc[
-            applicable["goc_short_code"].isin(cfg["peer_groups"]["reference_fall_group"])
-        ].groupby("event_code")["fall_pct"].median()
-        applicable["ref_fall"] = applicable["event_code"].map(refs)
-        applicable["ratio"] = applicable["fall_pct"] / applicable["ref_fall"]
-        dp = applicable.dropna(subset=["ratio"]).groupby("scheme_code")["ratio"].agg(["median", "count"])
-        dp.columns = ["DP", "dp_events"]
-        frame = frame.join(dp, on="scheme_code")
-        recovering = applicable.loc[applicable["status"].eq("recovering")].copy()
-        recovering["remaining"] = 1.0 - recovering["recovered_pct"] / 100.0
-        penalty = recovering.groupby("scheme_code")["remaining"].mean().clip(
-            upper=float(cfg["features"]["unrecovered_penalty"]["max_penalty"])
-        )
-        frame = frame.join(penalty.rename("unrecovered_penalty"), on="scheme_code")
-    if "DP" not in frame:
-        frame["DP"] = np.nan
-        frame["dp_events"] = 0
-    frame["dp_conf"] = (
-        pd.to_numeric(frame["dp_events"], errors="coerce").fillna(0)
-        / float(cfg["features"]["downside_participation"]["min_events_full_confidence"])
-    ).clip(0, 1)
-    if "unrecovered_penalty" not in frame:
-        frame["unrecovered_penalty"] = 0.0
-    frame["unrecovered_penalty"] = frame["unrecovered_penalty"].fillna(0.0)
+    frame = frame.join(event_resilience(frame, events, cfg), on="scheme_code")
 
-    typical = pd.to_numeric(frame["recovery_typical_months"], errors="coerce")
-    category_typical = pd.to_numeric(frame["recovery_category_typical_months"], errors="coerce")
-    frame["recovery_ratio"] = (
-        float(cfg["features"]["recovery_ratio"]["intercept"]) - typical / category_typical
-    ).clip(0, 1).where(category_typical > 0)
-
+    # Owner: consistency = "Score 36M (%)" = months beating the category / months counted
+    # (last 36 months; the 12-month figures stand in when 36-month data is missing).
     window36 = pd.to_numeric(frame["batting_36_window"], errors="coerce")
     beats36 = pd.to_numeric(frame["batting_36_beats"], errors="coerce")
     window12 = pd.to_numeric(frame["batting_window"], errors="coerce")
     beats12 = pd.to_numeric(frame["batting_beats"], errors="coerce")
     window = window36.where(window36.notna() & beats36.notna(), window12)
     beats = beats36.where(window36.notna() & beats36.notna(), beats12)
-    batting_cfg = cfg["features"]["batting_average"]
-    prior = float(batting_cfg["prior_k"])
-    frame["batting"] = (
-        ((beats + prior * float(batting_cfg["prior_mean"])) / (window + prior) - float(batting_cfg["score_floor"]))
-        / float(batting_cfg["score_range"])
-    ).clip(0, 1)
+    frame["consistency_36m"] = (beats / window).where(window > 0)
 
     snap_features = _snapshot_features(snapshots, cfg)
     frame = frame.join(snap_features.drop(columns=snap_features.columns.intersection(frame.columns)), on="scheme_code")
@@ -239,27 +228,6 @@ def _weighted_average(values: np.ndarray, weights: np.ndarray, neutral: float) -
     return np.divide(numerator, denominator, out=np.full(values.shape[0], neutral), where=~missing), missing
 
 
-def _resilience_consistency(frame: pd.DataFrame, cfg: Mapping[str, Any]) -> tuple[np.ndarray, np.ndarray]:
-    """Raw 0-1 resilience and consistency pillars (persona-independent)."""
-    neutral = float(cfg["missing_data"]["pillar_all_null"])
-    numbers = frame.reindex(columns=[
-        "DP", "dp_conf", "recovery_ratio", "unrecovered_penalty", "batting", "rank_stability",
-    ]).apply(pd.to_numeric, errors="coerce").to_numpy(dtype=np.float64)
-    dp, dp_conf, recovery, penalty, batting, stability = numbers.T
-    dp_cfg = cfg["features"]["downside_participation"]
-    conf = np.nan_to_num(dp_conf, nan=0.0)
-    dp_score = conf / (1.0 + np.exp(np.clip(float(dp_cfg["k"]) * (dp - float(dp_cfg["tau"])), -80, 80))) + (1.0 - conf) * 0.5
-    dp_score[np.isnan(dp)] = np.nan
-
-    def pillar(columns: tuple[np.ndarray, ...], weights: Mapping[str, Any]) -> np.ndarray:
-        value, missing = _weighted_average(np.column_stack(columns), np.array(list(map(float, weights.values()))), neutral)
-        return np.where(missing, np.nan, value)
-
-    features = cfg["pillar_features"]
-    resilience = np.clip(pillar((dp_score, recovery), features["resilience"]) - np.nan_to_num(penalty, nan=0.0), 0, 1)
-    return resilience, pillar((batting, stability), features["consistency"])
-
-
 def _category_percentile(frame: pd.DataFrame, values: np.ndarray) -> np.ndarray:
     """0-1 percentile within the fund's own GOC short code (never across categories)."""
     series = pd.Series(values, index=frame.index, dtype="float64")
@@ -273,17 +241,21 @@ def _category_percentile(frame: pd.DataFrame, values: np.ndarray) -> np.ndarray:
 
 
 def suitability_components(frame: pd.DataFrame, cfg: Mapping[str, Any]) -> pd.DataFrame:
-    """The five owner components as within-category percentiles (`comp_*`, 0-1)."""
-    resilience, consistency = _resilience_consistency(frame, cfg)
-    raw = frame.reindex(columns=["rank_momentum_raw", "aum_log_raw", "history_months"]).apply(
-        pd.to_numeric, errors="coerce"
-    ).to_numpy(dtype=np.float64)
+    """The five owner components (`comp_*`, 0-1).
+
+    Consistency (36-month batting %), rank momentum and resilience use the owner's formulas,
+    which already compare a fund with its own category; AUM and age are percentiles within
+    the fund's GOC short code.
+    """
+    raw = frame.reindex(columns=[
+        "consistency_36m", "rank_momentum_raw", "resilience_score", "aum_log_raw", "history_months",
+    ]).apply(pd.to_numeric, errors="coerce").to_numpy(dtype=np.float64)
     values = {
-        "consistency": consistency, "rank_momentum": raw[:, 0], "resilience": resilience,
-        "aum": raw[:, 1], "age": raw[:, 2],
+        "consistency": raw[:, 0], "rank_momentum": raw[:, 1], "resilience": raw[:, 2],
+        "aum": _category_percentile(frame, raw[:, 3]), "age": _category_percentile(frame, raw[:, 4]),
     }
     return pd.DataFrame(
-        {f"comp_{name}": _category_percentile(frame, values[name]) for name in cfg["suitability_components"]},
+        {f"comp_{name}": np.clip(values[name], 0, 1) for name in cfg["suitability_components"]},
         index=frame.index,
     ).astype("float32")
 
@@ -317,8 +289,8 @@ def score_features(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Eight persona suitability scores per fund with broadcast NumPy maths.
 
-    suitability = 100 x weighted average of the within-category components, using each
-    persona's owner weights; a missing component is dropped and the rest renormalised.
+    suitability = 100 x weighted average of the owner components, using each persona's
+    owner weights; a missing component is dropped and the rest renormalised.
     The fund-card match score is the suitability capped by the persona-level gates.
     """
     frame = features.copy().reset_index(drop=True)
@@ -469,7 +441,7 @@ def _output_columns(scores: pd.DataFrame) -> list[str]:
         "scheme_code", "name", "amc_code", "goc_short_code", "slots", "grade", "role", "complex",
         "history_months", "status",
         *starting("score_", "suit_", "gate_", "pos_reasons_", "neg_reasons_"),
-        *starting("comp_"), "rank_momentum_raw",
+        *starting("comp_"), "consistency_36m", "rank_momentum_raw", "resilience_score", "resilience_events",
         "aum_pct", "sip_3y_pct", "rank_latest", "rank_total_latest", "rank_now_pct", "momentum_pass",
         "buffer_score", "min_sip_amount", "sip_allowed", "holdings", "low_confidence",
         "config_version", "method_version", "as_of_date",
@@ -512,7 +484,7 @@ def run(args: argparse.Namespace) -> None:
         "shortlist coverage: AUM %d, fund age %d, 36m batting %d, stress events %d, SIP allowed %d",
         int(scores["aum"].notna().sum()), int(scores["history_months"].notna().sum()),
         int(pd.to_numeric(scores["batting_36_window"], errors="coerce").gt(0).sum()),
-        int(scores["dp_events"].fillna(0).gt(0).sum()), int(scores["sip_allowed"].sum()),
+        int(pd.to_numeric(scores["resilience_events"], errors="coerce").fillna(0).gt(0).sum()), int(scores["sip_allowed"].sum()),
     )
 
     outputs = cfg["outputs"]

@@ -1,5 +1,5 @@
 # Local stack mirroring the ports the mobile app expects
-# (mobile/src/config/services.js): nse 3000, upload 3001, email 5000, scheme-job 8080.
+# (mobile/src/config/services.js): nse 3000, upload 3001, recommendation 3002, email 5000, scheme-job 8080.
 #
 #   docker compose up --build
 services:
@@ -25,6 +25,19 @@ services:
       - ./services/upload-service/service-account-key.json:/secrets/service-account-key.json:ro
     ports:
       - "3001:3001"
+
+  recommendation-service:
+    build:
+      context: .
+      dockerfile: services/recommendation-service/Dockerfile
+    env_file: services/recommendation-service/.env
+    environment:
+      PORT: 3002
+      GCS_KEY_FILE: /secrets/service-account-key.json
+    volumes:
+      - ./services/recommendation-service/service-account-key.json:/secrets/service-account-key.json:ro
+    ports:
+      - "3002:3002"
 
   email-service:
     build:

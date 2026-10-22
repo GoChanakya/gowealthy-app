@@ -1,0 +1,7 @@
+__pycache__/
+.pytest_cache/
+test_backend.py
+verify_against_sources.py
+deploy.ps1
+*.md
+fund_card.schema.json

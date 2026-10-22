@@ -1,0 +1,6 @@
+pandas==2.*
+pyarrow==25.*
+flask==3.*
+gunicorn==23.*
+google-cloud-storage==3.*
+xlsxwriter==3.*

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, getDoc } from 'firebase/firestore';
-import { BACKEND_URL } from '../../../config/services';
+import { RECOMMENDATION_URL } from '../../../config/services';
 import { db } from '../../../config/firebase';
 import { fetchSchemes } from '../../../lib/schemes';
 import sample from '../contract/fund_cards.sample.json';
@@ -10,7 +10,8 @@ import sample from '../contract/fund_cards.sample.json';
  * see the backward-compatible v1.x contract shape (contract/fund_card.schema.json).
  *
  * ── Going live ─────────────────────────────────────────────────────────────
- *   1. Backend serves the two endpoints below on BACKEND_URL (port 3001).
+ *   1. recommendation-service serves the two endpoints below on RECOMMENDATION_URL
+ *      (port 3002 locally; EXPO_PUBLIC_RECOMMENDATION_URL in release builds).
  *   2. Set EXPO_PUBLIC_FUND_PICKS_SOURCE=mock only when sample data is wanted.
  *   Nothing else in the app changes.
  *
@@ -89,7 +90,7 @@ async function getRecommendationProfile() {
 }
 
 async function getJson(path, options = {}) {
-  const res = await fetch(`${BACKEND_URL}${path}`, {
+  const res = await fetch(`${RECOMMENDATION_URL}${path}`, {
     ...options,
     headers: { Accept: 'application/json', ...options.headers },
   });

@@ -59,9 +59,12 @@ when shortlisted). Shortlist `status` is `SCORED`, `BUFFER` (DES-LIQ),
 - Universe: EQS* and HYB* schemes, plus OTH-EQS (index) and COM-FFD (gold FoF) for
   basket slots and DES-LIQ for the buffer only. ELSS and ETFs never.
 - Only funds with latest-month AUM are scored (status `NO_AUM` otherwise).
-- Suitability: 5 components (consistency, rank momentum, resilience, AUM, age), each a
-  percentile within the fund's own GOC short code, weighted per persona (`personas.*.suitability`).
-  Rank momentum = 50% x (1 - avg of last 3 ranks / total) + 50% x (oldest - latest rank) / total.
+- Suitability: 5 components (0-1), weighted per persona (`personas.*.suitability`):
+  consistency = 36-month batting % (months beating the category / months counted);
+  rank momentum = 65% x (total - latest rank) / total + 35% x max(oldest - latest of last 3 ranks, 0) / total;
+  resilience = per stress event, within the GOC short code, (n - rank + 1) / n on fall and on
+  recovery (50/50), weighted by event (`resilience.event_weights`); AUM and age = percentile
+  within the fund's own GOC short code.
 - Minimum fund age: 24 months for Large, Large & Mid and Flexi, 36 for Small Cap, otherwise
   24 months for Realistic Guardian / Prudent Treasurer, 18 for
   every other persona, 24 for the buffer.

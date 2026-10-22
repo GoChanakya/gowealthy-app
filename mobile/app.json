@@ -62,7 +62,15 @@
       "expo-web-browser",
       "expo-video",
       "expo-image",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "GoWealthy needs access to your photos so you can upload your KYC documents.",
+          "cameraPermission": "GoWealthy needs camera access so you can take a photo of your KYC documents.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "reactCompiler": false
