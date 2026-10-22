@@ -12,8 +12,7 @@
     "start:lite": "node ./scripts/run-lite.js start --clear",
     "export:lite": "node ./scripts/run-lite.js export --platform android",
     "build:apk": "npx eas build -p android --profile production-apk",
-    "make-icons": "node ./scripts/make-icons.js",
-    "make-sounds": "node ./scripts/make-sounds.js"
+    "make-icons": "node ./scripts/make-icons.js"
   },
   "expo": {
     "install": {

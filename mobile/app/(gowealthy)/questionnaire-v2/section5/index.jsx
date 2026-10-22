@@ -29,7 +29,6 @@ import { C, FONT, RADIUS, ICON, Embers, ProgressBar, TopBar, PrimaryButton, Ghos
 import { Ico } from "../../../../src/lib/icons";
 import { Check } from "lucide-react-native";
 import { hapticError, hapticSmall, hapticSuccess } from "../../../../src/lib/haptics";
-import { soundMilestone } from "../../../../src/lib/sound";
 
 const R = 52, CIRC = Math.PI * 2 * R;
 
@@ -63,7 +62,6 @@ export default function Section5() {
     setProjection(journey);
     setStep("finish");
     hapticSuccess();
-    soundMilestone();
     await saveSubmission();
   };
 

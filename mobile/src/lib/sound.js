@@ -1,14 +1,8 @@
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 
 /**
- * App-wide UI sounds.
- *
- * Mirrors src/lib/haptics.js deliberately: same level control, same
- * never-throw contract, same one-time dev warning when the native module is
- * missing. Sound is decoration — a failure here must never interrupt a flow.
- *
- * Strength can be set with EXPO_PUBLIC_SOUND_LEVEL=off|subtle|standard, or at
- * runtime through setSoundLevel().
+ * App-wide UI sounds. Never throws — sound is decoration.
+ * Level: EXPO_PUBLIC_SOUND_LEVEL=off|subtle|standard, or setSoundLevel().
  */
 export const SOUND_LEVEL = Object.freeze({
   OFF: 'off',
@@ -20,32 +14,18 @@ const VALID = new Set(Object.values(SOUND_LEVEL));
 const ENV_LEVEL = process.env.EXPO_PUBLIC_SOUND_LEVEL;
 let currentLevel = VALID.has(ENV_LEVEL) ? ENV_LEVEL : SOUND_LEVEL.STANDARD;
 
-/** Per-cue ceiling, so the frequent ones sit lower than the rare ones. */
 const VOLUME = {
-  /* The most frequent cue in the app — once per story slide. Worth knowing
-     before raising this: the retired selection tick sat at this exact level,
-     commented "barely there on purpose", and was still cut for being too
-     present. So level was never that cue's problem, frequency was (~20 fires
-     per questionnaire, on every answer and goal pick). A page turn fires a
-     handful of times per article and marks movement rather than selection,
-     which is why this one earns its place where that one didn't. */
-  page: 0.16,
-  correct: 0.30,
-  wrong: 0.26,
-  xp: 0.34,
-  complete: 0.42,
-  reveal: 0.46,
-  milestone: 0.55,
+  notification: 0.5,
+  answer: 0.6,
+  xp: 0.7,
+  reveal: 0.7,
 };
 
 const SOURCES = {
-  page: require('../../assets/sounds/page.wav'),
-  correct: require('../../assets/sounds/correct.wav'),
-  wrong: require('../../assets/sounds/wrong.wav'),
-  xp: require('../../assets/sounds/xp.wav'),
-  complete: require('../../assets/sounds/complete.wav'),
-  reveal: require('../../assets/sounds/reveal.wav'),
-  milestone: require('../../assets/sounds/milestone.wav'),
+  notification: require('../sounds/notification.mp3.mpeg'),
+  answer: require('../sounds/sound on answer tap.mp3.mpeg'),
+  xp: require('../sounds/Blog_xp_earned.mp3.mpeg'),
+  reveal: require('../sounds/persona_reveal.mp3.mpeg'),
 };
 
 /** Players are created once and reused — recreating one per play is audibly late. */
@@ -64,21 +44,9 @@ export function getSoundLevel() {
 function reportUnavailable(error) {
   if (!__DEV__ || warned) return;
   warned = true;
-  console.warn(
-    [
-      '[sound] a cue failed — no audio will play.',
-      'expo-audio is a native module: if this is a dev build made before it',
-      'was installed, rebuild with  npx eas build -p android --profile development',
-    ].join(' '),
-    error
-  );
+  console.warn('[sound] a cue failed — no audio will play.', error);
 }
 
-/**
- * Play alongside other audio rather than interrupting it, and stay audible on
- * iOS silent switch — these are feedback cues, not media, and a user who has
- * music on shouldn't have it ducked by a 0.4s chime.
- */
 async function configureOnce() {
   if (configured) return;
   configured = true;
@@ -112,33 +80,25 @@ function play(key) {
   }
 }
 
-/** Advancing a page in a GoWiser story. Forward motion only — going back is
- *  left silent so the cue keeps meaning "onward". */
-export const soundPage = () => play('page');
+/** Advancing a page in a GoWiser story. */
+export const soundPage = () => play('notification');
 
-/** Quiz answer graded. */
-export const soundCorrect = () => play('correct');
-export const soundWrong = () => play('wrong');
+/** Quiz answer tapped (right or wrong). */
+export const soundAnswer = () => play('answer');
 
-/** A result being revealed to the user for the first time. */
+/** Persona result revealed. */
 export const soundReveal = () => play('reveal');
 
 /** XP earned. */
 export const soundXP = () => play('xp');
 
-/** A piece of content finished — an article read end to end. */
-export const soundComplete = () => play('complete');
-
-/** A real milestone: the questionnaire finished and the plan saved. */
-export const soundMilestone = () => play('milestone');
-
-/** Free the native players. Call on logout or teardown, not between screens. */
+/** Free the native players. Call on logout or teardown. */
 export function releaseSounds() {
   for (const key of Object.keys(players)) {
     try {
       players[key].remove();
     } catch {
-      // A player that's already gone is fine.
+      // Already gone.
     }
     delete players[key];
   }
