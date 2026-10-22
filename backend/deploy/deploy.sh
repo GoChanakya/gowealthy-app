@@ -4,10 +4,11 @@
 #   ./deploy/deploy.sh nse-service
 #   ./deploy/deploy.sh email-service
 #   ./deploy/deploy.sh upload-service
+#   ./deploy/deploy.sh recommendation-service
 #   ./deploy/deploy.sh scheme-job
 #
 # Required env: GCP_PROJECT (defaults to the active gcloud project)
-# Optional env: REGION (asia-south1), REPO (gowealthy)
+# Optional env: REGION (asia-south1), REPO (gowealthy), SERVICE_ACCOUNT (runtime identity email)
 #
 # Before first deploy, create the secrets once:
 #   gcloud secrets create NSE_LOGIN_ID --data-file=- <<< "$NSE_LOGIN_ID"
@@ -16,43 +17,50 @@
 # and grant the Cloud Run service account roles/secretmanager.secretAccessor.
 set -euo pipefail
 
-SERVICE="${1:?usage: deploy.sh <nse-service|email-service|upload-service|scheme-job>}"
+SERVICE="${1:?usage: deploy.sh <nse-service|email-service|upload-service|recommendation-service|scheme-job>}"
 PROJECT="${GCP_PROJECT:-$(gcloud config get-value project 2>/dev/null)}"
 REGION="${REGION:-asia-south1}"
 REPO="${REPO:-gowealthy}"
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT}/${REPO}/${SERVICE}"
+TAG="$(date +%Y%m%d-%H%M%S)"
 
 cd "$(dirname "$0")/.."
 
-echo ">> Building ${SERVICE} -> ${IMAGE}"
+echo ">> Building ${SERVICE} -> ${IMAGE}:${TAG}"
 # Built via the explicit config: `builds submit --tag` only understands a
 # Dockerfile at the build-context root, and each service has its own.
-gcloud builds submit --project "$PROJECT" --config deploy/cloudbuild.yaml \
-  --substitutions="_SERVICE=${SERVICE},_REGION=${REGION},_REPO=${REPO}" .
+gcloud builds submit --project "$PROJECT" --region "$REGION" --config deploy/cloudbuild.yaml \
+  --substitutions="_SERVICE=${SERVICE},_REGION=${REGION},_REPO=${REPO},_TAG=${TAG}" .
 
-# Per-service runtime configuration.
-COMMON_FLAGS=(--project "$PROJECT" --region "$REGION" --platform managed --allow-unauthenticated)
+# Deploy from this machine with the per-service runtime configuration.
+COMMON_FLAGS=(--image "${IMAGE}:${TAG}" --project "$PROJECT" --region "$REGION" --platform managed --allow-unauthenticated)
+[[ -n "${SERVICE_ACCOUNT:-}" ]] && COMMON_FLAGS+=(--service-account "$SERVICE_ACCOUNT")
 
 case "$SERVICE" in
   nse-service)
-    gcloud run services update "$SERVICE" "${COMMON_FLAGS[@]}" \
+    gcloud run deploy "$SERVICE" "${COMMON_FLAGS[@]}" \
       --set-env-vars "NSE_BASE_URL=${NSE_BASE_URL:-https://nseinvestuat.nseindia.com}" \
       --set-secrets "NSE_LOGIN_ID=NSE_LOGIN_ID:latest,NSE_API_SECRET=NSE_API_SECRET:latest,NSE_MEMBER_API_KEY=NSE_MEMBER_API_KEY:latest,NSE_MEMBER_CODE=NSE_MEMBER_CODE:latest,RAZORPAY_KEY_ID=RAZORPAY_KEY_ID:latest,RAZORPAY_KEY_SECRET=RAZORPAY_KEY_SECRET:latest,RAZORPAYX_ACCOUNT_NUMBER=RAZORPAYX_ACCOUNT_NUMBER:latest" \
       --min-instances 1 --max-instances 10 --concurrency 80 --timeout 120
     ;;
   email-service)
     # In-memory OTP store: keep to a single instance until a shared store is wired in.
-    gcloud run services update "$SERVICE" "${COMMON_FLAGS[@]}" \
+    gcloud run deploy "$SERVICE" "${COMMON_FLAGS[@]}" \
       --set-secrets "MAILGUN_API_KEY=MAILGUN_API_KEY:latest,MAILGUN_DOMAIN=MAILGUN_DOMAIN:latest" \
       --min-instances 1 --max-instances 1
     ;;
   upload-service)
-    gcloud run services update "$SERVICE" "${COMMON_FLAGS[@]}" \
-      --set-env-vars "GCP_PROJECT_ID=${PROJECT},UPLOAD_BUCKET=${UPLOAD_BUCKET:-document-ocr203},FUND_DATA_BUCKET=${FUND_DATA_BUCKET:-mf-data-public},FUND_CARDS_PATH=${FUND_CARDS_PATH:-backend_main_kartik/fund_cards/latest/fund_cards.json},SCHEME_MASTER_PATH=${SCHEME_MASTER_PATH:-Scheme Master.csv},PERSONALITY_SCORES_PATH=${PERSONALITY_SCORES_PATH:-personality_match/latest/scores.json},FUND_DATA_CACHE_TTL_MS=${FUND_DATA_CACHE_TTL_MS:-300000},FUND_RECOMMENDATION_LIMIT=${FUND_RECOMMENDATION_LIMIT:-10}" \
+    gcloud run deploy "$SERVICE" "${COMMON_FLAGS[@]}" \
+      --set-env-vars "GCP_PROJECT_ID=${PROJECT},UPLOAD_BUCKET=${UPLOAD_BUCKET:-document-ocr203}" \
       --max-instances 10
     ;;
+  recommendation-service)
+    gcloud run deploy "$SERVICE" "${COMMON_FLAGS[@]}" \
+      --set-env-vars "GCP_PROJECT_ID=${PROJECT},FUND_DATA_BUCKET=${FUND_DATA_BUCKET:-mf-data-public},FUND_CARDS_PATH=${FUND_CARDS_PATH:-backend_main_kartik/fund_cards/latest/fund_cards.json},SCHEME_MASTER_PATH=${SCHEME_MASTER_PATH:-Scheme Master.csv},PERSONALITY_SCORES_PATH=${PERSONALITY_SCORES_PATH:-personality_match/latest/scores.json},FUND_DATA_CACHE_TTL_MS=${FUND_DATA_CACHE_TTL_MS:-300000},FUND_RECOMMENDATION_LIMIT=${FUND_RECOMMENDATION_LIMIT:-10}" \
+      --memory 1Gi --max-instances 10
+    ;;
   scheme-job)
-    gcloud run services update "$SERVICE" "${COMMON_FLAGS[@]}" \
+    gcloud run deploy "$SERVICE" "${COMMON_FLAGS[@]}" \
       --set-env-vars "NSE_BASE_URL=${NSE_BASE_URL:-https://nseinvestuat.nseindia.com},SCHEMES_BUCKET=${SCHEMES_BUCKET:-mf-data-public},SCHEMES_PATH=${SCHEMES_PATH:-nse-schemes/funds.json}" \
       --set-secrets "NSE_LOGIN_ID=NSE_LOGIN_ID:latest,NSE_API_SECRET=NSE_API_SECRET:latest,NSE_MEMBER_API_KEY=NSE_MEMBER_API_KEY:latest,NSE_MEMBER_CODE=NSE_MEMBER_CODE:latest" \
       --max-instances 1 --timeout 300

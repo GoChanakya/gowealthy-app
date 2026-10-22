@@ -137,6 +137,9 @@ def screen(cards: pd.DataFrame, cfg: Mapping[str, Any]) -> pd.DataFrame:
     return result
 
 
+EVENT_COLUMNS = ["scheme_code", "event_code", "status", "fall_pct", "recovery_months", "recovered_pct"]
+
+
 def _batting_36m(table: pd.DataFrame | None, months: int) -> pd.DataFrame:
     if table is None or table.empty:
         return pd.DataFrame(columns=["batting_36_window", "batting_36_beats"])
@@ -219,10 +222,9 @@ def build_inputs(
     events_table = sources.get("stress_events")
     if events_table is None:
         LOGGER.warning("stress_events unavailable: downside participation is neutral for every fund")
-        events = pd.DataFrame(columns=["scheme_code", "event_code", "status", "fall_pct", "recovered_pct"])
+        events = pd.DataFrame(columns=EVENT_COLUMNS)
     else:
         events = events_table.loc[
-            _key(events_table["scheme_code"]).isin(set(schemes["scheme_code"])),
-            ["scheme_code", "event_code", "status", "fall_pct", "recovered_pct"],
-        ].assign(scheme_code=lambda frame: _key(frame["scheme_code"]))
+            _key(events_table["scheme_code"]).isin(set(schemes["scheme_code"]))
+        ].reindex(columns=EVENT_COLUMNS).assign(scheme_code=lambda frame: _key(frame["scheme_code"]))
     return schemes, events.reset_index(drop=True), _snapshots(cards, sources.get("rank_momentum"), as_of_ts).reset_index(drop=True)

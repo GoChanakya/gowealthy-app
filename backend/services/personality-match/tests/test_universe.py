@@ -76,6 +76,6 @@ def test_satellite_sources_enrich_shortlist():
     assert len(events) == 2 and len(snapshots) == 6
     scores, _ = score_frames(schemes, events, snapshots, "2026-10-02", cfg)
     first = scores.set_index("scheme_code").loc["1"]
-    # Owner rank momentum on the last 3 ranks 4, 2, 1 of 32: 0.5 x (1 - 7/3 / 32) + 0.5 x (4 - 1) / 32
+    # Owner rank momentum, last 3 ranks 4, 2, 1 of 32: 65% x (32 - 1) / 32 + 35% x (4 - 1) / 32
     assert first["history_months"] == 128
-    assert first["rank_momentum_raw"] == pytest.approx(0.5 * (1 - (7 / 3) / 32) + 0.5 * 3 / 32, abs=1e-6)
+    assert first["rank_momentum_raw"] == pytest.approx(0.65 * 31 / 32 + 0.35 * 3 / 32, abs=1e-6)

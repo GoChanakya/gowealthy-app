@@ -51,7 +51,7 @@ def _strictly_increasing(values: list[float], path: str) -> None:
 
 def validate_config(cfg: dict[str, Any]) -> None:
     required = {
-        "meta", "universe", "categories", "peer_groups", "features", "pillar_features",
+        "meta", "universe", "categories", "peer_groups", "features", "resilience",
         "suitability_components", "personas", "gates", "user_adjustment", "bands", "reasons",
         "momentum_filter", "basket", "sources", "outputs",
     }
@@ -73,8 +73,9 @@ def validate_config(cfg: dict[str, Any]) -> None:
         if set(cfg["reasons"][group]) != SUITABILITY_COMPONENTS:
             raise ConfigError(f"reasons.{group} needs one reason per suitability component")
 
-    for name, weights in cfg["pillar_features"].items():
-        _require_close_one(sum(map(float, weights.values())), f"pillar_features.{name}")
+    resilience = cfg["resilience"]
+    _require_close_one(float(resilience["fall_weight"]) + float(resilience["recovery_weight"]), "resilience fall/recovery")
+    _require_close_one(sum(map(float, resilience["event_weights"].values())), "resilience.event_weights")
     momentum = cfg["features"]["rank_momentum"]
     _require_close_one(float(momentum["level_weight"]) + float(momentum["change_weight"]), "features.rank_momentum")
 

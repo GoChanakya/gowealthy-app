@@ -1,6 +1,6 @@
 # GoWealthy backend
 
-npm-workspaces monorepo. Four independently deployable Cloud Run services plus one shared package.
+npm-workspaces monorepo. Five independently deployable Cloud Run services plus one shared package.
 
 ```
 backend/
@@ -10,6 +10,7 @@ backend/
 ├── services/
 │   ├── nse-service/          app <-> NSE gateway            (local :3000)
 │   ├── upload-service/       signed GCS upload policies     (local :3001)
+│   ├── recommendation-service/ persona fund picks + cards (local :3002)
 │   ├── email-service/        email OTP via Mailgun          (local :5000)
 │   └── scheme-job/           scheme master -> public GCS    (local :8080)
 ├── deploy/                   cloudbuild.yaml + deploy.sh (Cloud Run)
@@ -61,6 +62,7 @@ src/
 | nse-service | `POST /api/nse/sip-umrn` | `registration/SIPUMRN` |
 | email-service | `POST /api/send-otp`, `POST /api/verify-otp`, `GET /api/health` | - |
 | upload-service | `POST /api/generate-upload-url`, `GET /api/health` | - |
+| recommendation-service | `POST /api/mf/recommendations`, `POST /api/mf/fund-cards/:schemeCode`, `GET /api/health` | - |
 | scheme-job | `POST /api/nse/master-download`, `GET /api/health` | `reports/MASTER_DOWNLOAD` |
 
 Request/response shapes and validation messages are identical to the previous single-file services.
@@ -74,6 +76,7 @@ cp services/nse-service/.env.example services/nse-service/.env   # and fill in (
 
 npm run dev:nse                   # :3000  (node --watch)
 npm run dev:upload                # :3001
+npm run dev:recommendation        # :3002
 npm run dev:email                 # :5000
 npm run dev:scheme-job            # :8080
 npm run lan-ip                    # IP to point the phone at
@@ -98,6 +101,7 @@ Then per service:
 ```bash
 ./deploy/deploy.sh nse-service
 ./deploy/deploy.sh upload-service
+./deploy/deploy.sh recommendation-service
 ./deploy/deploy.sh email-service
 ./deploy/deploy.sh scheme-job
 ```
@@ -107,8 +111,9 @@ Then per service:
 Notes:
 
 - Cloud Run injects `PORT=8080`; every service reads `PORT` so no code change is needed.
+- `recommendation-service` only reads `mf-data-public` (grant `roles/storage.objectViewer`).
 - `upload-service` and `scheme-job` use the Cloud Run service account for GCS (grant `roles/storage.objectAdmin` on the buckets). The local `service-account-key.json` is only for dev and is git-ignored.
 - `nse-service` must have NSE's IP whitelist updated with the Cloud Run egress IP. Use a Serverless VPC connector + Cloud NAT with a static IP so the address is stable.
 - `email-service` keeps OTPs in memory, so it is pinned to `max-instances=1`. To scale it out, replace `src/lib/otpStore.js` with a Firestore/Redis-backed store using the same `get/set/delete/cleanup` contract.
 - `scheme-job` is meant to be hit by Cloud Scheduler once a day: `POST https://<scheme-job-url>/api/nse/master-download`.
-- After deploying, point `FALLBACK_IP`/service URLs in `mobile/src/config/services.js` at the Cloud Run URLs.
+- After deploying, point `FALLBACK_IP`/service URLs in `mobile/src/config/services.js` at the Cloud Run URLs; the fund picks URL is `EXPO_PUBLIC_RECOMMENDATION_URL` (set per EAS profile in `mobile/eas.json`).

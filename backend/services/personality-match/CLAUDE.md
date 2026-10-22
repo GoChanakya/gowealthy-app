@@ -25,11 +25,19 @@ sources, outputs and commands. All rules live in `scheme_config_master.yaml`.
   Bold Pioneer drop a sectoral at 5 and add one at 7; Masterful Strategist adds Small at 6
   and 1 Sectoral at 7; Noble Diplomat adds Mid at 6 and Gold at 7.
 - Suitability (owner, 2026-10-10): every fund gets 8 persona scores = 100 x weighted
-  components (consistency, rank momentum, resilience, AUM, age), each a percentile within its
-  own GOC short code; weights in `personas.*.suitability`. The same score picks the fund in
-  each basket slot and is the fund-card match %. No calibration layer any more.
-- "Rank momentum" (owner formula) on the last 3 monthly ranks by 6-month return (rank 1 =
-  best): 50% x (1 - average rank / total) + 50% x (oldest - latest rank) / total.
+  components (consistency, rank momentum, resilience, AUM, age); weights in
+  `personas.*.suitability`. The same score picks the fund in each basket slot and is the
+  fund-card match %. No calibration layer any more.
+- Components (owner, 2026-10-16):
+  - Consistency = "Score 36M (%)" = months beating the category / months counted (36M).
+  - Rank momentum = 65% x (total - latest rank) / total + 35% x max(oldest - latest of the
+    last 3 monthly 6M-return ranks, 0) / total (a fall in rank adds nothing).
+  - Resilience = per stress event, within the GOC short code, (n - rank + 1) / n on fall and
+    on recovery; fall/recovery 50/50 is OUR assumption (owner did not split); still-recovering
+    funds rank below recovered ones; missing events skipped and weights renormalised; a fund
+    alone in its category gets 0.5. Event weights: Iran 30, FII 25, Covid 25, IL&FS 10,
+    Demonetisation 5, Yuan 5.
+  - AUM and age = percentile within the fund's own GOC short code.
 - Tiers (owner) = number of schemes set by monthly SIP. Baskets are ordered by the owner's
   risk ladder (`basket.risk_order`); smaller tiers keep the lowest-risk slots. Ladder code
   fixes: EQS-LMC->EQS-LMF, EQS-MLT->EQS-MUC, COM-GLD->COM-FFD, OTH-OTH dropped (ETF).

@@ -39,7 +39,8 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_APP_VARIANT": "lite"
+        "EXPO_PUBLIC_APP_VARIANT": "lite",
+        "EXPO_PUBLIC_RECOMMENDATION_URL": "https://recommendation-service-763133497996.asia-south1.run.app"
       }
     }
   },
